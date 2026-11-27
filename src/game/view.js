@@ -1,7 +1,7 @@
 // PlayCanvas world view. Reads simulation state; never writes it.
 import * as pc from 'playcanvas';
 import { buildSprites, SHIRTS } from './sprites.js';
-import { WORLD, PLOT_SITES, HOUSE_SLOTS, groundHeight, waterEdge } from '../sim/world.js';
+import { WORLD, PLOT_SITES, HOUSE_SLOTS, groundHeight, waterEdge, waterLeft } from '../sim/world.js';
 import { yearOf } from '../sim/sim.js';
 
 const Z = { volcano: -52, civic: -17, sky: -60, far: -50, cloud: -45, mid: -40, tree: -22, terrain: -20, house: -14, store: -12, plot: -8, growth: -7, actor: -4, badge: -3, water: 2, fx: 4, tint: 8 };
@@ -141,6 +141,12 @@ export class View {
     this.civic = [civic('hall', 790, Z.house - 1, 1), civic('tower', 748, Z.civic, 2), civic('levee', 252, Z.plot + 1, 2), civic('city', 1240, Z.civic, 3, 3), civic('hold', 1236, Z.civic - 1, 4)];
     this.civicKey = '';
 
+    this.bridge = this.sprite('bridge_rope', 0, 0, Z.plot + 0.5);
+    this.bridge.enabled = false;
+    this.works = this.sprite('bridge_works', 0, 0, Z.plot + 0.4);
+    this.works.enabled = false;
+    this.deck = false;
+
     this.waterEnt = this.sprite('water0', 0, 0, Z.water);
     this.floodline = this.sprite('floodline', 0, 0, Z.water - 0.5);
     this.floodline.enabled = false;
@@ -211,6 +217,22 @@ export class View {
         }
       }
     }
+    const br = st.bridge;
+    const bx = (WORLD.bridge.x0 + WORLD.bridge.x1) / 2;
+    const bkey = `${br.built}|${br.plan}|${br.progress > 0}|${br.lostYear}`;
+    if (bkey !== this.bridgeKey) {
+      this.bridgeKey = bkey;
+      const tex = br.built ? `bridge_${br.built}` : br.lostYear !== null && year - br.lostYear < 40 ? 'bridge_gone' : null;
+      this.bridge.enabled = !!tex;
+      if (tex) {
+        this.setTex(this.bridge, tex);
+        this.bridge.setLocalPosition(bx, WORLD.bridge.deck + 10 - this.bridge._h / 2, Z.plot + 0.5);
+      }
+      const building = br.plan && br.plan !== br.built && br.progress > 0;
+      this.works.enabled = !!building;
+      if (building) this.works.setLocalPosition(bx, WORLD.bridge.deck + 10 - this.works._h / 2, Z.plot + 0.4);
+    }
+    this.deck = !!br.built;
     const sky = st.sky;
     this.volcanoHot = sky.ash > 0 || (sky.lastEruption && year - sky.lastEruption.year < 6);
     this.volcanoSmoke = sky.rumble > 0 ? 1 : sky.ash > 0 ? 2 : 0;
@@ -245,6 +267,11 @@ export class View {
       }
     }
     return this.actors;
+  }
+  // Height an actor stands at: the ground, or the bridge deck over the river.
+  surface(x) {
+    const g = groundHeight(x);
+    return this.deck && x > WORLD.bridge.x0 && x < WORLD.bridge.x1 ? Math.max(g, WORLD.bridge.deck) : g;
   }
   homeX(h) {
     return h.house >= 0 ? HOUSE_SLOTS[h.house].x : 1060 + ((h.id * 37) % 360);
@@ -285,10 +312,11 @@ export class View {
             // Trained households keep the practice up: they make the walk to the ridge store.
             if (a.knows && st.stores.ridge.built && r < 0.3) (a.target = WORLD.ridgeStoreX + 14), (a.carrying = true);
             else if (built.length && r < 0.75) a.target = PLOT_SITES[built[Math.floor(vrand() * built.length)].id].x + (vrand() * 30 - 15);
+            if (a.target !== null && a.target < WORLD.walkMin && !this.deck) a.target = WORLD.granaryX;
             else if (r < 0.88) a.target = WORLD.granaryX + (vrand() * 30 - 15);
             else a.target = a.home + (vrand() * 40 - 20);
             if (opts.gather !== undefined && vrand() < 0.3) a.target = opts.gather + (vrand() * 200 - 100);
-            a.target = Math.max(WORLD.walkMin, Math.min(a.leaving ? 1600 : WORLD.walkMax, a.target));
+            a.target = Math.max(this.deck ? WORLD.farWalkMin : WORLD.walkMin, Math.min(a.leaving ? 1600 : WORLD.walkMax, a.target));
           }
         } else {
           const d = a.target - a.x;
@@ -307,7 +335,7 @@ export class View {
       a.phase += dt * (a.moving ? 9 : 0);
       const frame = a.moving ? (Math.floor(a.phase) % 2 ? 'walk1' : 'walk2') : 'idle';
       this.setTex(a.e, `${a.skin}_${frame}`, a.dir < 0);
-      const y = groundHeight(a.x);
+      const y = this.surface(a.x);
       this.place(a.e, Math.round(a.x), Math.round(y) - 0);
       if (a.badge.enabled) this.place(a.badge, Math.round(a.x), Math.round(y) + 14 + Math.round(Math.sin(this.time * 3 + a.id) * 0.6));
     }
@@ -318,8 +346,8 @@ export class View {
     this.markerDim.enabled = !!other;
     const bob = Math.round(Math.sin(this.time * 5) * 1);
     this.aura.enabled = !!active;
-    if (active) this.aura.setLocalPosition(Math.round(active.x), groundHeight(active.x) + 7 + bob * 0.5, Z.actor - 1);
-    if (active) this.place(this.marker, Math.round(active.x), groundHeight(active.x) + (active.knows ? 22 : 16) + bob);
+    if (active) this.aura.setLocalPosition(Math.round(active.x), this.surface(active.x) + 7 + bob * 0.5, Z.actor - 1);
+    if (active) this.place(this.marker, Math.round(active.x), this.surface(active.x) + (active.knows ? 22 : 16) + bob);
     if (other) this.place(this.markerDim, Math.round(other.x), groundHeight(other.x) + (other.knows ? 22 : 16));
   }
 
@@ -424,13 +452,14 @@ export class View {
     const w = this.water;
     w.level += (w.target - w.level) * (1 - Math.exp(-dt * (opts.waterRate || 1.2)));
     const edge = waterEdge(w.level);
+    const wl = waterLeft(w.level);
     const depth = w.level + 100;
     this.setTex(this.waterEnt, Math.floor(this.time * 2.5) % 2 ? 'water0' : 'water1');
-    this.waterEnt.setLocalScale(edge, 1, depth);
-    this.waterEnt.setLocalPosition(edge / 2, -100 + depth / 2, Z.water);
+    this.waterEnt.setLocalScale(edge - wl, 1, depth);
+    this.waterEnt.setLocalPosition((edge + wl) / 2, -100 + depth / 2, Z.water);
     const wm = this.waterEnt.render.meshInstances[0].material;
     for (const m of [this.mats.water0, this.mats.water1]) {
-      m.emissiveMapTiling = new pc.Vec2(edge / 64, 1);
+      m.emissiveMapTiling = new pc.Vec2((edge - wl) / 64, 1);
       m.opacityMapTiling = m.emissiveMapTiling;
       m.update();
     }

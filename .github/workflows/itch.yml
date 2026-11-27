@@ -1,0 +1,60 @@
+# Tests, builds and pushes the web build to itch.io with butler.
+#
+# Expects these in the repository's Actions settings:
+#   secret   BUTLER_API_KEY   an itch.io API key (itch.io > Settings > API keys)
+#   secret or variable  ITCH_USER   the itch.io account name
+#   secret or variable  ITCH_GAME   the project's URL name (the part after itch.io/)
+# If your secrets have other names, change the three env lines in the deploy job.
+name: Build and publish to itch.io
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: dist
+
+  deploy:
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    env:
+      BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+      ITCH_USER: ${{ secrets.ITCH_USER || vars.ITCH_USER }}
+      ITCH_GAME: ${{ secrets.ITCH_GAME || vars.ITCH_GAME }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-build
+          path: dist
+      - name: Check itch.io settings
+        run: |
+          missing=""
+          [ -n "$BUTLER_API_KEY" ] || missing="$missing BUTLER_API_KEY"
+          [ -n "$ITCH_USER" ] || missing="$missing ITCH_USER"
+          [ -n "$ITCH_GAME" ] || missing="$missing ITCH_GAME"
+          if [ -n "$missing" ]; then echo "::error::Missing Actions secrets or variables:$missing"; exit 1; fi
+      - name: Install butler
+        run: |
+          curl -L -o butler.zip https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default
+          unzip -q butler.zip -d butler
+          chmod +x butler/butler
+          ./butler/butler -V
+      - name: Push to itch.io
+        run: ./butler/butler push dist "$ITCH_USER/$ITCH_GAME:html5" --userversion "${GITHUB_SHA::7}"

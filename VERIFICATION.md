@@ -1,126 +1,97 @@
 # Verification report
 
-Checked on Node 22 and headless Chromium (software WebGL, 1280×720, 16–27 fps).
+Checked on Node 22 and headless Chromium (software WebGL, 1280×720, 16–27 fps). This report
+describes the build as it stands: individual people and family lines, ideas, customs, crops,
+bridges, disasters, the god's exit and return, and settlement stages.
 
-## Automated: `npm test` — 18 of 18 pass
+## Automated: `npm test` — 24 of 24 pass (about 70 s)
 
-| Acceptance point | Test | Result |
+| What | How | Result |
 | --- | --- | --- |
-| Both elevations work; yield and flood risk differ | plants one floodplain and one ridge field over 200 seeds × 10 years | floodplain yield 3.0 vs ridge 1.7; floodplain crop loss > 8% of plantings, ridge < 1% |
-| All jump lengths take 30 s and land on the exact year | drives `Playback` with synthetic clocks at 144, 60, 24 and 4 fps and an irregular frame time | every length lands on year + N with exactly N × 4 ticks, on the first frame at or after 30 000 ms |
-| No early finish, no running ahead; a stalled tab still lands | clock sampled at 14 999 ms, 29 999 ms and 90 000 ms | ticks done equal the formula; finishes only at ≥ 30 s |
-| Same result across frame rates and split vs. uninterrupted jumps | state fingerprint after 111 years direct, as 1 + 10 + 100 played back, and as 100 + 10 + 1 | identical fingerprints, 5 seeds |
-| Same seed + same actions = same result | full five-visit scripted run, twice | identical; different seed differs |
-| Odds estimates leave the live simulation untouched | fingerprint and RNG state before and after 40 trial futures, then 50 more years against an untouched twin | identical |
-| Unfarmed village collapses early | 200 seeds, no actions | all collapse; median by year 6, latest by year 15; cause "No field was ever planted…" |
-| 1,000-year jump with early collapse, decay, correct score | lowland-only village through one 1,000-year run | one collapse event; `collapse.year` fixed; state reaches year 1,000 with fields overgrown and houses fallen; further years leave the record unchanged |
-| Recovery traceable to player actions | build ridge store, demonstrate, carry seed, run 100 years | a post-flood replanting recorded with `storeBuiltBy: 'Ama'`, `storeBuiltYear: 0`, worked by a household whose practice has `root: 'demo', by: 'Ama'` |
-| Teaching and plain-language risks | demonstrate to two households; read risks | untrained villager cannot teach; risk text includes "No working farms", "Only one household knows how to save seed", "Every farm is … flood line" |
-| Mixed elevation + ridge seed store beats lowland-only | 150 seeds per strategy | passes with > 20 points' margin at year 500 |
-| Growth to the Hold | 120 seeds × 2 strategies | stages reached in order; in a living Hold every household is housed in it and knows seed saving; lowland-only reaches it far less often |
-| Weather and disasters | 300 seeds × 1,211 years | heavy rain, landslides, tornadoes, volcano smoke and eruptions all occur; houses are torn down and fields buried; some collapses are attributed to an eruption or tornado |
-| Eruption warning | 5 eruptions followed year by year | each is preceded by exactly 3 years of smoke; ash is on the fields afterwards |
-| No work cap; work costs food | clear every site in one visit | more than three fields built; building stops when the food is gone; free decisions still work |
-| Every decision matters | fixed opening plus one extra decision, 200 seeds × 311 years, for each practice, each non-default custom setting and each crop | all 27 variants give a different set of futures from the baseline and from each other |
-| Practices and customs over time | 120 seeds × 300 years | practices both spread and die out; customs drift back; identical decisions replay to identical fingerprints |
+| Both elevations work and differ | one floodplain and one ridge field, 200 seeds × 10 years | floodplain yield 3.0 vs ridge 1.7; floodplain crop loss > 8% of plantings, ridge < 1% |
+| Every jump length takes 30 s and lands on the exact year | `Playback` driven by synthetic clocks at 144, 60, 24 and 4 fps and an irregular frame time | lands on year + N with exactly N × 4 ticks, on the first frame at or after 30 000 ms |
+| No early finish; a stalled tab still lands | clock sampled at 14 999, 29 999 and 90 000 ms | ticks equal the formula; finishes only at ≥ 30 s |
+| Frame rate and split jumps do not change the result | fingerprint after 111 years direct, as 1 + 10 + 100 played back, and as 100 + 10 + 1 | identical, 5 seeds |
+| Same seed + same decisions = same result | scripted five-visit run twice; and a run with practices and customs set, 60 seeds × 300 years, against a twin | identical fingerprints |
+| Odds estimates leave the live simulation untouched | fingerprint and RNG state before and after 40 trial futures, then 50 more years against a twin | identical |
+| Unfarmed village collapses early | 200 seeds, no actions | all collapse; half by year 6, 95% by year 10, the last by year 20 |
+| Collapse inside a 1,000-year jump | lowland-only village | one collapse event, year fixed, state reaches year 1,000 with fields overgrown and houses fallen |
+| Recovery traceable to the player | ridge store + demonstration + carried seed, 100 years | post-flood replanting recorded with the store's builder and year, worked by a household taught by the demonstration |
+| Mixed farms + ridge store beat lowland-only | 80 seeds per strategy to year 500 | passes by more than 10 points over lowland + teaching and 25 over lowland only |
+| Stages up to the Hold | 60 seeds × 2 strategies | in a living Hold every household is housed in it and every grown person holds every idea it knows |
+| Weather and disasters | 120 seeds × 1,211 years | rain, landslides, tornadoes, smoke and eruptions occur and do damage; some collapses are attributed to them; every eruption follows exactly 3 years of smoke |
+| Work has no count limit, costs food | clear every site in one visit | more than three fields built; the store is refused once food is short; free decisions still work |
+| Every practice, custom setting and crop matters | fixed opening + one extra decision, 60 seeds × 311 years, 27 variants | all give different futures from the baseline and from each other |
+| People are born, marry between houses and die; lines mix | 30 seeds × 80 years | births and weddings occur, spouses are mutual, everyone lives in a house, nobody passes 110, and all but at most one surviving village has people of mixed lines |
+| A planned match produces a new idea, traceably | one house keeps drying, another stone; promise a child of each; 60 years | the pairing is listed as able to reach the sealed granary; the promise is kept; the sealed granary is worked out by one of the pair or their child, and the betrothal is in the action log |
+| Ideas die with their last holder; teachers spread them; houses move | single old keeper, 20 seeds; teacher vs none, 40 seeds | lost when the keeper dies in at least 3 of 20; more holders with a teacher; a move costs 2 food |
+| Bridges are planned at once and built over years | each kind planned on 40 seeds, 60 years | nothing stands when planned; far bank unreachable until built; earliest finish = 1 year (footbridge), 6 (timber); stone never earlier than 25 |
+| Small bridges are lost more, and strand crops | each kind standing, well-fed, 40 seeds × 80 years | losses: footbridge > 2× timber > 2× stone; the footbridge strands the most far-bank crops |
+| A stone bridge stalls without stone-builders | plan it with nobody knowing stone, then teach it | no progress and a stall notice; work starts once someone knows it |
 
-## Headless balance run: `npm run sim -- 1000`
+## Headless balance run: `npm run sim -- 100`
 
-1,000 seeds, jumps 1 + 10 + 100 + 100 + 1,000 = 1,211 years, three work actions per visit.
+100 seeds, jumps 1 + 10 + 100 + 100 + 1,000 = 1,211 years. The scripted players take three
+actions a visit so the rows stay comparable; the game itself has no cap. About three minutes.
 
 | Strategy | Median years | ≥ 10 y | ≥ 100 y | ≥ 500 y | ≥ 1,211 y | Reached the Hold |
 | --- | --- | --- | --- | --- | --- | --- |
-| No farms | 5 | 1% | 0% | 0% | 0% | 0% |
-| Lowland only | 7 | 34% | 5% | 3% | 3% | 2% |
-| Lowland + teaching | 16 | 67% | 24% | 18% | 18% | 14% |
-| Ridge only + teaching | 161 | 96% | 57% | 44% | 44% | 35% |
-| Mixed, no ridge store | 54 | 87% | 39% | 29% | 29% | 22% |
-| Mixed + ridge seed store | 32 | 76% | 39% | 37% | 36% | 28% |
-| Mixed + store + the five new practices | 32 | 73% | 42% | 42% | 42% | 42% |
+| No farms | 6 | 5% | 0% | 0% | 0% | 0% |
+| Lowland only | 8 | 42% | 1% | 1% | 1% | 0% |
+| Lowland + teaching | 14 | 62% | 22% | 17% | 17% | 9% |
+| Ridge only + teaching | 124 | 93% | 51% | 44% | 44% | 18% |
+| Mixed, no ridge store | 48 | 87% | 40% | 34% | 34% | 11% |
+| Mixed + ridge seed store | 71 | 85% | 44% | 42% | 42% | 11% |
+| Mixed + store + the five other base ideas | 84 | 83% | 46% | 44% | 44% | 44% |
+| … + footbridge planned | 61 | 87% | 41% | 38% | 38% | 38% |
+| … + timber bridge planned | 83 | 87% | 45% | 42% | 42% | 42% |
+| … + timber, then stone bridge | 1,211 | 87% | 53% | 51% | 51% | 51% |
 
-The scripted strategies still take three actions a visit over five visits so the rows stay
-comparable; they now pay for work in food like the player. Teaching the five new practices
-lifts long-run survival from 37% to 42% and brings the Hold forward from about year 810 to 480.
+With 100 seeds each figure carries several points of noise. What they show: mixed farming with
+ridge seed storage stands at year 500 in 42% of seeds against 1% for lowland-only; teaching the
+other base ideas is what gets a village to the Hold (44% against 11%); a footbridge is a net
+cost, a timber bridge about neutral, and a stone bridge the best long-run plan.
 
-These figures include the weather and disaster systems. Mixed-elevation farming with ridge seed
-storage is still standing at year 500 in 37% of seeds against 3% for lowland-only (18% with
-teaching added); paying for work in food cost it about seven points. Before disasters were added the same comparison was 53% against 5%; disaster
-chances were lowered twice (the second time on request: tornado 0.4%, landslide 0.5%, volcano
-waking 0.1% a year). Earlier tuning from these
-runs: opening food went from 14 to 22, departures per hungry winter were softened, villages were
-made to keep ridge seed as a reserve rather than plant it every spring, and to copy a ridge
-field once they have seen one.
+Tuning done from these runs over the build: opening food 14 → 26; departures per hungry winter
+softened; ridge seed kept as a reserve; villages copy a ridge field once they have seen one;
+disaster chances lowered twice; per-person food set so six founding families eat about what six
+households did before.
 
-## In the browser, in real time
+## In the browser
 
-Three scripted playthroughs used real key presses for walking, inspecting, working, switching,
-planning and committing, and waited out every jump.
+Real key presses throughout, no console errors in any run.
 
-| Jump | Seeds run | Wall time, commit to arrival | Landed on |
-| --- | --- | --- | --- |
-| 1 year | 1, 7, 11 | 30.19–30.26 s | exact year |
-| 10 years | 1, 7, 11 | 30.16–30.21 s | exact year |
-| 100 years | 1, 7 | 30.14–30.22 s | exact year |
-| 1,000 years | 1 (twice), 7, 11 | 30.12–30.18 s | exact year |
-
-The extra 0.1–0.3 s is one rendered frame plus the test's polling interval.
-
-- **Locked during playback.** Three seconds into every jump the script pressed Q, E, 1, T, J,
-  Esc, Enter, A, D and called the build, teach, switch, plan, commit and next handlers directly.
-  The action log length and the controller state did not change in any jump.
-- **Work budget.** A fourth work action in a visit was refused (action log stayed at 3).
-- **Switching.** Q moved control from Ama to Tobi and back.
-- **Early collapse in a long jump.** Seed 11, jumping from year 11 to 1,011: the last household
-  left in year 51; playback continued to year 1,011; arrival reported "51 years survived" with
-  the cause, and the ruins could be walked.
-- **Survive and continue.** Seed 1 ran all five visits to year 2,111: village in year 44, town
-  144, city 310, the Hold finished in year 791, 58 households at the end, "Still standing".
-- **Fresh run.** Starting again after each playthrough gave year 0, visit 1, six households, no
-  fields, no ridge store, an empty action log and no collapse record.
-- **Disasters on screen.** Three further runs after the disaster systems were added, no console
-  errors: seed 977 (heavy rain, a tornado across the floodplain tearing down two houses, and a
-  landslide, all in year 0 of a 1-year jump: funnel, rain and captions visible); seed 125
-  (smoke in year 2, eruption in year 5 of a 10-year jump: lava on the cone, ash fall, mudflow
-  flood, collapse in year 6 attributed to the eruption); seed 158 (landslide).
-- **The god's exit and return.** Two runs, no console errors. Alive (seed 1, 1 year): blue
-  beam and sparks at the villager on commit, actions refused during the departure, playback
-  clock 30.19 s (31.24 s from commit including the one-second departure), report opens after
-  the return flash, Enter begins visit 2 with three actions. Collapsed (seed 125, 10 years):
-  camera at twice the normal zoom on the god, speech "Nope. Not like that. They only made it 6
-  years.", Try again shows "Maybe I could…", the screen wipes to black, and a new valley with a
-  different seed appears at year 0, visit 1, six households, no actions, no collapse record.
-- **Decisions.** One run, no console errors: five fields cleared in a single visit; flood
-  marks demonstrated to Ama, Tobi and Ilse; two customs changed in the Customs panel; a crop
-  changed by key and by button; building refused once food reached 0 (17 actions that visit);
-  after a 1-year jump the next visit opened as "Visit 2" with no visit total.
-- No console errors in any run.
+- **Full five-visit playthroughs (before the people rebuild).** Three runs: every jump length
+  took 30.1–30.3 s and landed on the exact year; interventions were refused during playback;
+  a collapse in year 51 of a jump to 1,011 played on to the end and scored 51 years.
+- **The god's exit and return.** Blue beam and sparks on commit; playback clock 30.1–30.2 s
+  (about 31.2 s from commit, including the one-second departure); on a collapse the camera
+  pushed in, the god said "Nope. Not like that. They only made it 6 years.", Try again showed
+  "Maybe I could…", the screen wiped to black and a new valley appeared at year 0.
+- **Disasters.** Tornado + landslide + heavy rain in one year; an eruption with lava, ash and
+  mudflow that ended a village; a landslide. (Taken at the earlier, higher disaster odds.)
+- **Decisions.** Fields cleared until food ran out; a practice demonstrated; customs changed;
+  a crop changed by key and by button.
+- **People.** The People panel, a house panel, the match list with "their children could work
+  out…", a promise, a teacher's calling and a house move all worked; after a 100-year jump the
+  village had 133 people in 29 houses, 11 family lines, and had worked out seed jars.
+- **Bridges.** Planned a footbridge at the crossing; walking stopped at the bank with no
+  bridge; after a 1-year jump the footbridge stood; walked across on the deck and cleared a
+  far-bank field.
 
 ## Not covered
 
-- The "Still standing" result screen is now unreachable in play (there is no last visit); its
-  code remains behind `visitsPerRun`. The full five-visit browser playthroughs predate this.
-- The headless strategies do not use customs or crops. No scripted player explores unlimited
-  work in one visit, so the balance of a long first visit is untested beyond the unit test.
-- The opening is harsher for the scripted strategies than before (median 32 years) because work
-  now eats the food reserve.
-
-- The three full five-visit playthroughs above were run before the disaster systems went in.
-  After that, only the three shorter disaster runs and the automated tests were run; the
-  30-second timing code was not changed.
-- The volcano was moved lower in the backdrop after the last screenshots; that position was only
-  build-tested.
-- The disaster screenshots were taken at the earlier, higher disaster odds.
-- Median survival for the best scripted strategy fell from 1,211 to 55 years once disasters were
-  added: the first decades are now more dangerous than before.
-
-- Only headless Chromium was used. Firefox, Safari and real GPUs were not tried.
-- Sound was not listened to; the code path runs without errors.
-- Playback timing was measured in an active tab. A hidden tab pauses rendering; the unit test
-  shows the first frame back runs the remaining ticks and lands on the exact year.
-- "Ridge only + teaching" survives about as often as mixed farming, because villages start
-  clearing floodplain fields on their own. Drought is the only thing that punishes ridge-heavy
-  farming and it could be made sharper.
-- After visit 1, about one run in six with the best scripted strategy still dies inside ten
-  years. The opening is harsh by design, and it may be harsher than you want.
-- The ruins and results views were checked by screenshot before the last small layout fixes
-  (inspect panel position, ruined granary sprite); those fixes were only build- and load-tested.
+- Only headless Chromium. Firefox, Safari and real GPUs were not tried. Sound was never heard.
+- No full multi-visit playthrough has been run since the people rebuild; the 30-second timing
+  code itself was not changed.
+- The bridge sprite was drawn too low in the one bridge screenshot; that was corrected
+  afterwards and only build-tested. Bridge washouts were checked in the simulation, not watched.
+- The itch.io workflow has never run. It assumes secret names (`BUTLER_API_KEY`, `ITCH_USER`,
+  `ITCH_GAME`) that may not match the ones in the repository.
+- The simulation is about ten times slower than before people were individuals: a 1,000-year
+  jump for a full city takes roughly 0.8 s of compute, spread over the 30 seconds. Odds
+  estimates for 1,000-year jumps therefore take noticeably longer to fill in.
+- The "Still standing" result screen is unreachable in play (there is no last visit).
+- Ridge-only farming still survives about as well as mixed farming.
+- No scripted player sets customs, crops, matches or callings, so their balance is tested only
+  for "changes outcomes", not for "is well tuned".

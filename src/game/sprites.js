@@ -411,6 +411,56 @@ export function buildSprites() {
         R(g, '#fff0a0', 150, 12, 20, 3);
       }
     });
+  // Bridges across the river: 174 wide, deck on row 10.
+  make('bridge_rope', 174, 24, (g, W) => {
+    for (let x = 0; x < W; x++) {
+      const sag = Math.round(Math.sin((x / W) * Math.PI) * 6);
+      R(g, x % 4 === 3 ? '#4a3420' : '#8a6a44', x, 10 + sag, 1, 1);
+      R(g, '#3a2a1c', x, 4 + Math.round(sag * 0.6), 1, 1);
+      if (x % 9 === 0) R(g, '#3a2a1c', x, 4 + Math.round(sag * 0.6), 1, 6 + Math.round(sag * 0.4));
+    }
+    R(g, PAL.wood, 0, 0, 2, 12);
+    R(g, PAL.wood, W - 2, 0, 2, 12);
+  });
+  make('bridge_timber', 174, 44, (g, W, H) => {
+    R(g, '#7a5a38', 0, 10, W, 2);
+    R(g, '#5a4028', 0, 12, W, 1);
+    R(g, '#5a4028', 0, 5, W, 1);
+    for (let x = 6; x < W; x += 12) R(g, '#5a4028', x, 5, 1, 5);
+    for (let x = 22; x < W - 10; x += 26) {
+      R(g, '#4a3420', x, 12, 2, H - 12);
+      R(g, '#4a3420', x + 8, 12, 2, H - 12);
+      for (let k = 0; k < 8; k++) R(g, '#5a4028', x + 1 + k, 16 + k, 1, 1);
+    }
+  });
+  make('bridge_stone', 174, 46, (g, W, H) => {
+    R(g, STONE[0], 0, 6, W, H - 6);
+    R(g, STONE[1], 0, 6, W, 1);
+    for (let x = 0; x < W; x += 6) R(g, STONE[2], x, 3, 3, 3);
+    for (let y = 9; y < 20; y += 4) for (let x = (y % 8) * 2; x < W; x += 11) R(g, STONE[2], x, y, 4, 1);
+    for (const cx of [32, 87, 142]) for (let y = 14; y < H; y++) {
+      const half = Math.min(22, Math.round(Math.sqrt(Math.max(0, 1 - Math.pow(Math.max(0, 30 - y) / 16, 2))) * 22));
+      g.clearRect(cx - half, y, half * 2, 1);
+    }
+  });
+  make('bridge_works', 174, 44, (g, W, H) => {
+    for (const x of [8, 34, 60]) {
+      R(g, '#6a4c2c', x, 6, 2, H - 6);
+      R(g, '#6a4c2c', x + 10, 6, 2, H - 6);
+      R(g, '#8a6a44', x - 2, 12, 16, 1);
+      R(g, '#8a6a44', x - 2, 24, 16, 1);
+    }
+    R(g, '#7a5a38', 0, 10, 46, 2);
+    R(g, PAL.rockLight, 70, 8, 6, 3);
+    R(g, PAL.rock, 78, 9, 5, 2);
+  });
+  make('bridge_gone', 174, 44, (g, W, H) => {
+    for (const x of [10, 150]) R(g, '#4a3420', x, 8, 2, H - 8);
+    R(g, '#7a5a38', 0, 10, 14, 2);
+    R(g, '#7a5a38', W - 16, 10, 16, 2);
+    R(g, '#5a4028', 12, 12, 1, 5);
+    R(g, '#5a4028', 14, 14, 1, 6);
+  });
   make('funnel', 40, 110, (g, W, H) => {
     for (let y = 0; y < H; y++) {
       const t = y / H;

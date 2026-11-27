@@ -55,40 +55,83 @@ playback itself is still exactly thirty seconds.
 | `T`, then `1`–`6` | practice list | Demonstrate a practice to the villager you act through and the two nearest onlookers |
 | `2` | "Crop" in the inspect panel | Change what a field is sown with |
 | `C` | "Customs" | Set the village's customs |
+| `P` | "People" | Family lines, houses, ideas; from a house: matches, callings, moving |
 | `Q` | "Switch to …" | Switch to the other villager; the one you leave goes back to their routine |
 | `J` | "Plan the jump" | Condition report, then `1`–`4` to pick 1 / 10 / 100 / 1,000 years |
 | `Enter` / `Esc` | Commit / Back | Confirm or cancel the jump; `Enter` also continues after arrival |
 
 There is no limit on how much you do in a visit, and no last visit: you keep coming back until
 nobody is left. Work is paid for in food from the stores (clear a field 1.5, repair 1, build the
-ridge store 3, demonstrate a practice 1; carrying seed is free), so everything you build comes
-out of the reserve the village has to live on. Customs and crops cost nothing to change.
+ridge store 3, demonstrate an idea 1, move a household 2; carrying seed is free), so everything
+you build comes out of the reserve the village has to live on. Matches, callings, customs,
+crops and bridge plans cost nothing to set.
 
-## Decisions
+## Planning: the city, the houses, the people
 
 Every decision is a row in [`src/sim/decisions.js`](src/sim/decisions.js), and the simulation
 reads those tables. Adding a row adds a decision.
 
-- **Practices (6)** — seed saving, drying food, terracing, flood marks, watching the mountain,
-  building in stone. You know them all; press `T`, pick one, and the villager you are acting
-  through learns it along with the two nearest onlookers. Each practice then spreads to
-  neighbours, is inherited by new households, and can die with the last household that keeps
-  it. Its effect scales with the share of households that hold it.
+### People and family lines
+
+The valley is lived in by individuals. Each person is born, learns as a child from the grown
+people of their own house, marries someone from another house, has children and dies. Six
+founding families start six **family lines**; a child belongs to every line either parent
+belongs to, and new lines arrive with families from downriver.
+
+**Ideas live in people.** There are 18:
+
+- **Six you can demonstrate** (`T`): seed saving, drying food, terracing, flood marks, watching
+  the mountain, building in stone. Everyone old enough in the house you are acting through
+  learns it, and so does everyone in the houses of the two nearest villagers.
+- **Twelve that nobody can be taught.** Each grows from two others, and only a person who holds
+  both can work it out: seed jars (seed saving + drying), sealed granary (drying + stone), levee
+  (flood marks + stone), irrigation (terracing + flood marks), and so on, up to canals, a seed
+  vault, a school and a masons' guild, which each grow from two of those.
+
+So ideas are made by mixing families. If one house keeps drying and another keeps stone, the
+child of a marriage between them can come up with the sealed granary. An idea held by one
+person dies with them.
+
+What you can plan, all free except the move (`P` for the whole village, or inspect a house):
+
+- **Matches** — promise two unmarried people from different houses to each other. The list
+  shows, for each candidate, which new ideas the pairing would bring within reach. The promise
+  is kept when both are 17 and still free.
+- **Callings** — make someone a teacher: they pass what they know to other houses five times as
+  readily.
+- **Houses** — move a household between the riverside and the ridge (2 food).
+
+### Bridges
+
+Inspect the crossing at the river's edge to plan one. Planning is free and immediate; the
+village builds it, one fed winter at a time, while you are away.
+
+| Bridge | Time | Food a year | Carried away by high water / flood / great flood |
+| --- | --- | --- | --- |
+| Footbridge | 1 year | 2 | 50% / certain / certain |
+| Timber bridge | 6 years | 2 | 3% / 50% / certain |
+| Stone bridge | 25 years, and only while someone knows building in stone | 3 | never / 4% / 40% |
+
+A standing bridge opens two far-bank fields with 10% richer soil, brings new families (and
+their ideas and lines) 2.5 times as often, and lets the village trade for 30% of what it lacks
+in a hungry winter. If the bridge goes while a crop stands on the far bank, that crop rots
+unreached, and the far fields stay out of use until a bridge stands again. The old bridge stays
+in use while a bigger one is built, and the village rebuilds whatever is planned.
+
+### Customs and crops
+
 - **Customs (8, 27 settings)** — village-wide rules, set with `C`: ridge seed reserve, seed and
   food carried uphill, where new fields go, pace of clearing, where newcomers build, planting
   order, and whether seed is eaten in a hungry winter. Each drifts back one step toward the
   village default with a 0.3% chance a year.
-- **Crops (3 per field, 16 fields)** — grain, roots or millet, chosen with `2` while inspecting
+- **Crops (3 per field, 18 fields)** — grain, roots or millet, chosen with `2` while inspecting
   a field. Villages sow new fields with whatever their neighbours grow.
-- **Building** — 16 field sites and the ridge store, as before.
-
-That is a few hundred individual settings today, not thousands. The space of combinations is
-large (3¹⁶ crop layouts alone), and the tables are where more get added.
 
 ## How a run goes
 
-1. **Visit.** Year 0: six households, 22 food, 6 seed, a lowland granary, no farms. Only Ama's
-   household knows how to save seed (villagers who know it carry a gold seed mark).
+1. **Visit.** Year 0: six families (about 25 people), 26 food, 6 seed, a lowland granary, no
+   farms. Only the two grown people of Ama's house know how to save seed (houses that keep it
+   carry a gold seed mark).
 2. **Plan.** The jump panel states food, seed by location, households, fields and the risks in
    plain language. Choosing a jump length also runs trial futures on *copies* of the village and
    shows the share that still have households at the destination.
@@ -130,6 +173,15 @@ All of these are rolled in the simulation each summer, with the same rules at ev
 The Hold shelters its households from tornadoes and from most of a severe eruption. The volcano
 stands behind the valley in the backdrop; it smokes while it is waking and shows lava afterwards.
 
+## Publishing to itch.io
+
+`.github/workflows/itch.yml` runs the tests, builds, and pushes `dist/` to itch.io with butler
+on every push to `main` (and on demand from the Actions tab). It expects an Actions secret
+`BUTLER_API_KEY`, and `ITCH_USER` and `ITCH_GAME` as secrets or variables. If the secrets you
+added have other names, change the three `env` lines in the deploy job. Pull requests run the
+tests and build only. On itch.io, set the project to "HTML" and the `html5` channel to be
+played in the browser.
+
 ## How the simulation works
 
 `src/sim/` is plain JavaScript with no browser or engine imports. State is one JSON-compatible
@@ -141,9 +193,10 @@ object; `step(state)` advances one season:
   hits every lowland field and the lowland granary together.
 - **Autumn** — harvest. Floodplain 3.0 food per field, ridge 1.7. Households that know seed
   saving keep 1.5 seed per field (others 0.3) and carry spare seed to a ridge store.
-- **Winter** — stores spoil and are eaten; hunger drives households away; knowledge is taught,
-  inherited or lost at generational turnover; fed villages grow, clear fields (uphill after
-  repeated floods) and work toward the next stage; abandoned fields and houses decay.
+- **Winter** — stores spoil and are eaten; hunger drives households away; then the people's
+  year: deaths, children learning, marriages between houses, births, new ideas, new families
+  arriving. A year of work goes into the planned bridge. Fed villages clear fields (uphill
+  after repeated floods) and work toward the next stage; abandoned fields and houses decay.
 
 Jump length only decides how many times `step` runs. Simulation randomness comes from one seeded
 generator stored in the state; visual effects use `Math.random` and never touch it.
@@ -154,7 +207,8 @@ All balance values are in [`src/sim/balance.js`](src/sim/balance.js).
 
 ```
 src/sim/balance.js     every tuning value
-src/sim/decisions.js   practices, customs and crops as data
+src/sim/decisions.js   ideas, customs, crops and bridges as data
+src/sim/people.js      individuals: birth, learning, marriage, death, new ideas
 src/sim/sim.js         state, seasonal tick, player actions, fingerprint
 src/sim/risks.js       plain-language risks; odds from cloned simulations
 src/sim/playback.js    30-second clock -> due ticks

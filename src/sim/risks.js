@@ -1,6 +1,7 @@
 // Plain-language condition report, plus optional numerical odds from cloned simulations.
 import { BALANCE } from './balance.js';
 import { hashSeed } from './rng.js';
+import { BRIDGE } from './decisions.js';
 import { cloneSim, runYears, knowers, builtPlots, yearOf, isAlive, stageBlock } from './sim.js';
 
 export function summary(st) {
@@ -32,6 +33,7 @@ export function assessRisks(st, B = BALANCE) {
   const fields = s.fieldsLow + s.fieldsRidge;
   const yearsOfFood = s.food / (s.households * (B.consumption - B.forage));
   const seed = s.seedLow + s.seedRidge;
+  const built = builtPlots(st);
   const flood = st.river.floods.length ? st.river.floods.reduce((a, f) => (f.level > a.level ? f : a)) : null;
 
   if (fields === 0) {
@@ -55,6 +57,13 @@ export function assessRisks(st, B = BALANCE) {
 
   if (s.damaged > 0) add('warn', `${plural(s.damaged, 'field')} lie under flood silt${s.knowers ? '' : ', and nobody knows how to restore them'}.`);
   if (fields > 0 && yearsOfFood < 1) add('warn', `Food in store covers ${fmtYears(yearsOfFood)}.`);
+  const br = st.bridge;
+  const farFields = built.filter((p) => p.far).length;
+  if (br.built === 'rope') add('warn', `The far bank hangs on a footbridge. Any high water may take it${farFields ? `, and ${farFields} field${farFields === 1 ? '' : 's'} with it` : ''}.`);
+  else if (br.built === 'timber') add('good', 'A timber bridge stands. High water will not move it; a real flood might.');
+  else if (br.built === 'stone') add('good', 'A stone bridge stands. Only a great flood threatens it.');
+  if (!br.built && farFields) add('danger', `${farFields} far-bank field${farFields === 1 ? ' is' : 's are'} cut off: there is no bridge.`);
+  if (br.plan && br.plan !== br.built) add('note', `Planned: a ${BRIDGE[br.plan].name.toLowerCase()}, ${br.progress} of ${BRIDGE[br.plan].years} years built${br.stalled ? ', stalled for want of someone who knows stone' : ''}.`);
   const sky = st.sky;
   const year = yearOf(st);
   if (sky.rumble > 0) add('danger', 'The mountain is smoking. An eruption is coming within a few years: ash will starve the harvests, and it may be worse than ash.');

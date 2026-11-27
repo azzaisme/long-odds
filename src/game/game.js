@@ -6,7 +6,7 @@ import { hashSeed } from '../sim/rng.js';
 import * as Sim from '../sim/sim.js';
 import { summary, assessRisks, estimateSurvival } from '../sim/risks.js';
 import { Playback } from '../sim/playback.js';
-import { IDEAS, IDEA, PRACTICES, CUSTOMS, CROPS, CROP, holds, holders, possibleIdeas } from '../sim/decisions.js';
+import { IDEAS, IDEA, PRACTICES, CUSTOMS, CROPS, CROP, BRIDGES, BRIDGE, holds, holders, possibleIdeas } from '../sim/decisions.js';
 import { canBetroth } from '../sim/people.js';
 
 export const S = { TITLE: 'title', VISIT: 'visit', PLANNING: 'planning', PLAYBACK: 'playback', ARRIVAL: 'arrival', RUINS: 'ruins', RESULTS: 'results' };
@@ -184,6 +184,8 @@ export class Game {
       case 'promise': return this.promise(arg);
       case 'calling': return this.calling(arg);
       case 'move': return this.moveHouse(arg);
+      case 'bridge': return this.openBridge();
+      case 'plan-bridge': return this.planBridge(arg);
       case 'custom': return this.setCustom(arg);
       case 'close': return this.state === S.PLANNING && (this.sound.click(), this.setState(S.VISIT));
       case 'choose': return this.choose(Number(arg));
@@ -240,6 +242,7 @@ export class Game {
       if (d < t.reach && (!best || d + t.bias < best.d)) best = { ...t, d: d + t.bias };
     };
     for (const s of PLOT_SITES) consider(Math.abs(a.x - s.x), { kind: 'plot', id: s.id, x: s.x, top: 14, reach: 25, bias: 0 });
+    consider(Math.abs(a.x - 268), { kind: 'bridge', id: 0, x: 262, top: 22, reach: 16, bias: -8 });
     consider(Math.abs(a.x - WORLD.granaryX), { kind: 'granary', id: 0, x: WORLD.granaryX, top: 36, reach: 20, bias: -6 });
     consider(Math.abs(a.x - WORLD.ridgeStoreX), { kind: 'store', id: 0, x: WORLD.ridgeStoreX, top: 24, reach: 18, bias: -6 });
     for (const s of HOUSE_SLOTS) if (this.sim.houses[s.id].state !== 'gone') consider(Math.abs(a.x - s.x), { kind: 'house', id: s.id, x: s.x, top: 28, reach: 13, bias: 14 });
@@ -267,6 +270,13 @@ export class Game {
       if (p.state === 'damaged') return { title: `Flood-damaged ${place.toLowerCase()} field`, text: `Buried in silt since year ${p.since}. Seed-saving households can restore it in spring; nobody else knows how.${by}`, action: 'Dig out and repair this field', kind: 'repair' };
       if (p.state === 'eroded') return { title: 'Lost to the river', text: `The river cut this bank away in year ${p.since}.` };
       return { title: `${place} field`, text: `${trait}${by}${cropLine}` };
+    }
+    if (t.kind === 'bridge') {
+      const br = st.bridge;
+      const far = st.plots.filter((p) => p.far && p.state !== 'wild' && p.state !== 'eroded').length;
+      const stands = br.built ? `A ${BRIDGE[br.built].name.toLowerCase()} has stood here since year ${br.builtYear}.` : br.lostYear !== null ? `The last bridge was lost in year ${br.lostYear}.` : 'Nothing crosses the river here yet.';
+      const plan = br.plan && br.plan !== br.built ? ` Planned: a ${BRIDGE[br.plan].name.toLowerCase()}, ${br.progress} of ${BRIDGE[br.plan].years} years built.` : br.plan ? ' The village keeps it up.' : '';
+      return { kind: 'open', title: 'The crossing', text: `${stands}${plan} Across the water lie two fields of unworked soil${far ? ` (${far} cleared)` : ''} and the road downriver, where new families and their ideas come from.`, action: 'Plan a bridge' };
     }
     if (t.kind === 'granary') {
       const g = st.stores.low;
@@ -355,6 +365,7 @@ export class Game {
     const st = this.sim;
     const a = this.me();
     if (t.kind === 'house') return this.openHouse(st.houses[t.id].hid);
+    if (t.kind === 'bridge') return this.openBridge();
     if (t.kind === 'plot') {
       const p = st.plots[t.id];
       if (this.spend(p.state === 'damaged' ? Sim.repairPlot(st, t.id, who) : Sim.buildPlot(st, t.id, who), 'build')) this.view.emit('dust', t.x, groundHeight(t.x) + 2, 14);
@@ -518,6 +529,28 @@ export class Game {
       <h3>Ideas</h3>
       <ul>${IDEAS.map(ideaRow).join('')}</ul>
       <div class="row"><button data-act="close">Done <kbd>Esc</kbd></button></div>`);
+  }
+  openBridge() {
+    if (this.state !== S.VISIT && this.state !== S.PLANNING) return;
+    const st = this.sim;
+    const br = st.bridge;
+    this.pending = null;
+    this.odds = null;
+    this.setState(S.PLANNING);
+    const pct = (v) => (v >= 1 ? 'certain' : v <= 0 ? 'never' : `${Math.round(v * 100)}%`);
+    this.modal(`
+      <h2>Plan a bridge</h2>
+      <p class="note">You decide what is to be built; the village builds it, one fed winter at a time, while you are away. Planning costs nothing. A bridge opens two far-bank fields (10% richer soil), brings new families ${B.bridge.newcomers}× as often, and lets the village trade for ${Math.round(B.bridge.trade * 100)}% of what it lacks in a hungry winter. If it goes while a crop stands across the river, that crop is lost. The old bridge stays in use while a bigger one is built.</p>
+      ${BRIDGES.map((k) => `<div class="custom"><b>${esc(k.name)}${br.built === k.id ? ' · standing' : ''}${br.plan === k.id && br.built !== k.id ? ` · planned, ${br.progress}/${k.years} years` : ''}</b><span class="note">${esc(k.does)}</span><div class="note">${k.years} year${k.years > 1 ? 's' : ''} · ${k.food} food a year · carried away by high water: ${pct(k.washout[0])}, flood: ${pct(k.washout[1])}, great flood: ${pct(k.washout[2])}${k.rot ? ` · rots ${pct(k.rot)} a year if it is no longer the plan` : ''}${k.needs ? ` · needs someone who knows ${IDEA[k.needs].name.toLowerCase()} (${holders(st, k.needs)} houses do)` : ''}</div><div class="opts"><button data-act="plan-bridge" data-arg="${k.id}" class="${br.plan === k.id ? 'primary' : ''}" ${br.plan === k.id ? 'disabled' : ''}>${br.plan === k.id ? 'This is the plan' : `Plan a ${esc(k.name.toLowerCase())}`}</button></div></div>`).join('')}
+      <div class="row"><button data-act="plan-bridge" data-arg="none" ${br.plan ? '' : 'disabled'}>Plan no bridge</button><button data-act="close">Done <kbd>Esc</kbd></button></div>`);
+  }
+  planBridge(arg) {
+    if (this.state !== S.PLANNING) return;
+    const r = Sim.planBridge(this.sim, arg === 'none' ? null : arg, this.myHouse() ? this.myHouse().name : 'the god');
+    this.toast(r.text, !r.ok);
+    if (r.ok) this.sound.click();
+    this.view.sync(this.sim);
+    this.openBridge();
   }
   openCustoms() {
     if (this.state !== S.VISIT && this.state !== S.PLANNING) return;
@@ -704,7 +737,7 @@ export class Game {
     this.floodSoundT -= dt;
     const gap = { 1: 0.25, 10: 0.6, 100: 0.85, 1000: 1.0 }[j.years];
     // Keep the queue short: turning points first, then summaries, then the rest.
-    const rank = (e) => (e.type === 'collapse' || e.type === 'stage' || e.type === 'eruption' || e.type === 'idea' ? 5 : e.type === 'tornado' || e.type === 'landslide' || e.type === 'rumble' ? 4 : e.type === 'recovery' || e.type === 'knowledge-lost' || e.type === 'store' ? 4 : e.p >= 3 ? 3 : e.sum ? 2 : e.p);
+    const rank = (e) => (e.type === 'collapse' || e.type === 'stage' || e.type === 'eruption' || e.type === 'idea' ? 5 : e.type === 'tornado' || e.type === 'landslide' || e.type === 'rumble' || e.type === 'bridge' || e.type === 'bridge-lost' || e.type === 'stranded' ? 4 : e.type === 'recovery' || e.type === 'knowledge-lost' || e.type === 'store' ? 4 : e.p >= 3 ? 3 : e.sum ? 2 : e.p);
     if (this.queue.length > 4) {
       const keep = this.queue.map((e, i) => ({ e, i })).sort((a, b) => rank(b.e) - rank(a.e) || b.i - a.i).slice(0, 4).sort((a, b) => a.i - b.i);
       this.queue = keep.map((k) => k.e);
@@ -713,7 +746,7 @@ export class Game {
       const e = this.queue.shift();
       this.capT = gap;
       const li = document.createElement('li');
-      const good = e.type === 'idea' || e.type === 'newcomers' || e.type === 'wedding' || e.type === 'stage' || e.type === 'recovery' || e.type === 'store' || e.type === 'settle' || e.type === 'repair' || e.type === 'uphill';
+      const good = e.type === 'bridge' || e.type === 'idea' || e.type === 'newcomers' || e.type === 'wedding' || e.type === 'stage' || e.type === 'recovery' || e.type === 'store' || e.type === 'settle' || e.type === 'repair' || e.type === 'uphill';
       li.className = e.sum ? 'sum' : e.p >= 3 ? `p3${good ? ' good' : ''}` : '';
       li.innerHTML = e.sum ? esc(e.text) : `<i>Year ${n0(e.year)}</i>${esc(e.text)}`;
       $('captions').appendChild(li);
@@ -759,7 +792,7 @@ export class Game {
     let turning = j.turning;
     let skipped = 0;
     if (turning.length > 9) {
-      const must = turning.filter((e) => ['eruption', 'tornado', 'landslide', 'stage', 'stage-down', 'collapse', 'recovery', 'knowledge-lost', 'store', 'erode'].includes(e.type));
+      const must = turning.filter((e) => ['bridge', 'bridge-lost', 'stranded', 'idea', 'eruption', 'tornado', 'landslide', 'stage', 'stage-down', 'collapse', 'recovery', 'knowledge-lost', 'store', 'erode'].includes(e.type));
       const stages = turning.filter((e) => e.type === 'idea' || e.type === 'stage' || e.type === 'collapse' || e.type === 'eruption');
       const pick = new Set([...turning.slice(0, 2), ...stages, ...must.slice(0, 2), ...must.slice(-2), ...turning.slice(-2)]);
       skipped = turning.length - pick.size;
@@ -1003,7 +1036,7 @@ export class Game {
           a.moving = dir !== 0;
           if (dir) {
             a.dir = dir;
-            a.x = Math.max(WORLD.walkMin, Math.min(WORLD.walkMax, a.x + dir * WALK * dt));
+            a.x = Math.max(st.bridge.built ? WORLD.farWalkMin : WORLD.walkMin, Math.min(WORLD.walkMax, a.x + dir * WALK * dt));
             if ((this.stepT -= dt) <= 0) (this.sound.step(), (this.stepT = 0.26));
           }
         }

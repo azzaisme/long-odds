@@ -4,7 +4,7 @@
 import { BALANCE } from './balance.js';
 import { rngNext, hashSeed } from './rng.js';
 import { PLOT_SITES, HOUSE_SLOTS, householdName } from './world.js';
-import { IDEA, PRACTICES, CUSTOMS, CROP, defaultCustoms, customValue, mod } from './decisions.js';
+import { IDEA, PRACTICES, CUSTOMS, CROP, BRIDGE, defaultCustoms, customValue, mod } from './decisions.js';
 import { give, addFamily, addPerson, refreshHouseholds, removePeopleOf, peopleYear, teachEveryone, canBetroth, person, membersOf } from './people.js';
 
 export const SEASONS = ['spring', 'summer', 'autumn', 'winter'];
@@ -23,7 +23,7 @@ export function createSim(seed, B = BALANCE) {
     discovered: {}, // idea id -> who first worked it out
     discoveries: [],
     plots: PLOT_SITES.map((s) => ({
-      id: s.id, elev: s.elev, state: 'wild', stage: null, since: 0, lastWorked: -1,
+      id: s.id, elev: s.elev, far: !!s.far, state: 'wild', stage: null, since: 0, lastWorked: -1,
       worker: null, workerKnows: false, builtBy: null, builtYear: null, crop: 'grain',
     })),
     houses: HOUSE_SLOTS.map((h) => ({ id: h.id, elev: h.elev, state: 'gone', hid: null, since: 0 })),
@@ -34,6 +34,7 @@ export function createSim(seed, B = BALANCE) {
     river: { wet: 1, level: 0, drought: false, floods: [], lastFlood: null },
     floodMemory: 0,
     customs: defaultCustoms(),
+    bridge: { plan: null, progress: 0, built: null, builtYear: null, lostYear: null, lost: 0 },
     sky: { rain: false, tornado: null, slide: false, erupted: false, rumble: 0, ash: 0, fertile: 0, lastEruption: null, lastSlide: null, lastTornado: null },
     civ: { stage: 0, progress: 0, reached: [0, null, null, null, null] },
     seedLostYear: null, // last year a flood destroyed stored lowland seed
@@ -167,8 +168,9 @@ function spring(st, B, year, say) {
   let repaired = 0;
   let repairer = null;
   const seedStock = st.stores.low.seed + st.stores.ridge.seed;
+  const reach = !!st.bridge.built; // the far bank can only be worked over a bridge
   for (const p of st.plots) {
-    if (p.state !== 'damaged') continue;
+    if (p.state !== 'damaged' || (p.far && !reach)) continue;
     if (next >= trainedSlots || repaired >= Math.floor(seedStock)) break;
     repairer = slots[next++];
     p.state = 'fallow';
@@ -185,7 +187,7 @@ function spring(st, B, year, say) {
   let ridgeWorker = null;
   let unplanted = 0;
   const first = customValue(st, 'plant');
-  const order = st.plots.filter((p) => p.state === 'fallow').sort((a, b) => (a.elev === b.elev ? a.id - b.id : a.elev === first ? -1 : 1));
+  const order = st.plots.filter((p) => p.state === 'fallow' && (!p.far || reach)).sort((a, b) => (a.elev === b.elev ? a.id - b.id : a.elev === first ? -1 : 1));
   for (const p of order) {
     if (next >= slots.length) break;
     let ridgeSeed = false;
@@ -302,6 +304,21 @@ function summer(st, B, year, say, rand) {
   else if (r < (F.extremeChance + F.majorChance + F.minorChance) * wet * boost) level = 1;
   if (lahar) level = Math.max(level, 2);
   if (rain && level === 0 && isAlive(st)) say(1, 'rain', 'Weeks of heavy rain. The floodplain is waterlogged.');
+
+  // The bridge. High water, floods and mudflows can carry it away.
+  const br = st.bridge;
+  const rb = rand();
+  if (br.built && level > 0) {
+    const kind = BRIDGE[br.built];
+    if (rb < kind.washout[level - 1] || (lahar && br.built !== 'stone')) {
+      const hadCrops = st.plots.some((p) => p.far && p.state === 'planted');
+      br.built = null;
+      br.lostYear = year;
+      br.lost++;
+      if (br.plan === kind.id) br.progress = 0;
+      say(alive ? 3 : 2, 'bridge-lost', `${level === 1 ? 'High water' : lahar ? 'The mudflow' : 'The flood'} carried away the ${kind.name.toLowerCase()}.${alive ? ` The far bank is cut off${hadCrops ? ' with this year\'s crop still standing on it' : ''}.` : ''}`);
+    }
+  }
 
   // Tornado: one elevation is in its path.
   if (rTor < Hz.tornadoChance) {
@@ -433,13 +450,20 @@ function autumn(st, B, year, say, rand) {
   let trainedSeed = 0;
   const low = st.stores.low;
   const ridge = st.stores.ridge;
+  let stranded = 0;
   for (const p of st.plots) {
     if (p.state !== 'planted') continue;
     const noise = 1 + (rand() * 2 - 1) * B.yieldNoise;
+    if (p.far && !st.bridge.built) {
+      p.state = 'fallow';
+      p.stage = null;
+      stranded++;
+      continue;
+    }
     const crop = CROP[p.crop];
     const dry = drought ? 1 - (1 - B.drought[p.elev]) * crop.drought * (1 - droughtSave) : 1;
     const mult = dry * skyMult * (sky.rain && p.elev === 'low' ? Hz.rainLowYield : 1);
-    const f = B.yield[p.elev] * crop.yield * (p.elev === 'ridge' ? terrace : lowBonus) * allBonus * B.stages.yield[st.civ.stage] * mult * noise;
+    const f = B.yield[p.elev] * crop.yield * (p.far ? B.bridge.farYield : 1) * (p.elev === 'ridge' ? terrace : lowBonus) * allBonus * B.stages.yield[st.civ.stage] * mult * noise;
     const s = (p.workerKnows ? B.seedSaved.trained : B.seedSaved.untrained) * Math.min(1, mult + 0.2);
     food += f;
     seed += s;
@@ -463,6 +487,7 @@ function autumn(st, B, year, say, rand) {
   low.seed = Math.min(low.seed, B.seedCap);
   ridge.seed = Math.min(ridge.seed, B.seedCap);
   st.year0.harvest = food;
+  if (stranded && isAlive(st)) say(3, 'stranded', `Cut off: the crop on ${plural(stranded, 'far-bank field')} rotted where it stood, with no way across.`);
   if (n > 0) say(1, 'harvest', `Harvest: ${plural(n, 'field')} brought in, ${seed.toFixed(0)} seed saved.`, { n, food, seed });
   else if (isAlive(st) && st.everPlanted) say(2, 'no-harvest', 'No harvest this year.');
   st.river.level = 0;
@@ -501,6 +526,7 @@ function winter(st, B, year, say, rand) {
       take(low, 'seed'); // nobody to say why seed must be kept, or a village that has agreed to eat it
       if (rule === 'eat') take(ridge, 'seed');
     }
+    if (left > 0 && st.bridge.built) left *= 1 - B.bridge.trade; // grain bought across the river
     const shortage = left / need;
     st.year0.shortage = shortage;
 
@@ -569,18 +595,19 @@ function winter(st, B, year, say, rand) {
       const rn = rand();
       const ri = rand();
       const rw = rand();
-      if (isAlive(st) && roomy() && rn < P.newcomerChance) {
+      const road = st.bridge.built ? B.bridge.newcomers : 1;
+      if (isAlive(st) && roomy() && rn < P.newcomerChance * road) {
         const h = addHousehold(st, uphill, B);
         if (h) {
           const couple = addFamily(st, h, year, rand, B);
           let brought = '';
-          if (ri < P.newcomerIdea) {
+          if (ri < (st.bridge.built ? B.bridge.newcomerIdea : P.newcomerIdea)) {
             const idea = PRACTICES[Math.floor(rw * PRACTICES.length)];
             for (const p of couple) give(p, idea.id, { root: 'newcomer', year, by: h.name });
             brought = `, bringing ${idea.name.toLowerCase()} with them`;
           }
           founded++;
-          say(2, 'newcomers', `${h.name}'s family arrived from downriver and settled${brought}. A new family line.`);
+          say(2, 'newcomers', `${h.name}'s family arrived ${st.bridge.built ? 'over the bridge' : 'from downriver'} and settled${brought}. A new family line.`);
         }
       }
       if (founded) {
@@ -601,6 +628,7 @@ function winter(st, B, year, say, rand) {
         say(2, 'custom-drift', `An old custom has slipped. ${c.name}: now "${c.options[st.customs[c.id]].label}".`);
       }
 
+      buildBridge(st, B, year, say, rand, shortage);
       grow(st, B, year, say, shortage);
       adapt(st, B, year, say, rand);
     }
@@ -629,6 +657,42 @@ function winter(st, B, year, say, rand) {
   st.floodMemory *= B.flood.memoryDecay;
   const C = B.climate;
   st.river.wet = Math.max(C.min, Math.min(C.max, st.river.wet + (1 - st.river.wet) * C.revert + (rand() - 0.5) * C.drift));
+}
+
+// One winter's work on the planned bridge, and the slow rot of the one that stands.
+function buildBridge(st, B, year, say, rand, shortage) {
+  const br = st.bridge;
+  const rr = rand();
+  if (br.built && rr < BRIDGE[br.built].rot && br.plan === br.built) {
+    // Kept up while it is still the plan; otherwise it is left to go.
+  } else if (br.built && rr < BRIDGE[br.built].rot) {
+    const name = BRIDGE[br.built].name.toLowerCase();
+    br.built = null;
+    br.lostYear = year;
+    br.lost++;
+    say(3, 'bridge-lost', `Nobody kept it up: the ${name} has fallen into the river. The far bank is cut off.`);
+  }
+  if (!br.plan || br.plan === br.built) return;
+  const kind = BRIDGE[br.plan];
+  const food = st.stores.low.food + st.stores.ridge.food;
+  const adults = st.households.reduce((n, h) => n + h.adults, 0);
+  const knows = !kind.needs || st.households.some((h) => h.ideas[kind.needs]);
+  if (shortage > 0.001 || food < kind.food + st.households.length || adults < B.bridge.hands + 2 || !knows) {
+    if (!knows && !br.stalled) say(2, 'bridge-stalled', `Work on the ${kind.name.toLowerCase()} has stopped: nobody left knows ${IDEA[kind.needs].name.toLowerCase()}.`);
+    br.stalled = !knows;
+    return;
+  }
+  br.stalled = false;
+  const a = Math.min(kind.food, st.stores.low.food);
+  st.stores.low.food -= a;
+  st.stores.ridge.food -= kind.food - a;
+  br.progress++;
+  if (br.progress >= kind.years) {
+    br.built = kind.id;
+    br.builtYear = year;
+    br.progress = 0;
+    say(3, 'bridge', `The ${kind.name.toLowerCase()} is finished${kind.years > 1 ? ` after ${kind.years} years of work` : ''}. The far bank can be farmed, and the road downriver is open.`);
+  } else if (br.progress === 1 && kind.years > 1) say(2, 'bridge-start', `Work has begun on the ${kind.name.toLowerCase()}: ${kind.years} years, if the winters stay fed.`);
 }
 
 // Settlement stages: Hamlet -> Village -> Town -> City -> the Hold.
@@ -684,7 +748,7 @@ function adapt(st, B, year, say, rand) {
   const H = st.households.length;
   const seed = st.stores.low.seed + st.stores.ridge.seed;
   const food = st.stores.low.food + st.stores.ridge.food;
-  const free = (elev) => st.plots.find((p) => p.elev === elev && (p.state === 'wild' || p.state === 'overgrown'));
+  const free = (elev) => st.plots.find((p) => p.elev === elev && (!p.far || st.bridge.built) && (p.state === 'wild' || p.state === 'overgrown'));
   const hands = st.households.reduce((a, h) => a + h.adults, 0) * B.people.plotsPerAdult;
   const pace = customValue(st, 'pace');
   const ridgeShare = customValue(st, 'fields');
@@ -781,6 +845,7 @@ export function canBuildPlot(st, id) {
 }
 export function buildPlot(st, id, by, B = BALANCE) {
   if (!canBuildPlot(st, id)) return { ok: false, text: 'Nothing to clear here.' };
+  if (st.plots[id].far && !st.bridge.built) return { ok: false, text: 'There is no way across the river.' };
   if (!pay(st, 'build', B)) return HUNGRY;
   const p = st.plots[id];
   const year = yearOf(st);
@@ -866,6 +931,18 @@ export function moveHousehold(st, hid, slotId, by, B = BALANCE) {
   h.house = slot.id;
   record(st, 'move-house', by, { hid, slot: slotId });
   return { ok: true, text: `${h.name}'s household moved to ${slot.elev === 'ridge' ? 'the ridge' : 'the riverside'}.` };
+}
+export function planBridge(st, type, by) {
+  const br = st.bridge;
+  if (type !== null && !BRIDGE[type]) return { ok: false, text: 'No such bridge.' };
+  if (br.plan === type) return { ok: false, text: 'That is already the plan.' };
+  br.plan = type;
+  br.progress = 0;
+  br.stalled = false;
+  record(st, 'plan-bridge', by, { bridge: type });
+  if (type === null) return { ok: true, text: br.built ? 'No bridge is planned. The one that stands will not be kept up.' : 'No bridge is planned.' };
+  const k = BRIDGE[type];
+  return { ok: true, text: `Planned: a ${k.name.toLowerCase()}. The village will work on it each fed winter: ${k.years} year${k.years > 1 ? 's' : ''}, ${k.food} food a year.` };
 }
 export { membersOf, person };
 // Free decisions: they cost nothing but the thought.

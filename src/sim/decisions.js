@@ -65,6 +65,15 @@ export const CROPS = [
 ];
 export const CROP = Object.fromEntries(CROPS.map((c) => [c.id, c]));
 
+// Bridges: planned by the god, built by the village over years of fed winters. `washout` is the
+// chance each kind is carried away by high water, a flood, and a great flood.
+export const BRIDGES = [
+  { id: 'rope', name: 'Footbridge', years: 1, food: 2, washout: [0.5, 1, 1], rot: 0.08, does: 'Rope and planks. Up in a year. Any high water may take it, and a real flood will.' },
+  { id: 'timber', name: 'Timber bridge', years: 6, food: 2, washout: [0.03, 0.5, 1], rot: 0.01, does: 'Trestles driven into the bed. Six years of work. Stands through high water; a flood takes it half the time.' },
+  { id: 'stone', name: 'Stone bridge', years: 25, food: 3, washout: [0, 0.04, 0.4], rot: 0, needs: 'stone', does: 'Arches on stone piers. Twenty-five years, and only while somebody knows building in stone. Almost nothing moves it.' },
+];
+export const BRIDGE = Object.fromEntries(BRIDGES.map((b) => [b.id, b]));
+
 export const defaultCustoms = () => Object.fromEntries(CUSTOMS.map((c) => [c.id, c.base]));
 export const customValue = (st, id) => CUSTOM[id].options[st.customs[id]].v;
 export const holds = (h, id) => !!h.ideas[id];

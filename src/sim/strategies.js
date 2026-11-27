@@ -1,9 +1,10 @@
 // Scripted players for headless balance runs. They use the same action functions as the game
 // and obey the same budget: three work actions per visit.
 import { BALANCE } from './balance.js';
+import { planBridge } from './sim.js';
 import { buildPlot, repairPlot, buildRidgeStore, carrySeedUphill, demonstrate, canBuildPlot, knowers } from './sim.js';
 
-const freePlot = (st, elev) => st.plots.find((p) => p.elev === elev && canBuildPlot(st, p.id));
+const freePlot = (st, elev) => st.plots.find((p) => (elev === 'far' ? p.far : p.elev === elev && !p.far) && canBuildPlot(st, p.id));
 const damaged = (st, elev) => st.plots.find((p) => p.state === 'damaged' && (!elev || p.elev === elev));
 const teach = (st) => {
   const t = st.households.find((h) => h.knows);
@@ -37,6 +38,9 @@ export const STRATEGIES = {
     visit === 0
       ? [(s) => build(s, 'low'), (s) => build(s, 'ridge'), store]
       : [(s) => knowers(s) < 3 && teach(s), store, carry, ...['marks', 'dry', 'terrace', 'stone', 'watch'].map((id) => (s) => show(s, id)), (s) => build(s, 'ridge'), fix],
+  'practices + footbridge': (st, visit) => (visit === 0 && planBridge(st, 'rope', 'player'), STRATEGIES['mixed + store + practices'](st, visit).concat([(s) => s.bridge.built && build(s, 'far')])),
+  'practices + timber bridge': (st, visit) => (visit === 0 && planBridge(st, 'timber', 'player'), STRATEGIES['mixed + store + practices'](st, visit).concat([(s) => s.bridge.built && build(s, 'far')])),
+  'practices + stone bridge': (st, visit) => (visit === 0 && planBridge(st, 'timber', 'player'), visit === 2 && planBridge(st, 'stone', 'player'), STRATEGIES['mixed + store + practices'](st, visit).concat([(s) => s.bridge.built && build(s, 'far')])),
   'mixed + ridge seed store': (st, visit) =>
     visit === 0
       ? [(s) => build(s, 'low'), (s) => build(s, 'ridge'), store]

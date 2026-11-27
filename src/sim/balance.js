@@ -44,6 +44,15 @@ export const BALANCE = {
     moveCost: 2, // food to move a household to another house
   },
 
+  // What a standing bridge is worth.
+  bridge: {
+    farYield: 1.1, // far-bank soil has never been worked
+    newcomers: 2.5, // families arrive this much more often over a bridge
+    newcomerIdea: 0.6, // and more often bring an idea
+    trade: 0.3, // share of a winter shortage made up by trading across the river
+    hands: 2, // grown people a building year needs free
+  },
+
   // Farms
   yield: { low: 3.0, ridge: 1.7 },
   yieldNoise: 0.2,

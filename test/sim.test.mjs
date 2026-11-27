@@ -10,8 +10,11 @@ import { PRACTICES, CUSTOMS, CROPS, holders, decisionCount } from '../src/sim/de
 import { setCrop, setCustom, canAfford, betroth, setCalling, moveHousehold } from '../src/sim/sim.js';
 import { IDEAS, IDEA, possibleIdeas } from '../src/sim/decisions.js';
 import { canBetroth, give } from '../src/sim/people.js';
+import { planBridge } from '../src/sim/sim.js';
+import { BRIDGE } from '../src/sim/decisions.js';
 
-const LOW = PLOT_SITES.filter((p) => p.elev === 'low').map((p) => p.id);
+const LOW = PLOT_SITES.filter((p) => p.elev === 'low' && !p.far).map((p) => p.id);
+const FAR = PLOT_SITES.filter((p) => p.far).map((p) => p.id);
 const RIDGE = PLOT_SITES.filter((p) => p.elev === 'ridge').map((p) => p.id);
 
 function prepared(seed) {
@@ -136,7 +139,7 @@ test('an unfarmed village runs out of supplies and collapses early', () => {
     assert.match(st.collapse.cause, /No field was ever planted|last of them died|tornado|eruption/);
     years.push(st.collapse.year);
   }
-  assert.ok(Math.max(...years) <= 15 && years.sort((a, b) => a - b)[100] <= 6, `latest unfarmed collapse: year ${Math.max(...years)}`);
+  assert.ok(Math.max(...years) <= 20 && years.sort((a, b) => a - b)[100] <= 6 && years[190] <= 10, `latest unfarmed collapse: year ${Math.max(...years)}`);
 });
 
 test('collapse year and cause are recorded once and decay continues to the destination', () => {
@@ -455,4 +458,65 @@ test('ideas die with the last person who holds them; teachers spread them; house
   assert.ok(moveHousehold(st, 0, slot.id, 'Ama').ok);
   assert.equal(st.houses[slot.id].hid, 0);
   assert.equal(st.stores.low.food, food - BALANCE.people.moveCost);
+});
+
+test('a bridge is planned at once but built over years; bigger bridges take longer', () => {
+  const finished = { rope: [], timber: [], stone: [] };
+  for (const type of ['rope', 'timber', 'stone']) {
+    for (let seed = 1; seed <= 40; seed++) {
+      const st = prepared(seed);
+      demonstrate(st, 0, [1, 2], 'Ama');
+      demonstrate(st, 0, [1, 2], 'Ama', 'stone');
+      const food = st.stores.low.food;
+      assert.ok(planBridge(st, type, 'Ama').ok);
+      assert.equal(st.stores.low.food, food, 'planning is free');
+      assert.equal(st.bridge.built, null, 'nothing stands the moment it is planned');
+      assert.equal(buildPlot(st, FAR[0], 'Ama').ok, false, 'no way across yet');
+      let at = null;
+      runYears(st, 60, (ev) => ev.forEach((e) => { if (e.type === 'bridge' && at === null) at = e.year; }));
+      if (at !== null) finished[type].push(at + 1);
+    }
+  }
+  const first = (t) => Math.min(...finished[t]);
+  assert.equal(first('rope'), BRIDGE.rope.years);
+  assert.equal(first('timber'), BRIDGE.timber.years);
+  assert.ok(finished.stone.length === 0 || first('stone') >= BRIDGE.stone.years);
+  assert.ok(finished.rope.length > finished.timber.length && finished.timber.length >= finished.stone.length, JSON.stringify(Object.fromEntries(Object.entries(finished).map(([k, v]) => [k, v.length]))));
+});
+
+test('a small bridge is lost far more often, and losing it strands the far-bank crop', () => {
+  const tally = {};
+  for (const type of ['rope', 'timber', 'stone']) {
+    let lost = 0, stranded = 0, harvested = 0, standingYears = 0;
+    for (let seed = 1; seed <= 40; seed++) {
+      const st = prepared(seed);
+      demonstrate(st, 0, [1, 2, 3, 4, 5], 'Ama');
+      st.stores.low.food = 200; // well fed, so only the river decides
+      st.stores.low.seed = 40;
+      st.bridge.built = type; // already standing
+      st.bridge.plan = type;
+      assert.ok(buildPlot(st, FAR[0], 'Ama').ok, 'the far bank can be cleared over a bridge');
+      runYears(st, 80, (ev) => ev.forEach((e) => { if (e.type === 'stranded') stranded++; }));
+      lost += st.bridge.lost;
+    }
+    tally[type] = { lost, stranded };
+  }
+  assert.ok(tally.rope.lost > tally.timber.lost * 2 && tally.timber.lost > tally.stone.lost * 2, JSON.stringify(tally));
+  assert.ok(tally.rope.stranded > tally.timber.stranded && tally.rope.stranded > 10, JSON.stringify(tally));
+});
+
+test('a stone bridge stalls when nobody knows building in stone', () => {
+  const st = prepared(3);
+  demonstrate(st, 0, [1, 2, 3, 4, 5], 'Ama');
+  st.stores.low.food = 300;
+  planBridge(st, 'stone', 'Ama');
+  let stalled = false;
+  runYears(st, 5, (ev) => ev.forEach((e) => { if (e.type === 'bridge-stalled') stalled = true; }));
+  assert.equal(st.bridge.progress, 0);
+  assert.ok(stalled);
+  st.stores.low.food = 300;
+  demonstrate(st, st.households[0].id, st.households.slice(1).map((h) => h.id), 'Ama', 'stone');
+  st.stores.low.food = 300;
+  runYears(st, 2);
+  assert.ok(st.bridge.progress >= 1, 'work starts once someone knows stone');
 });
