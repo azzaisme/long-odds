@@ -141,11 +141,22 @@ Real key presses throughout, no console errors in any run.
   set forty years on, the burying ground, shrine and flood stone each showed and their cards
   read correctly; a fish jump and a flock of birds both triggered. Looked at: the night village
   and the burying ground on the hill.
+- **Sunset.** Looked at the village at dusk, the burying ground at dusk, and the ruins (two
+  views): banded maroon-to-gold sky with the glow on the horizon, the sun low over the range,
+  far mountains in rose haze, black land and foreground, lit windows, the god lit. Logged: dusk
+  0.00 by day, 0.90 at the day's sunset, back to 0.00 at night; no console errors. Got there in
+  four passes: the haze first did nothing (the engine measures it as a share of the camera's
+  depth range under an orthographic camera, not in pixels), then washed the whole land pink,
+  then the ground was taken out of the haze and the sky's warm end raised to the horizon.
 - **Bridges.** Planned a footbridge at the crossing; walking stopped at the bank with no
   bridge; after a 1-year jump the footbridge stood; walked across on the deck and cleared a
   far-bank field.
 
 ## Not covered
+
+- For the sunset: the title screen at sunset and the collapse verdict at sunset were not looked
+  at, and the sun was lowered slightly after the last screenshot (build-tested only). The fade
+  in and out of sunset was logged as numbers, not watched.
 
 - For the lived-in valley: the later state (graves, shrine, flood stone) was set by hand, not
   reached by playing. The dusk and plain-day frames, the shrine and flood stone up close, the

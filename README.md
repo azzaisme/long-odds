@@ -87,8 +87,13 @@ crops and bridge plans cost nothing to set.
   stone by the bank carries a notch for each flood in living memory. A shrine to "the blue one"
   appears after your first visit: tended with grain and a candle in a fed year, bare in a
   hungry one, worn smooth if nobody is left.
-- **The day turns.** While you are in the valley dusk comes, then night with lamplit windows,
-  stars and fireflies, then dawn. Birds cross the sky by day and fish jump in the river.
+- **The day turns.** While you are in the valley sunset comes, then night with lamplit windows,
+  stars and fireflies, then dawn.
+- **Sunset.** The sky goes from deep maroon overhead through red and orange to a pale glow on
+  the horizon, with a low sun. Everything turns to silhouette by distance: the far mountains
+  fade into dusty rose haze, nearer things darken, the land and a foreground of grass and
+  markers go black, and windows light. The god is the one lit figure. The title screen and the
+  ruins of a village that did not last are always seen this way. Birds cross the sky by day and fish jump in the river.
 - **Sound.** Birdsong by day, crickets at night, and a slow tune of single notes.
 - **Who is left.** Each arrival report lists which family lines still have living descendants
   and which have ended.

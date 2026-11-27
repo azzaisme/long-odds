@@ -851,7 +851,7 @@ export class Game {
     } else {
       this.view.clearActors();
       this.view.addActor(-1, 'god', x);
-      this.view.setTint(0.55, 0.6, 0.75, 0.14);
+      this.view.setTint(1, 1, 1, 0);
       const n = st.collapse.year;
       this.verdict = { t: 0, said: false, line: n < 1 ? 'Nope. Not like that. They didn’t even make it a year.' : `Nope. Not like that. They only made it ${n0(n)} year${n === 1 ? '' : 's'}.` };
     }
@@ -903,7 +903,7 @@ export class Game {
       $('speech').hidden = true;
       if (!this.view.actors.get(-1)) this.view.addActor(-1, 'god', 560);
       this.setState(S.RUINS);
-      this.view.setTint(0.55, 0.6, 0.75, 0.14);
+      this.view.setTint(1, 1, 1, 0);
       $('ruinbar').innerHTML = `<span><b>Year ${n0(Sim.yearOf(st))}. ${n0(st.collapse.year)} years survived.</b> ${esc(st.collapse.cause)} Walk the ruins; <kbd>E</kbd> reads what is left.</span><button class="primary" data-act="retry">Try again</button>`;
     }
   }
@@ -1097,6 +1097,9 @@ export class Game {
     const s = this.state;
     const cam = view.cam;
     const opts = { showFloodLine: s === S.VISIT || s === S.PLANNING };
+    // The title, and the ruins of a village that did not last, are seen at sunset.
+    if (s === S.TITLE || s === S.RUINS || (s === S.ARRIVAL && !Sim.isAlive(st))) opts.dusk = 1;
+    if (s === S.PLANNING) opts.ambient = true;
     if (this.toastT > 0 && (this.toastT -= dt) <= 0) $('toast').hidden = true;
 
     if (s === S.VISIT || s === S.RUINS || s === S.RESULTS) {

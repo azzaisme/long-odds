@@ -21,23 +21,24 @@ export class View {
       const tex = new pc.Texture(app.graphicsDevice, {
         width: c.width, height: c.height, format: pc.PIXELFORMAT_RGBA8, mipmaps: false,
         minFilter: pc.FILTER_NEAREST, magFilter: pc.FILTER_NEAREST,
-        addressU: name.startsWith('water') || name === 'foam' ? pc.ADDRESS_REPEAT : pc.ADDRESS_CLAMP_TO_EDGE,
+        addressU: name.startsWith('water') || name === 'foam' || name === 'fore' ? pc.ADDRESS_REPEAT : pc.ADDRESS_CLAMP_TO_EDGE,
         addressV: pc.ADDRESS_CLAMP_TO_EDGE,
       });
       tex.setSource(c);
       const m = new pc.StandardMaterial();
       m.useLighting = false;
       m.useSkybox = false;
-      m.useFog = false;
+      // Distance haze at dusk falls on the world, not on light, sky or the god.
+      m.useFog = !/^(sky|sky_dusk|sun|fore|terrain|glow|beam|aura|white|ember|spark|rain|ashflake|smoke|marker|marker_dim|seed|foam|god_.*)$/.test(name);
       m.diffuse = new pc.Color(0, 0, 0);
       m.emissive = new pc.Color(1, 1, 1);
       m.emissiveMap = tex;
       m.opacityMap = tex;
       m.opacityMapChannel = 'a';
       m.cull = pc.CULLFACE_NONE;
-      if (name === 'beam' || name === 'aura' || name === 'foam' || name === 'glow' || name.startsWith('water') || name === 'smoke' || name === 'floodline' || name === 'cloud') {
+      if (name === 'beam' || name === 'aura' || name === 'foam' || name === 'glow' || name === 'sky_dusk' || name === 'sun' || name === 'fore' || name.startsWith('water') || name === 'smoke' || name === 'floodline' || name === 'cloud') {
         m.blendType = pc.BLEND_NORMAL;
-        m.opacity = name === 'glow' ? 0 : name === 'beam' ? 0.85 : name === 'aura' ? 0.55 : name.startsWith('water') ? 0.72 : name === 'cloud' ? 0.8 : 0.6;
+        m.opacity = name === 'glow' || name === 'sky_dusk' || name === 'sun' || name === 'fore' ? 0 : name === 'beam' ? 0.85 : name === 'aura' ? 0.55 : name.startsWith('water') ? 0.72 : name === 'cloud' ? 0.8 : 0.6;
         m.depthWrite = false;
       } else m.alphaTest = 0.5;
       m.update();
@@ -95,6 +96,23 @@ export class View {
 
   build() {
     this.sky = this.sprite('sky', 0, 0, Z.sky);
+    // Sunset: a second sky laid over the first, a low sun, haze by distance, and a black foreground.
+    this.skyDusk = this.sprite('sky_dusk', 0, 0, Z.sky + 0.5);
+    this.sun = this.sprite('sun', 0, 0, -56);
+    this.fore = this.sprite('fore', 0, 0, 7);
+    this.skyDusk.enabled = this.sun.enabled = this.fore.enabled = false;
+    const fog = this.app.scene.fog;
+    fog.type = pc.FOG_LINEAR;
+    fog.color = new pc.Color(0.72, 0.42, 0.44); // dusty rose: what far things fade into
+    // With an orthographic camera the haze works on depth as a share of the camera's range
+    // (near 1, far 400), not on distance in pixels: `hz` converts.
+    this.hz = (dist) => (dist - 1) / 399;
+    fog.start = this.hz(107); // just behind the people, fields and graves, which stay dark
+    fog.end = 1e7;
+    this.dusk = 0;
+    this.duskApplied = -1;
+    this.duskT = [1, 1, 1];
+    this.hazeMats = Object.entries(this.mats).filter(([n, m]) => (m.useFog || n === 'terrain') && !n.startsWith('water')).map(([, m]) => m);
     this.far = this.sprite('far', 0, 0, Z.far);
     this.mid = this.sprite('mid', 0, 0, Z.mid);
     this.volcano = this.sprite('volcano', 0, 0, Z.volcano);
@@ -578,6 +596,44 @@ export class View {
     this.sky._sy = 1;
     this.sky.setLocalScale(vw + 4, 1, vh + 4);
     this.sky.setLocalPosition(cx, cy, Z.sky);
+    // Sunset. `opts.dusk` forces it (title, ruins); otherwise the day's own dusk drives it.
+    const wantDusk = opts.dusk !== undefined ? opts.dusk : opts.ambient ? this.duskOfDay || 0 : 0;
+    this.dusk += (wantDusk - this.dusk) * (1 - Math.exp(-dt * (opts.camSnap ? 50 : 1.6)));
+    const d = this.dusk < 0.004 ? 0 : this.dusk;
+    if (Math.abs(d - this.duskApplied) > 0.008 || (d === 0) !== (this.duskApplied === 0)) {
+      this.duskApplied = d;
+      // Near things darken toward silhouette; far things are lost in the haze.
+      this.duskT = [1 - 0.86 * d, 1 - 0.93 * d, 1 - 0.88 * d];
+      this.app.scene.fog.end = d > 0 ? this.hz(107 + 72 / d) : 1e7;
+      for (const m of this.hazeMats) {
+        m.emissive.set(this.duskT[0], this.duskT[1], this.duskT[2]);
+        m.update();
+      }
+      for (const [name, e] of [['sky_dusk', this.skyDusk], ['sun', this.sun], ['fore', this.fore]]) {
+        e.enabled = d > 0;
+        this.mats[name].opacity = d;
+        this.mats[name].update();
+      }
+    }
+    if (d > 0) {
+      // The warm end of the dusk sky sits on the horizon, just above the hills, not at the bottom
+      // of the frame where the land would hide it.
+      const horizon = 56;
+      const skyTop = cy + vh / 2 + 2;
+      this.skyDusk.setLocalScale(vw + 4, 1, Math.max(8, skyTop - horizon));
+      this.skyDusk.setLocalPosition(cx, (skyTop + horizon) / 2, Z.sky + 0.5);
+      // Low over the far range, off to one side of the mountain.
+      this.sun.setLocalPosition(Math.round(cx + vw * 0.22), Math.round(Math.min(152, cy + vh * 0.34)), -56);
+      const fh = 44;
+      this.fore.setLocalScale(vw + 4, 1, fh);
+      this.fore.setLocalPosition(cx, cy - vh / 2 + fh / 2 - 2, 7);
+      const fm = this.mats.fore;
+      fm.emissiveMapTiling = new pc.Vec2((vw + 4) / 512, 1);
+      fm.opacityMapTiling = fm.emissiveMapTiling;
+      fm.emissiveMapOffset = new pc.Vec2((((cx * 1.3) / 512) % 1 + 1) % 1, 0); // nearer than the world: it slides faster
+      fm.opacityMapOffset = fm.emissiveMapOffset;
+      fm.update();
+    }
     this.far.setLocalPosition(snap(800 + (cx - 800) * 0.82), 96, Z.far);
     this.mid.setLocalPosition(snap(800 + (cx - 800) * 0.6), 52, Z.mid);
     const vx = snap(700 + (cx - 800) * 0.88);
@@ -656,7 +712,7 @@ export class View {
     const upper = spilled ? (top - riverTop) / depthAll : 0; // share of the depth that lies over the land
     for (const m of [this.mats.water0, this.mats.water1]) {
       tile(m, rEdge - rLeft, rLeft, upper, 1 - upper);
-      m.emissive.set(1 - 0.1 * murk, 1 - 0.2 * murk, 1 - 0.42 * murk);
+      m.emissive.set((1 - 0.1 * murk) * this.duskT[0], (1 - 0.2 * murk) * this.duskT[1], (1 - 0.42 * murk) * this.duskT[2]);
       m.update();
     }
     this.floodEnt.enabled = spilled;
@@ -668,7 +724,7 @@ export class View {
       this.floodEnt.setLocalPosition((right + left) / 2, riverTop + (top - riverTop) / 2, Z.water + 0.2);
       for (const m of [this.mats.sheet0, this.mats.sheet1]) {
         tile(m, width, left, 0, upper);
-        m.emissive.set(1 - 0.1 * murk, 1 - 0.2 * murk, 1 - 0.42 * murk);
+        m.emissive.set((1 - 0.1 * murk) * this.duskT[0], (1 - 0.2 * murk) * this.duskT[1], (1 - 0.42 * murk) * this.duskT[2]);
         m.update();
       }
       this.foamEnt.setLocalScale(width, 1, 3);
@@ -742,26 +798,27 @@ export class View {
       this.dayT = (this.dayT + dt / 170) % 1;
       const t = this.dayT;
       const ramp = (a, b) => Math.max(0, Math.min(1, (t - a) / (b - a)));
-      const dusk = ramp(0.46, 0.56) * (1 - ramp(0.58, 0.66));
-      const night = ramp(0.56, 0.66) * (1 - ramp(0.9, 0.98));
+      const dusk = ramp(0.38, 0.47) * (1 - ramp(0.6, 0.68));
+      const night = ramp(0.62, 0.7) * (1 - ramp(0.9, 0.98));
+      this.duskOfDay = dusk * 0.9;
       const dawn = ramp(0.9, 0.96) * (1 - ramp(0.97, 1));
       this.night = night;
-      const a = Math.max(dusk * 0.2, night * 0.5, dawn * 0.16);
-      const mix = night > 0.05 ? [0.06 + 0.5 * (1 - night), 0.09 + 0.3 * (1 - night), 0.24] : dawn > dusk ? [1, 0.6, 0.6] : [1, 0.55, 0.25];
+      const a = Math.max(night * 0.5, dawn * 0.16);
+      const mix = night > 0.05 ? [0.06 + 0.5 * (1 - night), 0.09 + 0.3 * (1 - night), 0.24] : [1, 0.6, 0.6];
       this.setTint(mix[0], mix[1], mix[2], a);
     } else this.night = 0;
-    const lamp = this.night;
+    const lamp = Math.max(this.night, this.dusk * 0.95); // lamps are lit at sunset too
     this.mats.glow.opacity = 0.85 * lamp;
     this.mats.glow.update();
     this.glows.forEach((e, i) => (e.enabled = lamp > 0.05 && !!(this.homes && this.homes[i])));
     for (const sStar of this.stars) {
-      sStar.e.enabled = lamp > 0.35;
-      if (lamp > 0.35) sStar.e.setLocalPosition(Math.round(this.viewRect.x0 + sStar.u * vw), Math.round(this.viewRect.y1 - sStar.v * vh), -58);
+      sStar.e.enabled = this.night > 0.35;
+      if (this.night > 0.35) sStar.e.setLocalPosition(Math.round(this.viewRect.x0 + sStar.u * vw), Math.round(this.viewRect.y1 - sStar.v * vh), -58);
     }
-    if (lamp > 0.5 && vrand() < 0.2) this.emit('firefly', this.viewRect.x0 + vrand() * vw, groundHeight(Math.max(WORLD.x0, Math.min(WORLD.x1 - 1, this.viewRect.x0 + vw / 2))) + 4 + vrand() * 26);
+    if (this.night > 0.5 && vrand() < 0.2) this.emit('firefly', this.viewRect.x0 + vrand() * vw, groundHeight(Math.max(WORLD.x0, Math.min(WORLD.x1 - 1, this.viewRect.x0 + vw / 2))) + 4 + vrand() * 26);
     // Birds cross the sky by day.
     this.flockT -= dt;
-    if (!this.flock && this.flockT <= 0 && lamp < 0.2 && opts.ambient) {
+    if (!this.flock && this.flockT <= 0 && this.night < 0.2 && opts.ambient) {
       const dir = vrand() < 0.5 ? 1 : -1;
       this.flock = { x: dir > 0 ? this.viewRect.x0 - 20 : this.viewRect.x1 + 80, y: cy + vh * (0.12 + vrand() * 0.2), dir, n: 2 + Math.floor(vrand() * 4) };
     }
