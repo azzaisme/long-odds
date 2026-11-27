@@ -218,6 +218,28 @@ All of these are rolled in the simulation each summer, with the same rules at ev
 The Hold shelters its households from tornadoes and from most of a severe eruption. The volcano
 stands behind the valley in the backdrop; it smokes while it is waking and shows lava afterwards.
 
+## Art
+
+The sprites are painted in [klad](https://github.com/klad-app/klad), a painting app with a
+command line an agent can paint through. Nothing of klad itself is in this repository.
+
+- `art/sprites/<name>.klad` — one pixel drawing per sprite (a folder of ordinary files). Open
+  one in the klad editor to repaint it by hand.
+- `art/palette.gpl` — the shared palette. Every pixel is bound to a named colour in it.
+- `art/paint/<group>.sh` — the scripts that painted the drawings; running one recreates its
+  drawings from nothing.
+- `art/manifest/<group>.txt` — which drawing, frame and palette variant becomes which sprite in
+  the game. The eight villager shirt colours are palette variants of one drawing.
+- `bash art/export.sh` — exports every listed sprite at real size to `src/assets/sprites/`,
+  which is what the game loads. Run it after changing a drawing; it needs `klad` on the path.
+- `python3 art/sheet.py out.png 8 god villager:1 house_home` — a contact sheet for judging
+  sprites side by side on the game's sky and grass colours.
+- `art/BRIEF.md` — the style and the rules sprites must keep (sizes, anchoring, palette).
+
+A sprite with a PNG in `src/assets/sprites/` replaces the code-drawn one of the same name in
+`src/game/sprites.js`. The terrain, flood line and two-pixel particles are still drawn in code:
+the terrain has to follow the simulation's ground profile exactly.
+
 ## Publishing to itch.io
 
 Branch rule: every branch is merged into `testing`, only `testing` is merged into `main`, and
@@ -269,7 +291,8 @@ src/sim/strategies.js  scripted players for headless runs
 src/sim/world.js       the valley: terrain profile, field and house sites
 src/game/game.js       controller states: title, visit, planning, playback, arrival, ruins, results
 src/game/view.js       PlayCanvas scene: orthographic camera, parallax, sprites, water, weather
-src/game/sprites.js    procedural pixel art (all original)
+src/game/sprites.js    loads the painted sprites; code-drawn terrain, particles and fallbacks
+art/                   the klad drawings, palette, paint scripts and export
 src/game/audio.js      synthesised sound (all original)
 tools/headless.mjs     many-seed balance report
 test/sim.test.mjs      acceptance tests
