@@ -4,7 +4,7 @@ import { buildSprites, SHIRTS } from './sprites.js';
 import { WORLD, PLOT_SITES, HOUSE_SLOTS, groundHeight, waterEdge } from '../sim/world.js';
 import { yearOf } from '../sim/sim.js';
 
-const Z = { civic: -17, sky: -60, far: -50, cloud: -45, mid: -40, tree: -22, terrain: -20, house: -14, store: -12, plot: -8, growth: -7, actor: -4, badge: -3, water: 2, fx: 4, tint: 8 };
+const Z = { volcano: -52, civic: -17, sky: -60, far: -50, cloud: -45, mid: -40, tree: -22, terrain: -20, house: -14, store: -12, plot: -8, growth: -7, actor: -4, badge: -3, water: 2, fx: 4, tint: 8 };
 const vrand = Math.random; // visual-only randomness
 
 export class View {
@@ -98,6 +98,13 @@ export class View {
     this.sky = this.sprite('sky', 0, 0, Z.sky);
     this.far = this.sprite('far', 0, 0, Z.far);
     this.mid = this.sprite('mid', 0, 0, Z.mid);
+    this.volcano = this.sprite('volcano', 0, 0, Z.volcano);
+    this.slideEnt = this.sprite('slide', 868, 16, Z.plot - 1);
+    this.slideEnt.enabled = false;
+    this.funnel = this.sprite('funnel', 0, 0, Z.fx - 1);
+    this.funnel.enabled = false;
+    this.twister = null;
+    this.shake = 0;
     this.clouds = [0, 1, 2, 3, 4].map((i) => {
       const c = this.sprite('cloud', i * 420 + 100, 150 + (i % 3) * 38, Z.cloud);
       c._x = i * 420 + 100;
@@ -149,7 +156,7 @@ export class View {
     this.app.root.addChild(t);
 
     this.pool = [];
-    for (let i = 0; i < 110; i++) {
+    for (let i = 0; i < 240; i++) {
       const p = this.sprite('white', 0, -500, Z.fx);
       p.enabled = false;
       this.pool.push(p);
@@ -198,6 +205,11 @@ export class View {
         }
       }
     }
+    const sky = st.sky;
+    this.volcanoHot = sky.ash > 0 || (sky.lastEruption && year - sky.lastEruption.year < 6);
+    this.volcanoSmoke = sky.rumble > 0 ? 1 : sky.ash > 0 ? 2 : 0;
+    this.setTex(this.volcano, this.volcanoHot ? 'volcano_hot' : 'volcano');
+    this.slideEnt.enabled = !!sky.lastSlide && year - sky.lastSlide.year < 30;
     const line = st.river.floods.reduce((m, f) => Math.max(m, f.level), 0);
     this.floodLevel = line;
   }
@@ -312,6 +324,10 @@ export class View {
       const f = { e, kind, x, y, vx: 0, vy: 0, life: 1, age: 0 };
       if (kind === 'snow') Object.assign(f, { vx: -6 + vrand() * 12, vy: -18 - vrand() * 14, life: 6, tex: 'white' });
       else if (kind === 'rain') Object.assign(f, { vx: -30, vy: -190, life: 1.6, tex: 'rain' });
+      else if (kind === 'ash') Object.assign(f, { vx: -10 + vrand() * 8, vy: -26 - vrand() * 16, life: 7, tex: 'ashflake' });
+      else if (kind === 'plume') Object.assign(f, { x: x + vrand() * 14 - 7, vx: 5 + vrand() * 6, vy: 10 + vrand() * 8, life: 6, tex: vrand() < 0.5 ? 'ashflake' : 'smoke' });
+      else if (kind === 'lava') Object.assign(f, { x: x + vrand() * 10 - 5, vx: vrand() * 70 - 35, vy: 50 + vrand() * 70, life: 2.4, tex: 'ember', g: -60 });
+      else if (kind === 'debris') Object.assign(f, { vx: vrand() * 120 - 60, vy: 20 + vrand() * 90, life: 1.2, tex: vrand() < 0.5 ? 'ashflake' : 'smoke', g: -120 });
       else if (kind === 'smoke') Object.assign(f, { vx: 3 + vrand() * 3, vy: 8 + vrand() * 4, life: 2.6, tex: 'smoke' });
       else if (kind === 'dust') Object.assign(f, { x: x + vrand() * 30 - 15, vx: vrand() * 30 - 15, vy: 18 + vrand() * 25, life: 0.7, tex: 'smoke', g: -80 });
       else if (kind === 'seed') Object.assign(f, { x: x + vrand() * 16 - 8, vx: vrand() * 40 - 20, vy: 30 + vrand() * 30, life: 1.1, tex: 'seed', g: -90 });
@@ -321,6 +337,7 @@ export class View {
   }
   updateFx(dt, view) {
     if (this.weather === 'snow') for (let i = 0; i < 2; i++) this.emit('snow', view.x0 + vrand() * (view.x1 - view.x0), view.y1 + 4);
+    else if (this.weather === 'ash') for (let i = 0; i < 3; i++) this.emit('ash', view.x0 + vrand() * (view.x1 - view.x0 + 40), view.y1 + 4);
     else if (this.weather === 'rain') for (let i = 0; i < 3; i++) this.emit('rain', view.x0 + vrand() * (view.x1 - view.x0 + 60), view.y1 + 4);
     for (let i = this.fx.length - 1; i >= 0; i--) {
       const f = this.fx[i];
@@ -329,7 +346,7 @@ export class View {
       f.x += f.vx * dt;
       f.y += f.vy * dt;
       const ground = groundHeight(Math.max(0, Math.min(1599, f.x)));
-      if (f.age > f.life || ((f.kind === 'snow' || f.kind === 'rain') && f.y < Math.max(ground, this.water.level))) {
+      if (f.age > f.life || ((f.kind === 'snow' || f.kind === 'rain' || f.kind === 'ash') && f.y < Math.max(ground, this.water.level))) {
         f.e.enabled = false;
         this.fx.splice(i, 1);
       } else this.place(f.e, Math.round(f.x), Math.round(f.y));
@@ -354,7 +371,9 @@ export class View {
     const cy = Math.max(-64 + vh / 2, c.y);
     const snap = (v) => Math.round(v * c.zoom) / c.zoom;
     this.camera.camera.orthoHeight = vh / 2;
-    this.camera.setPosition(snap(cx), snap(cy), 100);
+    if (this.shake > 0) this.shake -= dt;
+    const sh = this.shake > 0 ? Math.min(1, this.shake) * 3 : 0;
+    this.camera.setPosition(snap(cx + (vrand() - 0.5) * sh), snap(cy + (vrand() - 0.5) * sh), 100);
     this.viewRect = { x0: cx - vw / 2, x1: cx + vw / 2, y0: cy - vh / 2, y1: cy + vh / 2, zoom: c.zoom, cw, ch };
 
     // Backdrop: the sky fills the frame; distant layers slide slower than the ground.
@@ -363,6 +382,25 @@ export class View {
     this.sky.setLocalPosition(cx, cy, Z.sky);
     this.far.setLocalPosition(snap(800 + (cx - 800) * 0.82), 96, Z.far);
     this.mid.setLocalPosition(snap(800 + (cx - 800) * 0.6), 52, Z.mid);
+    const vx = snap(700 + (cx - 800) * 0.88);
+    this.volcano.setLocalPosition(vx, 95, Z.volcano);
+    this.crater = [vx, 178];
+    this.plumeT = (this.plumeT || 0) - dt;
+    if (this.volcanoSmoke && this.plumeT <= 0) {
+      this.plumeT = this.volcanoSmoke > 1 ? 0.08 : 0.3;
+      this.emit('plume', this.crater[0], this.crater[1]);
+    }
+    const tw = this.twister;
+    this.funnel.enabled = !!tw;
+    if (tw) {
+      tw.t += dt;
+      tw.x += dt * 190;
+      const gx = Math.min(1590, tw.x);
+      this.funnel.setLocalScale(40 * (Math.sin(tw.t * 20) > 0 ? 1 : -1), 1, 110);
+      this.funnel.setLocalPosition(Math.round(gx + Math.sin(tw.t * 7) * 6), groundHeight(gx) + 55, Z.fx - 1);
+      if (vrand() < 0.7) this.emit('debris', gx, groundHeight(gx) + 4);
+      if (tw.x > tw.x1) this.twister = null;
+    }
     for (const cl of this.clouds) {
       cl._x += dt * (opts.cloudSpeed || 3);
       if (cl._x > 2200) cl._x = -200;
@@ -416,6 +454,22 @@ export class View {
         }
       }
     this.updateFx(dt, this.viewRect);
+  }
+
+  // One-off disaster effects, triggered by simulation events.
+  erupt(big) {
+    this.shake = big ? 2.2 : 1.2;
+    const [x, y] = this.crater;
+    this.emit('lava', x, y, big ? 60 : 30);
+    this.emit('plume', x, y + 4, 20);
+  }
+  tornado(side) {
+    const low = side === 'low';
+    this.twister = { x: low ? 270 : 960, x1: low ? 780 : 1460, t: 0 };
+  }
+  landslide() {
+    this.shake = Math.max(this.shake, 0.7);
+    for (let i = 0; i < 40; i++) this.emit('debris', 800 + vrand() * 150, groundHeight(800 + i * 3) + 6);
   }
 
   setTint(r, g, b, a) {

@@ -182,6 +182,7 @@ export class Game {
       <div class="tag">Plant a field. Bet a century.</div>
       <p>Keep a riverside settlement alive for as many years as you can. Walk the bank as a villager, build farms and a seed store, show a neighbour how to save seed. Then skip ahead <b>1, 10, 100 or 1,000 years</b> and watch the village live with what you left it.</p>
       <p>Last long enough, fed and unflooded, and the hamlet grows: village, town, city, and finally <b>the Hold</b>, one great terraced house on the ridge with room for every resident and a seed vault of its own.</p>
+      <p>The valley is not gentle. The river floods, heavy rains bring landslides, tornadoes cross the plain, and the volcano behind the hills smokes for a few years before it erupts.</p>
       <p class="note">Five visits. Three work actions each. Every jump plays out over thirty seconds and cannot be undone.</p>
       <div class="keys">
         <span><kbd>A</kbd><kbd>D</kbd> or <kbd>←</kbd><kbd>→</kbd></span><span>Walk</span>
@@ -449,7 +450,7 @@ export class Game {
     this.pb = new Playback(st, years, performance.now());
     this.updatePlaybackHud(performance.now());
   }
-  zeroCounts() { return { floods: 0, left: 0, settled: 0, cleared: 0, repaired: 0, harvests: 0 }; }
+  zeroCounts() { return { disasters: 0, floods: 0, left: 0, settled: 0, cleared: 0, repaired: 0, harvests: 0 }; }
 
   onTick(ev, st) {
     const j = this.jump;
@@ -463,6 +464,9 @@ export class Game {
       else if (e.type === 'repair') c.repaired += e.n;
       if (e.p >= 3) j.turning.push(e);
       if (e.p >= minP) this.queue.push(e);
+      if (e.type === 'eruption') (this.view.erupt(e.severe), this.sound.erupt(), c.disasters++);
+      else if (e.type === 'tornado') (this.view.tornado(e.side), this.sound.tornado(), c.disasters++);
+      else if (e.type === 'landslide') (this.view.landslide(), this.sound.slide(), c.disasters++);
       if (e.type === 'collapse') this.sound.collapse();
       else if (e.type === 'flood' && e.level >= 2 && this.floodSoundT <= 0) (this.sound.flood(e.level), (this.floodSoundT = 1.2));
       else if (e.type === 'harvest' && j.years <= 10) this.sound.harvest();
@@ -475,6 +479,7 @@ export class Game {
     if (period && st.tick % 4 === 0 && (year % period === 0 || year === j.to) && year > j.periodStart) {
       const c = j.counts;
       const bits = [];
+      if (c.disasters) bits.push(plural(c.disasters, 'disaster'));
       if (c.floods) bits.push(plural(c.floods, 'damaging flood'));
       if (c.repaired) bits.push(`${plural(c.repaired, 'field')} restored`);
       if (c.cleared) bits.push(`${plural(c.cleared, 'field')} cleared`);
@@ -502,7 +507,7 @@ export class Game {
     this.floodSoundT -= dt;
     const gap = { 1: 0.25, 10: 0.6, 100: 0.85, 1000: 1.0 }[j.years];
     // Keep the queue short: turning points first, then summaries, then the rest.
-    const rank = (e) => (e.type === 'collapse' || e.type === 'stage' ? 5 : e.type === 'recovery' || e.type === 'knowledge-lost' || e.type === 'store' ? 4 : e.p >= 3 ? 3 : e.sum ? 2 : e.p);
+    const rank = (e) => (e.type === 'collapse' || e.type === 'stage' || e.type === 'eruption' ? 5 : e.type === 'tornado' || e.type === 'landslide' || e.type === 'rumble' ? 4 : e.type === 'recovery' || e.type === 'knowledge-lost' || e.type === 'store' ? 4 : e.p >= 3 ? 3 : e.sum ? 2 : e.p);
     if (this.queue.length > 4) {
       const keep = this.queue.map((e, i) => ({ e, i })).sort((a, b) => rank(b.e) - rank(a.e) || b.i - a.i).slice(0, 4).sort((a, b) => a.i - b.i);
       this.queue = keep.map((k) => k.e);
@@ -558,8 +563,8 @@ export class Game {
     let turning = j.turning;
     let skipped = 0;
     if (turning.length > 9) {
-      const must = turning.filter((e) => ['stage', 'stage-down', 'collapse', 'recovery', 'knowledge-lost', 'store', 'erode'].includes(e.type));
-      const stages = turning.filter((e) => e.type === 'stage' || e.type === 'collapse');
+      const must = turning.filter((e) => ['eruption', 'tornado', 'landslide', 'stage', 'stage-down', 'collapse', 'recovery', 'knowledge-lost', 'store', 'erode'].includes(e.type));
+      const stages = turning.filter((e) => e.type === 'stage' || e.type === 'collapse' || e.type === 'eruption');
       const pick = new Set([...turning.slice(0, 2), ...stages, ...must.slice(0, 2), ...must.slice(-2), ...turning.slice(-2)]);
       skipped = turning.length - pick.size;
       turning = turning.filter((e) => pick.has(e));
@@ -775,15 +780,17 @@ export class Game {
       view.water.target = WORLD.waterLevels[level] + (j.years === 1 && upcoming === 1 ? 3 : 0);
       opts.waterRate = { 1: 0.9, 10: 5, 100: 14, 1000: 22 }[j.years];
       opts.cloudSpeed = { 1: 6, 10: 30, 100: 90, 1000: 200 }[j.years];
-      if (st.collapse) (view.setTint(0.55, 0.6, 0.75, 0.16), (view.weather = 'none'));
+      const sky = st.sky;
+      if (sky.ash > 0) (view.setTint(0.2, 0.17, 0.17, j.years <= 10 ? 0.42 : 0.3), (view.weather = 'ash'));
+      else if (st.collapse) (view.setTint(0.55, 0.6, 0.75, 0.16), (view.weather = 'none'));
       else if (j.years <= 10) {
-        if (level >= 1) (view.setTint(0.35, 0.45, 0.6, 0.22), (view.weather = 'rain'));
+        if (level >= 1 || sky.rain) (view.setTint(0.35, 0.45, 0.6, sky.rain ? 0.3 : 0.22), (view.weather = 'rain'));
         else if (st.river.drought && upcoming === 2) (view.setTint(1, 0.8, 0.35, 0.16), (view.weather = 'none'));
         else if (upcoming === 3) (view.setTint(0.95, 0.97, 1, 0.2), (view.weather = 'snow'));
         else if (upcoming === 2) (view.setTint(1, 0.7, 0.35, 0.07), (view.weather = 'none'));
         else (view.setTint(1, 1, 1, 0), (view.weather = 'none'));
       } else {
-        view.weather = level >= 2 ? 'rain' : 'none';
+        view.weather = level >= 2 || sky.rain ? 'rain' : 'none';
         const wet = st.river.wet;
         if (wet > 1.2) view.setTint(0.35, 0.45, 0.65, 0.12);
         else if (wet < 0.8) view.setTint(1, 0.8, 0.4, 0.1);

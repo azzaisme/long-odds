@@ -366,6 +366,51 @@ export function buildSprites() {
     R(g, '#b79a6a', 1, 2, 4, 3);
     R(g, PAL.wood, 2, 0, 2, 1);
   });
+  // The volcano that stands behind the valley. `hot` shows lava after an eruption.
+  for (const hot of [false, true])
+    make(hot ? 'volcano_hot' : 'volcano', 320, 190, (g, W, H) => {
+      const vr = makeRng(5150);
+      for (let x = 0; x < W; x++) {
+        const d = Math.abs(x - 160);
+        let top = d < 17 ? 12 + (17 - d) * 0.5 + (x % 3) : 14 + Math.pow((d - 17) / 143, 0.72) * (H - 14); // crater, then concave flanks
+        top = Math.round(top + Math.sin(x * 0.21) * 1.5);
+        R(g, '#6a6690', x, top, 1, H - top);
+        if (x > 160) R(g, '#5a567f', x, top + 2, 1, H - top - 2); // shaded side
+        if (top < 62) R(g, d < 17 && hot ? '#ffb347' : '#cfd3e2', x, top, 1, Math.max(1, Math.min(6, 62 - top) - (x % 4)));
+        if ((x * 7) % 19 < 2) R(g, '#4d4a70', x, top + 10 + (x % 9), 1, 26);
+        void vr;
+      }
+      if (hot) {
+        for (const [dx, len] of [[-9, 80], [4, 120], [14, 60]]) {
+          let x = 160 + dx;
+          for (let y = 18; y < 18 + len; y++) {
+            x += vr() < 0.5 ? (dx < 0 ? -1 : 1) * (vr() < 0.6 ? 1 : 0) : 0;
+            R(g, y % 5 ? '#ff7a2a' : '#ffd070', Math.round(x), y, 2, 1);
+          }
+        }
+        R(g, '#fff0a0', 150, 12, 20, 3);
+      }
+    });
+  make('funnel', 40, 110, (g, W, H) => {
+    for (let y = 0; y < H; y++) {
+      const t = y / H;
+      const w = Math.round(36 * Math.pow(1 - t, 1.6) + 4);
+      const cx = 20 + Math.round(Math.sin(y * 0.16) * 3 * (1 - t));
+      R(g, y % 3 ? '#5b5f6b' : '#474a55', cx - (w >> 1), y, w, 1);
+      if (y % 4 === 0) R(g, '#8a8f9b', cx - (w >> 1) + 1, y, Math.max(1, w >> 2), 1);
+    }
+  });
+  make('slide', 150, 46, (g, W, H) => {
+    const sr = makeRng(88);
+    for (let x = 0; x < W; x++) {
+      const base = Math.round(H - 4 - (x / W) * (H - 14));
+      const th = 3 + Math.round(Math.sin((x / W) * Math.PI) * 9);
+      for (let y = base - th; y < base + 3; y++) R(g, sr() < 0.25 ? PAL.rockDark : sr() < 0.5 ? PAL.dirtDark : PAL.dirt, x, y);
+      if (sr() < 0.08) R(g, PAL.rockLight, x, base - th - 1, 2, 2);
+    }
+  });
+  make('ember', 2, 2, (g) => R(g, '#ff9a3a', 0, 0, 2, 2));
+  make('ashflake', 2, 2, (g) => R(g, '#6f6b6b', 0, 0, 2, 2));
   make('white', 2, 2, (g) => R(g, '#ffffff', 0, 0, 2, 2));
   make('smoke', 3, 3, (g) => {
     R(g, '#d8d2c6', 1, 0, 1, 3);

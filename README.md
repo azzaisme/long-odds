@@ -28,6 +28,7 @@ Other commands:
 | --- | --- |
 | `npm run build` then `npm run preview` | Production build in `dist/`, served locally |
 | `npm test` | Headless simulation tests (determinism, playback timing, collapse, recovery, stages) |
+| `node tools/find.mjs eruption 40` | Lists seeds where an event type (eruption, tornado, landslide…) happens within N years, for watching in the browser |
 | `npm run sim` | Headless balance run over many seeds; `npm run sim -- 1000 1,10,100,100,1000` sets seed count and jump schedule |
 
 ## Controls
@@ -73,6 +74,22 @@ A settlement that stays fed at a large enough size accumulates good years and ad
 
 A hungry winter costs five of the accumulated years. A town or city that empties falls back a
 stage. If the settlement collapses, the highest stage it reached is what stands in ruins.
+
+### Weather and disasters
+
+All of these are rolled in the simulation each summer, with the same rules at every jump length.
+
+| Hazard | Yearly chance | What it does |
+| --- | --- | --- |
+| River flood | 26% high water, 6.5% flood, 0.7% great flood (scaled by wet or dry decades) | Spoils or buries floodplain fields and ruins lowland granary stock; a great flood reaches the ridge and can take the lowest bank |
+| Heavy rain | 8% | Flood chances × 1.5, landslide chance × 4, floodplain harvest × 0.85 |
+| Drought | 9% in years without a flood | Ridge harvest × 0.35, floodplain × 0.8 |
+| Landslide | 0.8% | Buries the two ridge fields nearest the slope; half the time it breaks into the ridge store and takes 30–70% of its stock |
+| Tornado | 0.8% | Crosses either the floodplain or the ridge: each household there has a 25% chance of losing its house and leaving, 60% of crops in its path are stripped, the store there loses 30% of its food |
+| Volcano | 0.2% that it wakes | Smokes for three years as a warning, then erupts: harvests at 25% that year and 60% for two more, a mudflow flood, and likely landslides. Three eruptions in ten also send fire and mud into the valley: half the households are lost and every field is buried. Twelve years of richer soil follow |
+
+The Hold shelters its households from tornadoes and from most of a severe eruption. The volcano
+stands behind the valley in the backdrop; it smokes while it is waking and shows lava afterwards.
 
 ## How the simulation works
 

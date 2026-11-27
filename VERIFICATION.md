@@ -2,7 +2,7 @@
 
 Checked on Node 22 and headless Chromium (software WebGL, 1280×720, 16–27 fps).
 
-## Automated: `npm test` — 13 of 13 pass
+## Automated: `npm test` — 15 of 15 pass
 
 | Acceptance point | Test | Result |
 | --- | --- | --- |
@@ -18,6 +18,8 @@ Checked on Node 22 and headless Chromium (software WebGL, 1280×720, 16–27 fps
 | Teaching and plain-language risks | demonstrate to two households; read risks | untrained villager cannot teach; risk text includes "No working farms", "Only one household knows how to save seed", "Every farm is … flood line" |
 | Mixed elevation + ridge seed store beats lowland-only | 150 seeds per strategy | passes with > 20 points' margin at year 500 |
 | Growth to the Hold | 120 seeds × 2 strategies | stages reached in order; in a living Hold every household is housed in it and knows seed saving; lowland-only reaches it far less often |
+| Weather and disasters | 300 seeds × 1,211 years | heavy rain, landslides, tornadoes, volcano smoke and eruptions all occur; houses are torn down and fields buried; some collapses are attributed to an eruption or tornado |
+| Eruption warning | 5 eruptions followed year by year | each is preceded by exactly 3 years of smoke; ash is on the fields afterwards |
 
 ## Headless balance run: `npm run sim -- 1000`
 
@@ -26,16 +28,19 @@ Checked on Node 22 and headless Chromium (software WebGL, 1280×720, 16–27 fps
 | Strategy | Median years | ≥ 10 y | ≥ 100 y | ≥ 500 y | ≥ 1,211 y | Reached the Hold |
 | --- | --- | --- | --- | --- | --- | --- |
 | No farms | 5 | 1% | 0% | 0% | 0% | 0% |
-| Lowland only | 8 | 34% | 7% | 5% | 5% | 5% |
-| Lowland + teaching | 21 | 69% | 30% | 22% | 22% | 19% |
-| Ridge only + teaching | 1,211 | 99% | 69% | 54% | 54% | 47% |
-| Mixed, no ridge store | 97 | 90% | 49% | 39% | 39% | 33% |
-| Mixed + ridge seed store | 1,211 | 84% | 53% | 53% | 53% | 47% |
+| Lowland only | 8 | 35% | 4% | 3% | 3% | 2% |
+| Lowland + teaching | 15 | 65% | 22% | 14% | 14% | 10% |
+| Ridge only + teaching | 119 | 96% | 56% | 39% | 37% | 26% |
+| Mixed, no ridge store | 56 | 87% | 38% | 28% | 27% | 18% |
+| Mixed + ridge seed store | 45 | 82% | 42% | 39% | 39% | 27% |
 
-Mixed-elevation farming with ridge seed storage survives to year 500 in 53% of seeds against 5%
-for lowland-only (22% with teaching added). These runs drove the tuning: opening food went from
-14 to 22, departures per hungry winter were softened, villages were made to keep ridge seed as a
-reserve rather than plant it every spring, and to copy a ridge field once they have seen one.
+These figures include the weather and disaster systems. Mixed-elevation farming with ridge seed
+storage is still standing at year 500 in 39% of seeds against 3% for lowland-only (14% with
+teaching added). Before disasters were added the same comparison was 53% against 5%; disaster
+chances were then lowered once to keep the best strategy near 40%. Earlier tuning from these
+runs: opening food went from 14 to 22, departures per hungry winter were softened, villages were
+made to keep ridge seed as a reserve rather than plant it every spring, and to copy a ridge
+field once they have seen one.
 
 ## In the browser, in real time
 
@@ -63,9 +68,22 @@ The extra 0.1–0.3 s is one rendered frame plus the test's polling interval.
   144, city 310, the Hold finished in year 791, 58 households at the end, "Still standing".
 - **Fresh run.** Starting again after each playthrough gave year 0, visit 1, six households, no
   fields, no ridge store, an empty action log and no collapse record.
+- **Disasters on screen.** Three further runs after the disaster systems were added, no console
+  errors: seed 977 (heavy rain, a tornado across the floodplain tearing down two houses, and a
+  landslide, all in year 0 of a 1-year jump: funnel, rain and captions visible); seed 125
+  (smoke in year 2, eruption in year 5 of a 10-year jump: lava on the cone, ash fall, mudflow
+  flood, collapse in year 6 attributed to the eruption); seed 158 (landslide).
 - No console errors in any run.
 
 ## Not covered
+
+- The three full five-visit playthroughs above were run before the disaster systems went in.
+  After that, only the three shorter disaster runs and the automated tests were run; the
+  30-second timing code was not changed.
+- The volcano was moved lower in the backdrop after the last screenshots; that position was only
+  build-tested.
+- Median survival for the best scripted strategy fell from 1,211 to 45 years once disasters were
+  added: the first decades are now more dangerous than before.
 
 - Only headless Chromium was used. Firefox, Safari and real GPUs were not tried.
 - Sound was not listened to; the code path runs without errors.

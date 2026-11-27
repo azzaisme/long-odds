@@ -52,6 +52,13 @@ export function assessRisks(st, B = BALANCE) {
 
   if (s.damaged > 0) add('warn', `${plural(s.damaged, 'field')} lie under flood silt${s.knowers ? '' : ', and nobody knows how to restore them'}.`);
   if (fields > 0 && yearsOfFood < 1) add('warn', `Food in store covers ${fmtYears(yearsOfFood)}.`);
+  const sky = st.sky;
+  const year = yearOf(st);
+  if (sky.rumble > 0) add('danger', 'The mountain is smoking. An eruption is coming within a few years: ash will starve the harvests, and it may be worse than ash.');
+  else if (sky.ash > 0) add('danger', `Ash lies on the fields. Harvests will be thin for ${sky.ash === 1 ? 'another year' : `${sky.ash} more years`}.`);
+  else if (sky.fertile > 0 && sky.lastEruption) add('good', 'The old ash has made rich soil: harvests are up for some years.');
+  if (sky.lastSlide && year - sky.lastSlide.year <= 10) add('warn', `A landslide came down the slope in year ${sky.lastSlide.year}. The nearest ridge fields and the ridge store are in its path.`);
+  if (sky.lastTornado && year - sky.lastTornado.year <= 10) add('warn', `A tornado crossed ${sky.lastTornado.side === 'low' ? 'the floodplain' : 'the ridge'} in year ${sky.lastTornado.year}. Houses on both levels spread that risk.`);
   if (st.river.wet > 1.25) add('warn', 'The river has been running high for years.');
   else if (st.river.wet < 0.75) add('warn', 'These have been dry years. Ridge fields suffer most in drought.');
   // The long goal: a settlement that grows until one great structure houses everyone.

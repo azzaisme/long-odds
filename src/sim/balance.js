@@ -59,6 +59,30 @@ export const BALANCE = {
   drought: { chance: 0.09, low: 0.8, ridge: 0.35 },
   climate: { revert: 0.05, drift: 0.12, min: 0.55, max: 1.6 },
 
+  // Weather and disasters, all resolved in summer before the river.
+  hazards: {
+    rainChance: 0.08, // heavy-rain year (scaled by wetness)
+    rainFloodBoost: 1.5, // flood chances multiply in a heavy-rain year
+    rainLowYield: 0.85, // waterlogged floodplain harvest
+    slideChance: 0.008, // landslide off the slope onto the near ridge
+    slideRainBoost: 4,
+    slideEruptBoost: 6,
+    slideStoreHit: 0.5, // chance the slide reaches the ridge store
+    slideStoreLoss: [0.3, 0.7], // share of ridge store stock buried
+    tornadoChance: 0.008,
+    tornadoHouseLoss: 0.25, // chance each household in the path loses its house and leaves
+    tornadoCropLoss: 0.6,
+    tornadoStoreLoss: 0.3, // share of food scattered from the store in the path
+    eruptChance: 0.002, // yearly chance the volcano wakes; it then smokes for rumbleYears first
+    rumbleYears: 3,
+    severeShare: 0.3, // share of eruptions that send fire and mud into the valley
+    severeLoss: 0.5, // chance each household is lost in a severe eruption
+    severeLossHold: 0.12, // ... if they live in the Hold
+    ashYield: [0.25, 0.6, 0.6], // harvest multiplier in the eruption year and the ash years after
+    fertileYears: 12, // then volcanic soil pays back
+    fertileYield: 1.15,
+  },
+
   // Adaptation
   uphillMemory: 2.5, // flood memory at which households clear ridge fields
   storeMemory: 3, // flood memory at which trained households may build a ridge store

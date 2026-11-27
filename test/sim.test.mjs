@@ -239,3 +239,51 @@ test('a thriving settlement grows through the stages into the Hold, which houses
   assert.ok(holds >= 30 && checked >= 30, `Holds: ${holds}`);
   assert.ok(lowHolds < holds / 4, `lowland-only Holds: ${lowHolds}`);
 });
+
+test('weather and disasters occur, do damage, and can end a settlement', () => {
+  const seen = { rain: 0, landslide: 0, tornado: 0, eruption: 0, rumble: 0 };
+  let severe = 0, housesTorn = 0, fieldsBuried = 0, causes = new Set();
+  const sched = [1, 10, 100, 100, 1000];
+  for (let seed = 1; seed <= 300; seed++) {
+    const st = createSim(seed);
+    for (let v = 0; v < 5; v++) {
+      if (isAlive(st)) playVisit(st, 'mixed + ridge seed store', v);
+      let warned = null;
+      runYears(st, sched[v], (ev) => ev.forEach((e) => {
+        if (e.type in seen) seen[e.type]++;
+        if (e.type === 'rumble' && warned === null) warned = e.year;
+        if (e.type === 'eruption') { assert.ok(st.sky.lastEruption.year === e.year); if (e.severe) severe++; warned = null; }
+        if (e.type === 'tornado') housesTorn += e.n;
+        if (e.type === 'landslide') fieldsBuried += e.n;
+      }));
+    }
+    if (st.collapse) causes.add(st.collapse.cause.replace(/\d+/g, 'N'));
+    assert.equal(st.stats.eruptions > 0, st.sky.lastEruption !== null);
+  }
+  for (const k of Object.keys(seen)) assert.ok(seen[k] > 20, `${k}: ${seen[k]}`);
+  assert.ok(severe > 5 && housesTorn > 20 && fieldsBuried > 20, `severe ${severe}, houses ${housesTorn}, fields ${fieldsBuried}`);
+  assert.ok([...causes].some((c) => /eruption|tornado/i.test(c)), [...causes].join(' | '));
+});
+
+test('an eruption is always preceded by smoke, and ash thins the harvest', () => {
+  let checked = 0;
+  for (let seed = 1; seed <= 400 && checked < 5; seed++) {
+    const st = createSim(seed);
+    playVisit(st, 'mixed + ridge seed store', 0);
+    let smokeYear = null;
+    for (let y = 0; y < 300 && isAlive(st); y++) {
+      const wasRumbling = st.sky.rumble;
+      runYears(st, 1, (ev) => ev.forEach((e) => {
+        if (e.type === 'rumble' && smokeYear === null) smokeYear = e.year;
+        if (e.type === 'eruption') {
+          assert.ok(wasRumbling === 1, 'erupts when the countdown ends');
+          assert.ok(smokeYear !== null && e.year - smokeYear === BALANCE.hazards.rumbleYears, `smoke ${smokeYear}, eruption ${e.year}`);
+          assert.ok(st.sky.ash > 0);
+          checked++;
+          smokeYear = null;
+        }
+      }));
+    }
+  }
+  assert.ok(checked >= 5);
+});

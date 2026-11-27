@@ -26,6 +26,7 @@ export function createSim(seed, B = BALANCE) {
     },
     river: { wet: 1, level: 0, drought: false, floods: [], lastFlood: null },
     floodMemory: 0,
+    sky: { rain: false, tornado: null, slide: false, erupted: false, rumble: 0, ash: 0, fertile: 0, lastEruption: null, lastSlide: null, lastTornado: null },
     civ: { stage: 0, progress: 0, reached: [0, null, null, null, null] },
     seedLostYear: null, // last year a flood destroyed stored lowland seed
     everPlanted: false,
@@ -35,7 +36,7 @@ export function createSim(seed, B = BALANCE) {
     chronicle: [], // turning points (priority 3)
     recoveries: [], // recoveries traceable to stored ridge seed or taught practice
     actions: [], // player interventions
-    stats: { peakStage: 0, floods: 0, greatFloods: 0, droughts: 0, peakHouseholds: B.start.households, left: 0, settled: 0 },
+    stats: { rains: 0, slides: 0, tornadoes: 0, eruptions: 0, peakStage: 0, floods: 0, greatFloods: 0, droughts: 0, peakHouseholds: B.start.households, left: 0, settled: 0 },
   };
   for (let i = 0; i < B.start.households; i++) {
     const h = addHousehold(st, false);
@@ -225,21 +226,114 @@ function spring(st, B, year, say) {
   }
 }
 
+// A household destroyed outright (tornado, eruption): the house is left a ruin.
+function destroyHousehold(st, h, year) {
+  const slot = st.houses[h.house];
+  removeHousehold(st, h, year);
+  if (slot) slot.state = 'ruin';
+  st.stats.left++;
+}
+function endIfEmpty(st, year, say, cause) {
+  if (st.households.length > 0 || st.collapse) return;
+  st.collapse = { year, cause };
+  say(3, 'collapse', `Nobody is left in the valley. ${cause}`);
+}
+
 function summer(st, B, year, say, rand) {
   const F = B.flood;
+  const Hz = B.hazards;
+  const sky = st.sky;
   const wet = st.river.wet;
   const r = rand();
   const rd = rand();
+  const rRain = rand(), rSlide = rand(), rTor = rand(), rSide = rand(), rVol = rand(), rSev = rand();
+  const alive = isAlive(st);
+  const stage = st.civ.stage;
+  Object.assign(sky, { rain: false, tornado: null, slide: false, erupted: false });
+  if (sky.ash > 0) sky.ash--;
+  else if (sky.fertile > 0) sky.fertile--;
+
+  // The volcano: smoke for a few years, then the eruption.
+  let lahar = false;
+  if (sky.rumble > 0) {
+    sky.rumble--;
+    if (sky.rumble === 0) {
+      const severe = rSev < Hz.severeShare;
+      sky.erupted = severe ? 'severe' : 'ash';
+      sky.ash = Hz.ashYield.length;
+      sky.fertile = Hz.fertileYears;
+      sky.lastEruption = { year, severe };
+      st.stats.eruptions++;
+      lahar = true;
+      if (severe) {
+        const lossChance = stage >= 4 ? Hz.severeLossHold : Hz.severeLoss;
+        const lost = st.households.filter(() => rand() < lossChance);
+        for (const h of lost) destroyHousehold(st, h, year);
+        for (const p of st.plots) if (p.state === 'planted' || p.state === 'fallow') Object.assign(p, { state: 'damaged', stage: null, since: year });
+        say(3, 'eruption', alive ? `The mountain erupted. Fire and mud came down the valley: ${plural(lost.length, 'household')} lost, every field buried.` : 'The mountain erupted and buried the empty valley in mud.', { severe, n: lost.length });
+        endIfEmpty(st, year, say, `The eruption of year ${year} destroyed the settlement.`);
+      } else say(alive ? 3 : 2, 'eruption', 'The mountain erupted. Ash is falling on the fields and the river runs thick with mud.', { severe, n: 0 });
+    } else if (alive) say(2, 'rumble', 'The mountain is smoking and the ground shakes.');
+  } else if (rVol < Hz.eruptChance) {
+    sky.rumble = Hz.rumbleYears;
+    if (alive) say(3, 'rumble', 'Smoke is rising from the mountain for the first time in living memory.');
+  }
+
+  const rain = rRain < Hz.rainChance * wet;
+  if (rain) {
+    sky.rain = true;
+    st.stats.rains++;
+  }
+  const boost = rain ? Hz.rainFloodBoost : 1;
   let level = 0;
-  if (r < F.extremeChance * wet) level = 3;
-  else if (r < (F.extremeChance + F.majorChance) * wet) level = 2;
-  else if (r < (F.extremeChance + F.majorChance + F.minorChance) * wet) level = 1;
+  if (r < F.extremeChance * wet * boost) level = 3;
+  else if (r < (F.extremeChance + F.majorChance) * wet * boost) level = 2;
+  else if (r < (F.extremeChance + F.majorChance + F.minorChance) * wet * boost) level = 1;
+  if (lahar) level = Math.max(level, 2);
+  if (rain && level === 0 && isAlive(st)) say(1, 'rain', 'Weeks of heavy rain. The floodplain is waterlogged.');
+
+  // Tornado: one elevation is in its path.
+  if (rTor < Hz.tornadoChance) {
+    const side = rSide < 0.5 ? 'low' : 'ridge';
+    sky.tornado = side;
+    sky.lastTornado = { year, side };
+    st.stats.tornadoes++;
+    let lostCrops = 0;
+    for (const p of st.plots) if (p.elev === side && p.state === 'planted' && rand() < Hz.tornadoCropLoss) (p.state = 'fallow'), (p.stage = null), lostCrops++;
+    const inPath = stage >= 4 ? [] : st.households.filter((h) => (h.house >= 0 ? st.houses[h.house].elev : 'ridge') === side);
+    const lost = inPath.filter(() => rand() < Hz.tornadoHouseLoss);
+    for (const h of lost) destroyHousehold(st, h, year);
+    const store = side === 'low' ? st.stores.low : st.stores.ridge;
+    if (stage < 4) store.food *= 1 - Hz.tornadoStoreLoss;
+    const where = side === 'low' ? 'the floodplain' : 'the ridge';
+    if (lost.length || lostCrops) say(lost.length ? 3 : 2, 'tornado', `A tornado crossed ${where}: ${[lost.length ? `${plural(lost.length, 'house')} torn down` : '', lostCrops ? `${plural(lostCrops, 'field')} stripped` : ''].filter(Boolean).join(', ')}.`, { side, n: lost.length });
+    else say(alive ? 2 : 1, 'tornado', `A tornado crossed ${where}${stage >= 4 && alive ? '; the Hold stood through it' : ''}.`, { side, n: 0 });
+    endIfEmpty(st, year, say, `The tornado of year ${year} tore down the last houses.`);
+  }
+
+  // Landslide off the slope onto the nearest ridge fields and the ridge store.
+  if (rSlide < Hz.slideChance * (rain ? Hz.slideRainBoost : 1) * (sky.erupted ? Hz.slideEruptBoost : 1)) {
+    sky.slide = true;
+    sky.lastSlide = { year };
+    st.stats.slides++;
+    let buried = 0;
+    for (const p of st.plots.filter((q) => q.elev === 'ridge').slice(0, 2)) if (p.state === 'planted' || p.state === 'fallow') Object.assign(p, { state: 'damaged', stage: null, since: year }), buried++;
+    let seedLost = 0;
+    const rs = st.stores.ridge;
+    if (rs.built && rand() < Hz.slideStoreHit) {
+      const share = Hz.slideStoreLoss[0] + rand() * (Hz.slideStoreLoss[1] - Hz.slideStoreLoss[0]);
+      seedLost = rs.seed * share;
+      rs.seed -= seedLost;
+      rs.food *= 1 - share;
+    }
+    const bits = [buried ? `buried ${plural(buried, 'ridge field')}` : '', seedLost >= 0.5 ? `broke into the ridge store and took ${Math.round(seedLost)} seed` : ''].filter(Boolean);
+    say(alive && bits.length ? 3 : 2, 'landslide', bits.length ? `A landslide ${bits.join(' and ')}.` : 'A landslide came down the slope.', { n: buried });
+  }
   const drought = level === 0 && rd < B.drought.chance * (2 - wet);
   st.river.level = level;
   st.river.drought = drought;
 
   if (level > 0) {
-    const stage = st.civ.stage;
     const cropLoss = [0, stage >= B.stages.minorFloodProofFrom ? 0 : F.minorDamage, F.majorDamage, 1][level];
     let lost = 0;
     let lowPlanted = 0;
@@ -313,6 +407,9 @@ function summer(st, B, year, say, rand) {
 
 function autumn(st, B, year, say, rand) {
   const drought = st.river.drought;
+  const Hz = B.hazards;
+  const sky = st.sky;
+  const skyMult = sky.ash > 0 ? Hz.ashYield[Hz.ashYield.length - sky.ash] : sky.fertile > 0 ? Hz.fertileYield : 1;
   let food = 0;
   let seed = 0;
   let n = 0;
@@ -322,7 +419,7 @@ function autumn(st, B, year, say, rand) {
   for (const p of st.plots) {
     if (p.state !== 'planted') continue;
     const noise = 1 + (rand() * 2 - 1) * B.yieldNoise;
-    const mult = drought ? B.drought[p.elev] : 1;
+    const mult = (drought ? B.drought[p.elev] : 1) * skyMult * (sky.rain && p.elev === 'low' ? Hz.rainLowYield : 1);
     const f = B.yield[p.elev] * B.stages.yield[st.civ.stage] * mult * noise;
     const s = (p.workerKnows ? B.seedSaved.trained : B.seedSaved.untrained) * Math.min(1, mult + 0.2);
     food += f;
@@ -571,6 +668,10 @@ function adapt(st, B, year, say, rand) {
 function collapseCause(st, year, knew) {
   if (!st.everPlanted) return 'No field was ever planted, and the opening stores ran out.';
   const flood = st.river.lastFlood;
+  const e = st.sky.lastEruption;
+  if (e && year - e.year <= 4) return `Ash from the eruption of year ${e.year} smothered the harvests.`;
+  const t = st.sky.lastTornado;
+  if (t && year - t.year <= 2) return `The village never recovered from the tornado of year ${t.year}.`;
   if (st.year0.planted === 0) {
     if (st.seedLostYear !== null && year - st.seedLostYear <= 3)
       return st.stores.ridge.built
