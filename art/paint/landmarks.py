@@ -53,7 +53,23 @@ class Canvas:
         if self.get(x, y) is not None:
             self.set(x, y, c)
 
+    def tidy(self):
+        """Take out the slips: a pixel floating alone, or a lone pixel in a field of one other colour."""
+        for y in range(self.h):
+            for x in range(self.w):
+                col = self.p[y][x]
+                if col is None:
+                    continue
+                around = [self.get(x + dx, y + dy) for dy in (-1, 0, 1) for dx in (-1, 0, 1) if dx or dy]
+                if all(n is None for n in around):
+                    self.p[y][x] = None
+                    continue
+                near = [self.get(x + 1, y), self.get(x - 1, y), self.get(x, y + 1), self.get(x, y - 1)]
+                if near[0] is not None and near[0] != col and all(n == near[0] for n in near) and col not in around:
+                    self.p[y][x] = near[0]
+
     def emit(self):
+        self.tidy()
         chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
         names = sorted({c for row in self.p for c in row if c})
         key = {n: chars[k] for k, n in enumerate(names)}
