@@ -183,7 +183,7 @@ every merge into `main` publishes to itch.io.
 - Pull requests into `testing` or `main` run the tests and the build.
 - A pull request into `main` from any branch other than `testing` fails a check named
   "only-testing-into-main". To make that binding, protect `main` in the repository settings and
-  mark that check and "build" as required.
+  mark that check and "build and publish" as required.
 - Every push to `main` runs the tests, builds, and pushes `dist/` to itch.io with butler.
 
 It expects two Actions secrets: `ITCH_KEY` (an itch.io API key) and `ITCH_URL` (the project

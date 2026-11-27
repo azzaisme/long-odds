@@ -31,6 +31,7 @@ jobs:
           fi
 
   build:
+    name: build and publish
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -41,24 +42,12 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
-      - uses: actions/upload-artifact@v4
-        with:
-          name: web-build
-          path: dist
-
-  deploy:
-    needs: build
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    env:
-      BUTLER_API_KEY: ${{ secrets.ITCH_KEY }}
-      ITCH_URL: ${{ secrets.ITCH_URL }}
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: web-build
-          path: dist
+      # Publishing happens in this same job, straight from the files just built.
       - name: Work out the itch.io target
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        env:
+          BUTLER_API_KEY: ${{ secrets.ITCH_KEY }}
+          ITCH_URL: ${{ secrets.ITCH_URL }}
         run: |
           missing=""
           [ -n "$BUTLER_API_KEY" ] || missing="$missing ITCH_KEY"
@@ -75,10 +64,14 @@ jobs:
           if [ -z "$user" ] || [ -z "$game" ]; then echo "::error::ITCH_URL should look like https://user.itch.io/game or user/game"; exit 1; fi
           echo "ITCH_TARGET=$user/$game" >> "$GITHUB_ENV"
       - name: Install butler
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         run: |
           curl -L -o butler.zip https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default
           unzip -q butler.zip -d butler
           chmod +x butler/butler
           ./butler/butler -V
       - name: Push to itch.io
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        env:
+          BUTLER_API_KEY: ${{ secrets.ITCH_KEY }}
         run: ./butler/butler push dist "$ITCH_TARGET:html5" --userversion "${GITHUB_SHA::7}"
