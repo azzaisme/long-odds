@@ -86,8 +86,8 @@ Real key presses throughout, no console errors in any run.
   code itself was not changed.
 - The bridge sprite was drawn too low in the one bridge screenshot; that was corrected
   afterwards and only build-tested. Bridge washouts were checked in the simulation, not watched.
-- The itch.io workflow has never run. It assumes secret names (`BUTLER_API_KEY`, `ITCH_USER`,
-  `ITCH_GAME`) that may not match the ones in the repository.
+- The itch.io workflow's test and build job has passed on `main`. Its first deploy failed for
+  want of the right secret names; it now reads `ITCH_KEY` and `ITCH_URL`.
 - The simulation is about ten times slower than before people were individuals: a 1,000-year
   jump for a full city takes roughly 0.8 s of compute, spread over the 30 seconds. Odds
   estimates for 1,000-year jumps therefore take noticeably longer to fill in.

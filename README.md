@@ -186,8 +186,8 @@ every merge into `main` publishes to itch.io.
   mark that check and "build" as required.
 - Every push to `main` runs the tests, builds, and pushes `dist/` to itch.io with butler.
 
-It expects an Actions secret `BUTLER_API_KEY`, and `ITCH_USER` and `ITCH_GAME` as secrets or
-variables. If the secrets have other names, change the three `env` lines in the deploy job. On
+It expects two Actions secrets: `ITCH_KEY` (an itch.io API key) and `ITCH_URL` (the project
+page, such as `https://someone.itch.io/long-odds`). On
 itch.io, set the project to "HTML" and the `html5` channel to be played in the browser.
 
 ## How the simulation works

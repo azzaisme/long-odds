@@ -1,11 +1,9 @@
 # Tests and builds on every pull request; publishes the web build to itch.io with butler on
 # every push to main.
 #
-# Expects these in the repository's Actions settings:
-#   secret   BUTLER_API_KEY   an itch.io API key (itch.io > Settings > API keys)
-#   secret or variable  ITCH_USER   the itch.io account name
-#   secret or variable  ITCH_GAME   the project's URL name (the part after itch.io/)
-# If your secrets have other names, change the three env lines in the deploy job.
+# Expects two Actions secrets:
+#   ITCH_KEY   an itch.io API key (itch.io > Settings > API keys)
+#   ITCH_URL   the project page, e.g. https://someone.itch.io/long-odds (someone/long-odds also works)
 name: Build and publish to itch.io
 
 # Branch rule: every branch merges into `testing`; only `testing` merges into `main`;
@@ -53,21 +51,29 @@ jobs:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     env:
-      BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
-      ITCH_USER: ${{ secrets.ITCH_USER || vars.ITCH_USER }}
-      ITCH_GAME: ${{ secrets.ITCH_GAME || vars.ITCH_GAME }}
+      BUTLER_API_KEY: ${{ secrets.ITCH_KEY }}
+      ITCH_URL: ${{ secrets.ITCH_URL }}
     steps:
       - uses: actions/download-artifact@v4
         with:
           name: web-build
           path: dist
-      - name: Check itch.io settings
+      - name: Work out the itch.io target
         run: |
           missing=""
-          [ -n "$BUTLER_API_KEY" ] || missing="$missing BUTLER_API_KEY"
-          [ -n "$ITCH_USER" ] || missing="$missing ITCH_USER"
-          [ -n "$ITCH_GAME" ] || missing="$missing ITCH_GAME"
-          if [ -n "$missing" ]; then echo "::error::Missing Actions secrets or variables:$missing"; exit 1; fi
+          [ -n "$BUTLER_API_KEY" ] || missing="$missing ITCH_KEY"
+          [ -n "$ITCH_URL" ] || missing="$missing ITCH_URL"
+          if [ -n "$missing" ]; then echo "::error::Missing Actions secrets:$missing"; exit 1; fi
+          # Accept https://user.itch.io/game, user.itch.io/game or user/game.
+          url="${ITCH_URL#http://}"; url="${url#https://}"; url="${url%%\?*}"; url="${url%/}"
+          case "$url" in
+            *.itch.io/*) user="${url%%.itch.io/*}"; game="${url#*.itch.io/}" ;;
+            */*) user="${url%%/*}"; game="${url#*/}" ;;
+            *) user=""; game="" ;;
+          esac
+          game="${game%%/*}"
+          if [ -z "$user" ] || [ -z "$game" ]; then echo "::error::ITCH_URL should look like https://user.itch.io/game or user/game"; exit 1; fi
+          echo "ITCH_TARGET=$user/$game" >> "$GITHUB_ENV"
       - name: Install butler
         run: |
           curl -L -o butler.zip https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default
@@ -75,4 +81,4 @@ jobs:
           chmod +x butler/butler
           ./butler/butler -V
       - name: Push to itch.io
-        run: ./butler/butler push dist "$ITCH_USER/$ITCH_GAME:html5" --userversion "${GITHUB_SHA::7}"
+        run: ./butler/butler push dist "$ITCH_TARGET:html5" --userversion "${GITHUB_SHA::7}"
