@@ -20,7 +20,8 @@ export class View {
     for (const [name, c] of Object.entries(canvases)) {
       const tex = new pc.Texture(app.graphicsDevice, {
         width: c.width, height: c.height, format: pc.PIXELFORMAT_RGBA8, mipmaps: false,
-        minFilter: pc.FILTER_NEAREST, magFilter: pc.FILTER_NEAREST,
+        minFilter: /^sky/.test(name) ? pc.FILTER_LINEAR : pc.FILTER_NEAREST,
+        magFilter: /^sky/.test(name) ? pc.FILTER_LINEAR : pc.FILTER_NEAREST,
         addressU: name.startsWith('water') || name === 'foam' || name === 'fore' ? pc.ADDRESS_REPEAT : pc.ADDRESS_CLAMP_TO_EDGE,
         addressV: pc.ADDRESS_CLAMP_TO_EDGE,
       });

@@ -255,6 +255,32 @@ function hold(g, W, H, rnd, ruin) {
 // Sprites painted in klad (art/sprites/*.klad, exported by art/export.sh) replace the ones drawn in
 // code below, by name. Anything not yet painted keeps its code-drawn version.
 const painted = import.meta.glob('../assets/sprites/*.png', { eager: true, query: '?url', import: 'default' });
+// The skies are painted as a few flat bands of colour. On screen they are one smooth gradient
+// through the middle of each painted band, so no steps show.
+function smoothSky(src) {
+  const H = src.height;
+  const d = src.getContext('2d').getImageData(0, 0, 1, H).data;
+  const stops = [];
+  const key = (y) => `rgb(${d[y * 4]},${d[y * 4 + 1]},${d[y * 4 + 2]})`;
+  for (let y = 0, from = 0; y <= H; y++) {
+    if (y < H && key(y) === key(from)) continue;
+    // one-row slivers are the old dither between bands, not a colour of their own
+    if (y - from > 2) stops.push([stops.length ? (from + y) / 2 / H : 0, key(from)]);
+    from = y;
+  }
+  if (stops.length < 2) return src;
+  stops[stops.length - 1][0] = 1;
+  const c = document.createElement('canvas');
+  c.width = 4;
+  c.height = 512;
+  const g = c.getContext('2d');
+  const grad = g.createLinearGradient(0, 0, 0, 512);
+  for (const [at, col] of stops) grad.addColorStop(at, col);
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 4, 512);
+  return c;
+}
+
 export async function loadSprites() {
   const out = buildSprites();
   await Promise.all(
@@ -269,7 +295,7 @@ export async function loadSprites() {
       const g = c.getContext('2d');
       g.imageSmoothingEnabled = false;
       g.drawImage(img, 0, 0);
-      out[name] = c;
+      out[name] = /^sky/.test(name) ? smoothSky(c) : c;
     }),
   );
   return out;
@@ -571,14 +597,6 @@ export function buildSprites() {
     grad.addColorStop(1, PAL.skyLow);
     g.fillStyle = grad;
     g.fillRect(0, 0, 4, 128);
-    // Quantise into bands so the gradient reads as pixel art.
-    const d = g.getImageData(0, 0, 4, 128);
-    for (let y = 0; y < 128; y++) {
-      const src = Math.floor(y / 8) * 8 + (((y % 8) > 5 && y % 2) ? 8 : 0);
-      const sy = Math.min(127, src);
-      for (let x = 0; x < 4; x++) for (let k = 0; k < 4; k++) d.data[(y * 4 + x) * 4 + k] = d.data[(sy * 4 + x) * 4 + k];
-    }
-    g.putImageData(d, 0, 0);
   });
   make('far', 2048, 260, (g, W, H) =>
     skyline(g, W, H, rnd, PAL.far, PAL.farDark, [[0.004, 1, 0.3], [0.011, 0.5, 1.7], [0.031, 0.18, 0.4], [0.09, 0.05, 2]], 46, 120, 1420));

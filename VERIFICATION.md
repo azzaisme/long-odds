@@ -142,7 +142,7 @@ Real key presses throughout, no console errors in any run.
   read correctly; a fish jump and a flock of birds both triggered. Looked at: the night village
   and the burying ground on the hill.
 - **Sunset.** Looked at the village at dusk, the burying ground at dusk, and the ruins (two
-  views): banded maroon-to-gold sky with the glow on the horizon, the sun low over the range,
+  views): smooth maroon-to-gold sky (no bands: the painted bands are colour stops for one gradient) with the glow on the horizon, the sun low over the range,
   far mountains in rose haze, black land and foreground, lit windows, the god lit. Logged: dusk
   0.00 by day, 0.90 at the day's sunset, back to 0.00 at night; no console errors. Got there in
   four passes: the haze first did nothing (the engine measures it as a share of the camera's
