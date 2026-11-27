@@ -1,6 +1,6 @@
 // PlayCanvas world view. Reads simulation state; never writes it.
 import * as pc from 'playcanvas';
-import { buildSprites, SHIRTS } from './sprites.js';
+import { SHIRTS } from './sprites.js';
 import { WORLD, PLOT_SITES, HOUSE_SLOTS, FOREST_STANDS, groundHeight, waterEdge, waterLeft } from '../sim/world.js';
 import { yearOf } from '../sim/sim.js';
 
@@ -8,7 +8,7 @@ const Z = { volcano: -52, civic: -17, sky: -60, far: -50, cloud: -45, mid: -40, 
 const vrand = Math.random; // visual-only randomness
 
 export class View {
-  constructor(canvas) {
+  constructor(canvas, canvases) {
     const app = (this.app = new pc.Application(canvas, { graphicsDeviceOptions: { antialias: false, alpha: false } }));
     app.setCanvasFillMode(pc.FILLMODE_FILL_WINDOW);
     app.setCanvasResolution(pc.RESOLUTION_AUTO);
@@ -17,7 +17,6 @@ export class View {
 
     this.mats = {};
     this.sizes = {};
-    const canvases = buildSprites();
     for (const [name, c] of Object.entries(canvases)) {
       const tex = new pc.Texture(app.graphicsDevice, {
         width: c.width, height: c.height, format: pc.PIXELFORMAT_RGBA8, mipmaps: false,
@@ -373,7 +372,7 @@ export class View {
       this.setTex(a.e, `${a.skin}_${frame}`, a.dir < 0);
       const y = this.surface(a.x);
       this.place(a.e, Math.round(a.x), Math.round(y) - 0);
-      if (a.badge.enabled) this.place(a.badge, Math.round(a.x), Math.round(y) + 14 + Math.round(Math.sin(this.time * 3 + a.id) * 0.6));
+      if (a.badge.enabled) this.place(a.badge, Math.round(a.x), Math.round(y) + a.e._h + 2 + Math.round(Math.sin(this.time * 3 + a.id) * 0.6));
     }
   }
 
@@ -382,8 +381,8 @@ export class View {
     this.markerDim.enabled = !!other;
     const bob = Math.round(Math.sin(this.time * 5) * 1);
     this.aura.enabled = !!active;
-    if (active) this.aura.setLocalPosition(Math.round(active.x), this.surface(active.x) + 7 + bob * 0.5, Z.actor - 1);
-    if (active) this.place(this.marker, Math.round(active.x), this.surface(active.x) + (active.knows ? 22 : 16) + bob);
+    if (active) this.aura.setLocalPosition(Math.round(active.x), this.surface(active.x) + active.e._h / 2 + bob * 0.5, Z.actor - 1);
+    if (active) this.place(this.marker, Math.round(active.x), this.surface(active.x) + active.e._h + 3 + bob);
     if (other) this.place(this.markerDim, Math.round(other.x), groundHeight(other.x) + (other.knows ? 22 : 16));
   }
 

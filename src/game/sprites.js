@@ -252,6 +252,29 @@ function hold(g, W, H, rnd, ruin) {
   for (let sx = 40; sx < W - 60; sx += 74) for (let k = 0; k < 4; k++) R(g, STONE[1], sx + k * 2, H - th + k * 2 - 2 + th - 8, 8, 2); // stairs
 }
 
+// Sprites painted in klad (art/sprites/*.klad, exported by art/export.sh) replace the ones drawn in
+// code below, by name. Anything not yet painted keeps its code-drawn version.
+const painted = import.meta.glob('../assets/sprites/*.png', { eager: true, query: '?url', import: 'default' });
+export async function loadSprites() {
+  const out = buildSprites();
+  await Promise.all(
+    Object.entries(painted).map(async ([path, url]) => {
+      const name = path.split('/').pop().replace('.png', '');
+      const img = new Image();
+      img.src = url;
+      await img.decode();
+      const c = document.createElement('canvas');
+      c.width = img.naturalWidth;
+      c.height = img.naturalHeight;
+      const g = c.getContext('2d');
+      g.imageSmoothingEnabled = false;
+      g.drawImage(img, 0, 0);
+      out[name] = c;
+    }),
+  );
+  return out;
+}
+
 export function buildSprites() {
   const rnd = makeRng(20240);
   for (let i = 0; i < SHIRTS.length; i++) {

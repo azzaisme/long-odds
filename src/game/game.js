@@ -1064,7 +1064,7 @@ export class Game {
           }
         }
         cam.tx = a.x;
-        cam.ty = groundHeight(a.x) + 32;
+        cam.ty = groundHeight(a.x) + 38;
       }
       view.updateActors(dt, st, { gather: s === S.VISIT && a ? a.x : undefined });
       view.setMarkers(s === S.VISIT ? a : null, null);
