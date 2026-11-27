@@ -21,7 +21,7 @@ export class View {
       const tex = new pc.Texture(app.graphicsDevice, {
         width: c.width, height: c.height, format: pc.PIXELFORMAT_RGBA8, mipmaps: false,
         minFilter: pc.FILTER_NEAREST, magFilter: pc.FILTER_NEAREST,
-        addressU: name.startsWith('water') || name.startsWith('flood') || name === 'foam' ? pc.ADDRESS_REPEAT : pc.ADDRESS_CLAMP_TO_EDGE,
+        addressU: name.startsWith('water') || name === 'foam' ? pc.ADDRESS_REPEAT : pc.ADDRESS_CLAMP_TO_EDGE,
         addressV: pc.ADDRESS_CLAMP_TO_EDGE,
       });
       tex.setSource(c);
@@ -35,7 +35,7 @@ export class View {
       m.opacityMap = tex;
       m.opacityMapChannel = 'a';
       m.cull = pc.CULLFACE_NONE;
-      if (name === 'beam' || name === 'aura' || name === 'foam' || name === 'flood0' || name === 'flood1' || name.startsWith('water') || name === 'smoke' || name === 'floodline' || name === 'cloud') {
+      if (name === 'beam' || name === 'aura' || name === 'foam' || name.startsWith('water') || name === 'smoke' || name === 'floodline' || name === 'cloud') {
         m.blendType = pc.BLEND_NORMAL;
         m.opacity = name === 'beam' ? 0.85 : name === 'aura' ? 0.55 : name.startsWith('water') ? 0.72 : name === 'cloud' ? 0.8 : 0.6;
         m.depthWrite = false;
@@ -169,7 +169,12 @@ export class View {
     this.waterEnt = this.sprite('water0', 0, 0, Z.water);
     // Flood water lies over the river and thickens as it rises; foam rides its crest and
     // wreckage drifts on it.
-    this.floodEnt = this.sprite('flood0', 0, 0, Z.water + 0.2);
+    // The overflow is the same water as the river: its own copies of the river's materials, so the
+    // two pieces can show the upper and lower parts of one continuous surface.
+    this.mats.sheet0 = this.mats.water0.clone();
+    this.mats.sheet1 = this.mats.water1.clone();
+    this.sizes.sheet0 = this.sizes.sheet1 = [64, 64];
+    this.floodEnt = this.sprite('sheet0', 0, 0, Z.water + 0.2);
     this.floodEnt.enabled = false;
     this.foamEnt = this.sprite('foam', 0, 0, Z.water + 0.4);
     this.foamEnt.enabled = false;
@@ -523,55 +528,62 @@ export class View {
     this.setTex(this.waterEnt, frame ? 'water0' : 'water1');
     this.waterEnt.setLocalScale(rEdge - rLeft, 1, riverTop + 100);
     this.waterEnt.setLocalPosition((rEdge + rLeft) / 2, -100 + (riverTop + 100) / 2, Z.water);
-    const tile = (m, width, offset = 0) => {
-      m.emissiveMapTiling = new pc.Vec2(width / 64, 1);
+    // One texture runs down the whole depth of the water, from the surface to the bottom of the
+    // frame. `from` and `share` say which part of that depth a piece shows (0 is the surface).
+    const tile = (m, width, x0, from = 0, share = 1) => {
+      m.emissiveMapTiling = new pc.Vec2(width / 64, share);
       m.opacityMapTiling = m.emissiveMapTiling;
-      m.emissiveMapOffset = new pc.Vec2(offset, 0);
+      m.emissiveMapOffset = new pc.Vec2((((x0 / 64) % 1) + 1) % 1, 1 - from - share);
       m.opacityMapOffset = m.emissiveMapOffset;
     };
-    for (const m of [this.mats.water0, this.mats.water1]) {
-      tile(m, rEdge - rLeft);
-      m.update();
-    }
-    // The muddy water: over the channel as soon as the river rises, over the land once it spills.
+    // Over the land once it spills: the same water, continuing upward and outward from the channel.
     // While it drains back, the sheet on the land stays a thin layer until it has all returned.
     const hExt = Math.max(w.level, bank + 1.5);
     const left = spilled ? Math.max(waterLeft(hExt), WORLD.bridge.x0 - w.spread) : rLeft;
     const right = spilled ? Math.min(waterEdge(hExt), WORLD.bridge.x1 + w.spread) : rEdge;
     const top = spilled ? bank + Math.max(1.5, over * Math.pow(frac, 0.7)) + swell : riverTop;
-    const murk = Math.max(0, Math.min(1, (w.level - normal) / 5));
+    const murk = Math.max(0, Math.min(1, (w.level - normal) / 8));
     const flooding = murk > 0.02;
     const edge = right;
     const wl = left;
-    this.surface0 = { top, left, right, flooding };
-    this.floodEnt.enabled = flooding;
-    this.foamEnt.enabled = flooding;
-    if (flooding) {
+    this.surface0 = { top, left, right, flooding, spilled };
+    // In flood the whole river, channel and overflow alike, takes on the colour of silt.
+    const depthAll = top + 100;
+    const upper = spilled ? (top - riverTop) / depthAll : 0; // share of the depth that lies over the land
+    for (const m of [this.mats.water0, this.mats.water1]) {
+      tile(m, rEdge - rLeft, rLeft, upper, 1 - upper);
+      m.emissive.set(1 - 0.1 * murk, 1 - 0.2 * murk, 1 - 0.42 * murk);
+      m.update();
+    }
+    this.floodEnt.enabled = spilled;
+    this.foamEnt.enabled = spilled && frac < 1; // foam only while the front is moving
+    if (spilled) {
       const width = right - left;
-      this.setTex(this.floodEnt, frame ? 'flood0' : 'flood1');
-      // From the river's ordinary level up: below that is clear river, and the ground.
-      this.floodEnt.setLocalScale(width, 1, top - normal);
-      this.floodEnt.setLocalPosition((right + left) / 2, normal + (top - normal) / 2, Z.water + 0.2);
-      for (const m of [this.mats.flood0, this.mats.flood1]) {
-        tile(m, width, this.time * 0.05); // the whole sheet slides downstream
-        m.opacity = 0.7 * murk; // murky, but what it drowns shows through
+      this.setTex(this.floodEnt, frame ? 'sheet0' : 'sheet1');
+      this.floodEnt.setLocalScale(width, 1, top - riverTop);
+      this.floodEnt.setLocalPosition((right + left) / 2, riverTop + (top - riverTop) / 2, Z.water + 0.2);
+      for (const m of [this.mats.sheet0, this.mats.sheet1]) {
+        tile(m, width, left, 0, upper);
+        m.emissive.set(1 - 0.1 * murk, 1 - 0.2 * murk, 1 - 0.42 * murk);
         m.update();
       }
       this.foamEnt.setLocalScale(width, 1, 3);
       this.foamEnt.setLocalPosition((right + left) / 2, top + 0.5, Z.water + 0.4);
-      tile(this.mats.foam, width, this.time * 0.11);
-      this.mats.foam.opacity = 0.95 * murk;
+      this.mats.foam.emissiveMapTiling = new pc.Vec2(width / 64, 1);
+      this.mats.foam.opacityMapTiling = this.mats.foam.emissiveMapTiling;
+      this.mats.foam.emissiveMapOffset = new pc.Vec2((this.time * 0.11) % 1, 0);
+      this.mats.foam.opacityMapOffset = this.mats.foam.emissiveMapOffset;
+      this.mats.foam.opacity = 0.6 * (1 - frac);
       this.mats.foam.update();
-      // Foam breaks at both advancing edges, and rain pocks the surface.
-      const moving = spilled && frac < 1 ? 3 : 1;
-      for (let i = 0; i < moving; i++) {
+      // Water breaks at both advancing edges.
+      for (let i = 0; i < (frac < 1 ? 3 : 1); i++) {
         if (vrand() < 0.5) this.emit('splash', right - 1 - vrand() * 4, top);
         if (vrand() < 0.5) this.emit('splash', left + 1 + vrand() * 4, top);
       }
-      if (this.weather === 'rain' && this.viewRect) for (let i = 0; i < this.rainPower; i++) {
-        const x = Math.max(left, this.viewRect.x0) + vrand() * (Math.min(right, this.viewRect.x1) - Math.max(left, this.viewRect.x0));
-        if (x > left && x < right) this.emit('splash', x, top);
-      }
+    }
+    if (flooding && this.weather === 'rain' && this.viewRect) for (let i = 0; i < this.rainPower; i++) {
+      const x = Math.max(left, this.viewRect.x0) + vrand() * (Math.min(right, this.viewRect.x1) - Math.max(left, this.viewRect.x0));
+      if (x > left && x < right) this.emit('splash', x, top);
     }
     const rise = spilled ? top - normal : 0;
     // Wreckage: more of it the higher the water.

@@ -215,10 +215,10 @@ All of these are rolled in the simulation each summer, with the same rules at ev
 | Tornado | 0.4% | Crosses either the floodplain or the ridge: each household there has a 25% chance of losing its house and leaving, 60% of crops in its path are stripped, the store there loses 30% of its food |
 | Volcano | 0.1% that it wakes | Smokes for three years as a warning, then erupts: harvests at 25% that year and 60% for two more, a mudflow flood, and likely landslides. Three eruptions in ten also send fire and mud into the valley: half the households are lost and every field is buried. Twelve years of richer soil follow |
 
-On screen a flood is the river growing: it swells in its channel and turns muddy, tops its
-banks, then spreads outward over the land from both sides, shallow at first and deepening, with
-a foam front, wreckage drifting on it and rain that gets heavier with the flood. It drains back
-to the river the same way.
+On screen a flood is the river growing, as one body of water: it swells in its channel, tops
+its banks, then spreads outward over the land from both sides, shallow at first and deepening,
+with foam at the moving front, wreckage drifting on it and rain that gets heavier with the
+flood. The whole river silts up together as it rises and clears as it drains back.
 
 The Hold shelters its households from tornadoes and from most of a severe eruption. The volcano
 stands behind the valley in the backdrop; it smokes while it is waking and shows lava afterwards.
