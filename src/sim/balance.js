@@ -9,7 +9,7 @@ export const BALANCE = {
   customDrift: 0.003, // yearly chance each custom slips one step back toward what villages do unprompted
   jumpChoices: [1, 10, 100, 1000],
 
-  start: { households: 6, food: 22, seed: 6, knowing: 1 },
+  start: { households: 6, food: 26, seed: 6, knowing: 1 },
 
   // Households
   consumption: 2.0, // food eaten per household per year
@@ -24,6 +24,25 @@ export const BALANCE = {
   keepKnowledgeShared: 0.97, // ... when at least one other household also holds it
   teachChance: 0.1, // yearly chance a trained household trains a neighbour
   inheritChance: 0.6, // new household knows the practice with chance = trained share * this
+
+  // People. Households are houses full of individuals; all knowledge lives in people.
+  people: {
+    adultAge: 16,
+    eat: { adult: 0.6, child: 0.25 }, // food per person per year
+    forage: 0.25, // food gathered per adult per year
+    plotsPerAdult: 1,
+    death: { infant: 0.02, adult: 0.005, oldFrom: 50, old: 0.03, oldRise: 0.006, hunger: 2 }, // yearly chances
+    marryFrom: 17, marryTo: 40, marryChance: 0.5,
+    birthTo: 42, birthChance: 0.24, maxChildren: 4, crowded: 8, // household size at which births stop
+    learnFrom: 6, learnChance: 0.25, // a child picks up each idea kept in its house, per year
+    spouseShare: 0.3, // yearly chance a spouse passes on each idea
+    neighbourTeach: 0.012, // yearly chance an adult passes one idea to an adult elsewhere
+    teacherBoost: 5, // a person with the teacher's calling does this much more of it
+    invent: 0.03, // yearly chance a person holding both parent ideas works out the new one
+    newcomerChance: 0.02, // yearly chance a new family arrives when the village is fed
+    newcomerIdea: 0.35, // chance they bring one base idea with them
+    moveCost: 2, // food to move a household to another house
+  },
 
   // Farms
   yield: { low: 3.0, ridge: 1.7 },

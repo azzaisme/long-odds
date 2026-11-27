@@ -6,7 +6,8 @@ import { hashSeed } from '../sim/rng.js';
 import * as Sim from '../sim/sim.js';
 import { summary, assessRisks, estimateSurvival } from '../sim/risks.js';
 import { Playback } from '../sim/playback.js';
-import { PRACTICES, PRACTICE, CUSTOMS, CROPS, CROP, holds, holders } from '../sim/decisions.js';
+import { IDEAS, IDEA, PRACTICES, CUSTOMS, CROPS, CROP, holds, holders, possibleIdeas } from '../sim/decisions.js';
+import { canBetroth } from '../sim/people.js';
 
 export const S = { TITLE: 'title', VISIT: 'visit', PLANNING: 'planning', PLAYBACK: 'playback', ARRIVAL: 'arrival', RUINS: 'ruins', RESULTS: 'results' };
 const $ = (id) => document.getElementById(id);
@@ -82,7 +83,7 @@ export class Game {
     $('playback').hidden = s !== S.PLAYBACK;
     $('ruinbar').hidden = !(s === S.RUINS || s === S.RESULTS);
     $('context').classList.toggle('raised', s === S.RUINS || s === S.RESULTS);
-    $('hint').innerHTML = s === S.VISIT ? '<kbd>A</kbd><kbd>D</kbd> walk · <kbd>E</kbd> inspect · <kbd>T</kbd> demonstrate · <kbd>C</kbd> customs · <kbd>Q</kbd> switch villager · <kbd>J</kbd> plan the jump' : '<kbd>A</kbd><kbd>D</kbd> walk · <kbd>E</kbd> inspect';
+    $('hint').innerHTML = s === S.VISIT ? '<kbd>A</kbd><kbd>D</kbd> walk · <kbd>E</kbd> inspect · <kbd>T</kbd> demonstrate · <kbd>C</kbd> customs · <kbd>P</kbd> people · <kbd>Q</kbd> switch villager · <kbd>J</kbd> plan the jump' : '<kbd>A</kbd><kbd>D</kbd> walk · <kbd>E</kbd> inspect';
     if (s !== S.VISIT && s !== S.RUINS && s !== S.RESULTS) {
       $('context').hidden = true;
       $('prompt').hidden = true;
@@ -152,6 +153,7 @@ export class Game {
       if (k === 'e') return this.toggleInspect();
       if (k === 't') return this.act('teach');
       if (k === 'c') return this.openCustoms();
+      if (k === 'p') return this.openPeople();
       if (this.picking) {
         if (k === 'Escape') return (this.picking = false);
         const pr = PRACTICES[Number(k) - 1];
@@ -176,6 +178,12 @@ export class Game {
       case 'teach': return this.teach(arg);
       case 'crop': return this.cycleCrop();
       case 'customs': return this.openCustoms();
+      case 'people': return this.openPeople();
+      case 'house': return this.openHouse(Number(arg));
+      case 'match': return this.openMatch(Number(arg));
+      case 'promise': return this.promise(arg);
+      case 'calling': return this.calling(arg);
+      case 'move': return this.moveHouse(arg);
       case 'custom': return this.setCustom(arg);
       case 'close': return this.state === S.PLANNING && (this.sound.click(), this.setState(S.VISIT));
       case 'choose': return this.choose(Number(arg));
@@ -206,6 +214,7 @@ export class Game {
         <span><kbd>E</kbd></span><span>Inspect what is nearby, then <kbd>1</kbd> to work on it</span>
         <span><kbd>T</kbd></span><span>Demonstrate a practice to villagers standing close</span>
         <span><kbd>C</kbd></span><span>Set the customs of the village</span>
+        <span><kbd>P</kbd></span><span>The people: family lines, houses, ideas, matches</span>
         <span><kbd>Q</kbd></span><span>Switch to the other villager</span>
         <span><kbd>J</kbd></span><span>Review the settlement and choose a jump</span>
       </div>
@@ -288,8 +297,8 @@ export class Game {
       const h = this.hh(s.hid);
       const lin = h.lineage;
       const how = !h.knows ? 'They do not know how to save seed.' : lin && lin.root === 'demo' ? `They save seed, a practice ${lin.by} demonstrated in year ${lin.year}.` : `They save seed${lin ? `, as ${lin.by}'s household always has` : ''}.`;
-      const also = PRACTICES.filter((p) => p.id !== 'seed' && holds(h, p.id)).map((p) => p.name.toLowerCase());
-      return { title: `${h.name}'s household`, text: `Here since year ${h.since}, now in its ${ordinal(h.gen)} generation. ${how}${also.length ? ` They also keep: ${also.join(', ')}.` : ''}` };
+      const also = IDEAS.filter((p) => p.id !== 'seed' && holds(h, p.id)).map((p) => p.name.toLowerCase());
+      return { kind: 'open', hid: h.id, title: `${h.name}'s household`, text: `${h.size} people, ${h.adults} grown. Of the ${this.lineNames(h.lines)} line${h.lines.length > 1 ? 's' : ''}. Here since year ${h.since}. ${how}${also.length ? ` They also keep: ${also.join(', ')}.` : ''}`, action: 'Meet the household: matches, callings, moving house' };
     }
     const what = { empty: 'An empty house', ruin: 'A ruin', rubble: 'Rubble' }[s.state];
     return { title: what, text: s.state === 'empty' ? `The household left ${ago(s.since)}.` : s.state === 'ruin' ? `The roof fell in ${ago(s.since)}.` : `Only the footings are left. It has lain like this for ${plural(year - s.since, 'year')}.` };
@@ -345,6 +354,7 @@ export class Game {
     const who = this.myHouse().name;
     const st = this.sim;
     const a = this.me();
+    if (t.kind === 'house') return this.openHouse(st.houses[t.id].hid);
     if (t.kind === 'plot') {
       const p = st.plots[t.id];
       if (this.spend(p.state === 'damaged' ? Sim.repairPlot(st, t.id, who) : Sim.buildPlot(st, t.id, who), 'build')) this.view.emit('dust', t.x, groundHeight(t.x) + 2, 14);
@@ -392,6 +402,123 @@ export class Game {
     const r = Sim.setCrop(this.sim, t.id, next.id, this.myHouse().name);
     if (r.ok) (this.toast(`${r.text} ${next.does}`), this.sound.click());
   }
+  lineNames(lines) {
+    return lines.length ? lines.map((l) => this.sim.lines[l].name).join(' · ') : 'no';
+  }
+  personLine(p) {
+    const st = this.sim;
+    const year = Sim.yearOf(st);
+    const age = year - p.born;
+    const ideas = Object.keys(p.ideas).map((id) => IDEA[id].name).join(', ') || 'no ideas yet';
+    const sp = p.spouse !== null ? st.people.find((q) => q.id === p.spouse) : null;
+    const be = p.betrothed !== null ? st.people.find((q) => q.id === p.betrothed) : null;
+    const status = sp ? `married to ${sp.name}` : be ? `promised to ${be.name}` : age < B.people.adultAge ? 'child' : 'unmarried';
+    return { age, ideas, status, sp, be };
+  }
+  openHouse(hid) {
+    if (this.state !== S.VISIT && this.state !== S.PLANNING) return;
+    const st = this.sim;
+    const h = this.hh(hid);
+    if (!h) return;
+    this.pending = null;
+    this.odds = null;
+    this.setState(S.PLANNING);
+    this.sound.click();
+    const slot = h.house >= 0 ? st.houses[h.house] : null;
+    const rows = st.people.filter((p) => p.hid === hid).sort((a, b) => a.born - b.born).map((p) => {
+      const d = this.personLine(p);
+      const grown = d.age >= B.people.adultAge;
+      const acts = [];
+      if (!d.sp) acts.push(`<button data-act="match" data-arg="${p.id}">${d.be ? 'Change match' : 'Find a match'}</button>`);
+      if (grown) acts.push(`<button data-act="calling" data-arg="${p.id}">${p.calling === 'teacher' ? 'Teacher ✓' : 'Make teacher'}</button>`);
+      return `<tr><td><b>${esc(p.name)}</b><small>${d.age}, ${p.sex === 'f' ? 'woman' : 'man'}${grown ? '' : ' (child)'} · ${esc(this.lineNames(p.lines))}</small></td><td>${esc(d.ideas)}<small>${esc(d.status)}${p.calling ? ' · teacher' : ''}</small></td><td>${acts.join('')}</td></tr>`;
+    });
+    const free = (elev) => st.houses.find((x) => x.elev === elev && x.state !== 'home');
+    const other = slot ? (slot.elev === 'low' ? 'ridge' : 'low') : null;
+    const move = other && free(other) ? `<button data-act="move" data-arg="${hid}:${free(other).id}" ${st.stores.low.food + st.stores.ridge.food >= B.people.moveCost ? '' : 'disabled'}>Move this household to ${other === 'ridge' ? 'the ridge' : 'the riverside'} · costs ${B.people.moveCost} food</button>` : '';
+    this.modal(`
+      <h2>${esc(h.name)}'s household</h2>
+      <p class="note">${slot ? (slot.elev === 'ridge' ? 'A house on the ridge' : 'A house by the river, below the flood line') : 'Living in shared quarters'} · family line${h.lines.length > 1 ? 's' : ''}: ${esc(this.lineNames(h.lines))}. Children pick up whatever the grown people of their own house know. A marriage joins two lines, and a child who holds two ideas may work out a third.</p>
+      <table class="people">${rows.join('')}</table>
+      <div class="row">${move}<button data-act="people">The whole village <kbd>P</kbd></button><button data-act="close">Done <kbd>Esc</kbd></button></div>`);
+  }
+  openMatch(pid) {
+    if (this.state !== S.PLANNING) return;
+    const st = this.sim;
+    const a = st.people.find((p) => p.id === pid);
+    if (!a) return;
+    const year = Sim.yearOf(st);
+    const options = st.people.filter((b) => canBetroth(a, b) && Math.abs(a.born - b.born) <= 15).map((b) => ({ b, could: possibleIdeas(a, b), fresh: b.lines.filter((l) => !a.lines.includes(l)).length }));
+    options.sort((x, y) => y.could.length - x.could.length || y.fresh - x.fresh || Math.abs(a.born - x.b.born) - Math.abs(a.born - y.b.born));
+    const rows = options.slice(0, 14).map(({ b, could }) => {
+      const d = this.personLine(b);
+      return `<tr><td><b>${esc(b.name)}</b><small>${d.age} · ${esc(this.hh(b.hid).name)}'s house · ${esc(this.lineNames(b.lines))}</small></td><td>${esc(d.ideas)}<small>${could.length ? `their children could work out: <i>${esc(could.map((i) => i.name).join(', '))}</i>` : 'no new idea in reach from this pairing'}${d.be ? ` · already promised to ${esc(d.be.name)}` : ''}</small></td><td><button class="${could.length ? 'primary' : ''}" data-act="promise" data-arg="${a.id}:${b.id}">Promise</button></td></tr>`;
+    });
+    const mine = this.personLine(a);
+    this.modal(`
+      <h2>A match for ${esc(a.name)}</h2>
+      <p class="note">${esc(a.name)}, ${year - a.born}, of the ${esc(this.lineNames(a.lines))} line${a.lines.length > 1 ? 's' : ''}, knows: ${esc(mine.ideas)}. A promise costs nothing and is kept when both are of age (${B.people.marryFrom}) and still free. Matches with the most new ideas in reach come first.</p>
+      ${rows.length ? `<table class="people">${rows.join('')}</table>` : '<p>There is nobody free, unrelated and near enough in age in any other house.</p>'}
+      <div class="row"><button data-act="house" data-arg="${a.hid}">Back</button></div>`);
+  }
+  promise(arg) {
+    if (this.state !== S.PLANNING) return;
+    const [a, b] = arg.split(':').map(Number);
+    const r = Sim.betroth(this.sim, a, b, this.myHouse() ? this.myHouse().name : 'the god');
+    this.toast(r.text, !r.ok);
+    if (r.ok) this.sound.good();
+    this.openHouse(this.sim.people.find((p) => p.id === a).hid);
+  }
+  calling(arg) {
+    if (this.state !== S.PLANNING) return;
+    const p = this.sim.people.find((q) => q.id === Number(arg));
+    if (!p) return;
+    const r = Sim.setCalling(this.sim, p.id, p.calling === 'teacher' ? null : 'teacher', 'the god');
+    this.toast(r.text);
+    this.openHouse(p.hid);
+  }
+  moveHouse(arg) {
+    if (this.state !== S.PLANNING) return;
+    const [hid, slot] = arg.split(':').map(Number);
+    const r = Sim.moveHousehold(this.sim, hid, slot, 'the god');
+    this.toast(r.text, !r.ok);
+    if (r.ok) {
+      this.sound.build();
+      this.view.sync(this.sim);
+      this.view.syncActors(this.sim, true);
+    }
+    this.openHouse(hid);
+  }
+  openPeople() {
+    if (this.state !== S.VISIT && this.state !== S.PLANNING) return;
+    const st = this.sim;
+    this.pending = null;
+    this.odds = null;
+    this.setState(S.PLANNING);
+    const year = Sim.yearOf(st);
+    const grown = st.people.filter((p) => year - p.born >= B.people.adultAge);
+    const lines = st.lines.map((l) => ({ l, n: st.people.filter((p) => p.lines.includes(l.id)).length })).filter((x) => x.n > 0);
+    const ideaRow = (i) => {
+      const n = st.people.filter((p) => p.ideas[i.id]).length;
+      const hn = holders(st, i.id);
+      const d = st.discovered[i.id];
+      if (n) return `<li class="good"><b>${esc(i.name)}</b> · ${n} people in ${hn} house${hn === 1 ? '' : 's'}${d ? ` · worked out by ${esc(d.by)} (${esc(this.lineNames(d.lines))}) in year ${d.year}` : ''}<br><span class="note">${esc(i.does)}</span></li>`;
+      if (i.base) return `<li class="warn"><b>${esc(i.name)}</b> · nobody keeps it. You can demonstrate it (T).<br><span class="note">${esc(i.does)}</span></li>`;
+      const both = grown.filter((p) => p.ideas[i.from[0]] && p.ideas[i.from[1]]).length;
+      const have = i.from.map((f) => `${IDEA[f].name}${st.people.some((p) => p.ideas[f]) ? '' : ' (unknown)'}`).join(' + ');
+      return `<li class="note"><b>${esc(i.name)}</b> · not yet. Grows from ${esc(have)}${both ? `; ${both} ${both === 1 ? 'person holds' : 'people hold'} both` : '; nobody holds both'}.<br><span class="note">${esc(i.does)}</span></li>`;
+    };
+    this.modal(`
+      <h2>The people of the valley</h2>
+      <div class="grid"><div><small>People</small><b>${st.people.length}</b></div><div><small>Grown</small><b>${grown.length}</b></div><div><small>Houses</small><b>${st.households.length}</b></div><div><small>Family lines</small><b>${lines.length}</b></div><div><small>Ideas known</small><b>${IDEAS.filter((i) => st.people.some((p) => p.ideas[i.id])).length} of ${IDEAS.length}</b></div></div>
+      <h3>Family lines</h3>
+      <p>${lines.map(({ l, n }) => `<b>${esc(l.name)}</b> <span class="note">${n}${l.year ? `, arrived year ${l.year}` : ''}</span>`).join(' · ')}</p>
+      <h3>Houses</h3>
+      <div class="opts">${st.households.map((h) => `<button data-act="house" data-arg="${h.id}">${esc(h.name)} <small>${h.size}</small></button>`).join('')}</div>
+      <h3>Ideas</h3>
+      <ul>${IDEAS.map(ideaRow).join('')}</ul>
+      <div class="row"><button data-act="close">Done <kbd>Esc</kbd></button></div>`);
+  }
   openCustoms() {
     if (this.state !== S.VISIT && this.state !== S.PLANNING) return;
     this.pending = null;
@@ -433,11 +560,11 @@ export class Game {
     const s = summary(this.sim);
     const cell = (k, v) => `<div><small>${k}</small><b>${v}</b></div>`;
     return `<div class="grid">
-      ${cell('Settlement', esc(s.stageName))}${cell('Households', s.households)}${cell('Know seed saving', s.knowers)}
+      ${cell('Settlement', esc(s.stageName))}${cell('People', s.people)}${cell('Households', s.households)}${cell('Know seed saving', s.knowers)}
       ${cell('Food in store', n0(s.food))}${cell('Seed: granary', n0(s.seedLow))}${cell('Seed: ridge', s.ridgeStore ? n0(s.seedRidge) : 'no store')}
       ${cell('Floodplain fields', s.fieldsLow)}${cell('Ridge fields', s.fieldsRidge)}${s.damaged ? cell('Flood-damaged', s.damaged) : ''}
     </div>
-    <p class="note">Practices kept: ${PRACTICES.map((p) => `${esc(p.name)} ${holders(this.sim, p.id)}/${s.households}`).join(' · ')}</p>
+    <p class="note">Ideas kept (houses): ${IDEAS.filter((p) => holders(this.sim, p.id)).map((p) => `${esc(p.name)} ${holders(this.sim, p.id)}/${s.households}`).join(' · ') || 'none'}</p>
     <ul>${assessRisks(this.sim).map((r) => `<li class="${r.level}">${esc(r.text)}</li>`).join('')}</ul>`;
   }
   openPlan() {
@@ -540,7 +667,7 @@ export class Game {
       if (e.type === 'collapse') this.sound.collapse();
       else if (e.type === 'flood' && e.level >= 2 && this.floodSoundT <= 0) (this.sound.flood(e.level), (this.floodSoundT = 1.2));
       else if (e.type === 'harvest' && j.years <= 10) this.sound.harvest();
-      else if (e.type === 'stage') this.sound.arrive(true);
+      else if (e.type === 'stage' || e.type === 'idea') this.sound.arrive(true);
       else if (e.type === 'recovery' && j.years <= 100 && this.floodSoundT <= 0.6) this.sound.good();
     }
     // Secondary changes are rolled up by decade or century at the long horizons.
@@ -577,7 +704,7 @@ export class Game {
     this.floodSoundT -= dt;
     const gap = { 1: 0.25, 10: 0.6, 100: 0.85, 1000: 1.0 }[j.years];
     // Keep the queue short: turning points first, then summaries, then the rest.
-    const rank = (e) => (e.type === 'collapse' || e.type === 'stage' || e.type === 'eruption' ? 5 : e.type === 'tornado' || e.type === 'landslide' || e.type === 'rumble' ? 4 : e.type === 'recovery' || e.type === 'knowledge-lost' || e.type === 'store' ? 4 : e.p >= 3 ? 3 : e.sum ? 2 : e.p);
+    const rank = (e) => (e.type === 'collapse' || e.type === 'stage' || e.type === 'eruption' || e.type === 'idea' ? 5 : e.type === 'tornado' || e.type === 'landslide' || e.type === 'rumble' ? 4 : e.type === 'recovery' || e.type === 'knowledge-lost' || e.type === 'store' ? 4 : e.p >= 3 ? 3 : e.sum ? 2 : e.p);
     if (this.queue.length > 4) {
       const keep = this.queue.map((e, i) => ({ e, i })).sort((a, b) => rank(b.e) - rank(a.e) || b.i - a.i).slice(0, 4).sort((a, b) => a.i - b.i);
       this.queue = keep.map((k) => k.e);
@@ -586,7 +713,7 @@ export class Game {
       const e = this.queue.shift();
       this.capT = gap;
       const li = document.createElement('li');
-      const good = e.type === 'stage' || e.type === 'recovery' || e.type === 'store' || e.type === 'settle' || e.type === 'repair' || e.type === 'uphill';
+      const good = e.type === 'idea' || e.type === 'newcomers' || e.type === 'wedding' || e.type === 'stage' || e.type === 'recovery' || e.type === 'store' || e.type === 'settle' || e.type === 'repair' || e.type === 'uphill';
       li.className = e.sum ? 'sum' : e.p >= 3 ? `p3${good ? ' good' : ''}` : '';
       li.innerHTML = e.sum ? esc(e.text) : `<i>Year ${n0(e.year)}</i>${esc(e.text)}`;
       $('captions').appendChild(li);
@@ -633,7 +760,7 @@ export class Game {
     let skipped = 0;
     if (turning.length > 9) {
       const must = turning.filter((e) => ['eruption', 'tornado', 'landslide', 'stage', 'stage-down', 'collapse', 'recovery', 'knowledge-lost', 'store', 'erode'].includes(e.type));
-      const stages = turning.filter((e) => e.type === 'stage' || e.type === 'collapse' || e.type === 'eruption');
+      const stages = turning.filter((e) => e.type === 'idea' || e.type === 'stage' || e.type === 'collapse' || e.type === 'eruption');
       const pick = new Set([...turning.slice(0, 2), ...stages, ...must.slice(0, 2), ...must.slice(-2), ...turning.slice(-2)]);
       skipped = turning.length - pick.size;
       turning = turning.filter((e) => pick.has(e));
@@ -700,6 +827,12 @@ export class Game {
     if (demo.length) {
       const p = demo[0].practice;
       lines.push(`${demo.length === 1 ? '1 recovery was' : `${demo.length} recoveries were`} carried out by households whose seed saving goes back to ${esc(p.by)}'s demonstration in year ${p.year}.`);
+    }
+    for (const d of st.discoveries.filter((x) => x.year >= j.from)) {
+      const made = st.actions.find((a) => a.type === 'betroth' && ((d.parents.includes(a.a) && d.parents.includes(a.b)) || d.pid === a.a || d.pid === a.b));
+      const shown = d.from.filter((f) => st.actions.some((a) => a.type === 'demonstrate' && a.practice === f));
+      if (made) lines.push(`${esc(IDEA[d.idea].name)} was worked out in year ${d.year} by ${esc(d.by)}, ${d.pid === made.a || d.pid === made.b ? 'one of the pair you promised to each other' : 'a child of the match you made'} in year ${made.year}.`);
+      else if (shown.length) lines.push(`${esc(IDEA[d.idea].name)} (year ${d.year}, ${esc(d.by)}) grew out of ${esc(shown.map((f) => IDEA[f].name.toLowerCase()).join(' and '))}, which you demonstrated.`);
     }
     return lines.length ? `<h3>Traced to your visits</h3><ul>${lines.map((l) => `<li class="good">${l}</li>`).join('')}</ul>` : '';
   }
@@ -793,7 +926,7 @@ export class Game {
     $('visit').textContent = `Visit ${this.visit}`;
     const cell = (k, v) => `<div><small>${k}</small><b>${v}</b></div>`;
     $('stats').innerHTML =
-      cell(esc(s.stageName), `${s.households} households`) + cell('Seed-savers', s.knowers) + cell('Food', n0(s.food)) +
+      cell(esc(s.stageName), `${s.people} people · ${s.households} houses`) + cell('Seed-savers', s.knowers) + cell('Food', n0(s.food)) +
       cell('Seed', `${n0(s.seedLow)} low · ${s.ridgeStore ? n0(s.seedRidge) : '–'} ridge`) +
       cell('Fields', `${s.fieldsLow} flood · ${s.fieldsRidge} ridge${s.damaged ? ` · ${s.damaged} silted` : ''}`);
     $('pips').innerHTML = `<small>work is paid in food</small>`;
@@ -823,18 +956,19 @@ export class Game {
     const st = this.sim;
     const afford = (kind) => Sim.canAfford(st, kind);
     const cost = (kind) => (B.workCost[kind] ? `costs ${B.workCost[kind]} food` : 'free');
+    const affordAny = (kind) => kind === 'open' || afford(kind);
     if (t && this.inspect) {
       const d = this.describe(t);
       const can = this.state === S.VISIT && d.action;
       html += `<h3>${esc(d.title)}</h3><p>${esc(d.text)}</p>`;
       let acts = '';
-      if (can) acts += `<button class="primary" data-act="site" ${afford(d.kind) ? '' : 'disabled'}><kbd>1</kbd> ${esc(d.action)} · ${cost(d.kind)}</button>`;
+      if (can) acts += `<button class="primary" data-act="site" ${affordAny(d.kind) ? '' : 'disabled'}><kbd>1</kbd> ${esc(d.action)} · ${cost(d.kind)}</button>`;
       if (this.state === S.VISIT && t.kind === 'plot' && st.plots[t.id].state !== 'eroded') acts += `<button data-act="crop"><kbd>2</kbd> Crop: ${esc(CROP[st.plots[t.id].crop].name)} (change) · free</button>`;
       if (acts) html += `<div class="acts">${acts}</div>`;
       else if (d.note && this.state === S.VISIT) html += `<div class="more">${esc(d.note)}</div>`;
     }
     if (this.state === S.VISIT && a && this.picking) {
-      html = `<h3>Demonstrate a practice</h3><p>You know them all. Whoever's hands you use learns it, and so do the two nearest villagers within reach. Each demonstration ${cost('teach')}.</p><div class="plist">${PRACTICES.map((p, i) => {
+      html = `<h3>Demonstrate a practice</h3><p>You know all six. Everyone old enough in the house of the villager you are acting through learns it, and so does everyone in the houses of the two nearest villagers within reach. Each demonstration ${cost('teach')}.</p><div class="plist">${PRACTICES.map((p, i) => {
         const who = this.pupils(p.id);
         return `<button data-act="teach" data-arg="${p.id}" ${who.length && afford('teach') ? '' : 'disabled'}><kbd>${i + 1}</kbd> <b>${esc(p.name)}</b> <small>${holders(st, p.id)}/${st.households.length} keep it${who.length ? ` · would teach ${esc(who.map((h) => h.name).join(', '))}` : ' · nobody new in reach'}</small><span>${esc(p.does)}</span></button>`;
       }).join('')}</div>`;

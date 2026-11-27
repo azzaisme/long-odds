@@ -4,7 +4,8 @@
 import { BALANCE } from './balance.js';
 import { rngNext, hashSeed } from './rng.js';
 import { PLOT_SITES, HOUSE_SLOTS, householdName } from './world.js';
-import { PRACTICES, PRACTICE, CUSTOMS, CROP, defaultCustoms, customValue, holds, holders, share } from './decisions.js';
+import { IDEA, PRACTICES, CUSTOMS, CROP, defaultCustoms, customValue, mod } from './decisions.js';
+import { give, addFamily, addPerson, refreshHouseholds, removePeopleOf, peopleYear, teachEveryone, canBetroth, person, membersOf } from './people.js';
 
 export const SEASONS = ['spring', 'summer', 'autumn', 'winter'];
 export const FLOOD_NAMES = ['', 'High water', 'Flood', 'Great flood'];
@@ -15,7 +16,12 @@ export function createSim(seed, B = BALANCE) {
     rng: { a: hashSeed('long-odds', seed >>> 0) },
     tick: 0,
     nextHid: 0,
+    nextPid: 0,
     households: [],
+    people: [],
+    lines: [], // family lines, one per founding or arriving family
+    discovered: {}, // idea id -> who first worked it out
+    discoveries: [],
     plots: PLOT_SITES.map((s) => ({
       id: s.id, elev: s.elev, state: 'wild', stage: null, since: 0, lastWorked: -1,
       worker: null, workerKnows: false, builtBy: null, builtYear: null, crop: 'grain',
@@ -38,15 +44,15 @@ export function createSim(seed, B = BALANCE) {
     chronicle: [], // turning points (priority 3)
     recoveries: [], // recoveries traceable to stored ridge seed or taught practice
     actions: [], // player interventions
-    stats: { rains: 0, slides: 0, tornadoes: 0, eruptions: 0, peakStage: 0, floods: 0, greatFloods: 0, droughts: 0, peakHouseholds: B.start.households, left: 0, settled: 0 },
+    stats: { births: 0, weddings: 0, rains: 0, slides: 0, tornadoes: 0, eruptions: 0, peakStage: 0, floods: 0, greatFloods: 0, droughts: 0, peakHouseholds: B.start.households, left: 0, settled: 0 },
   };
+  const rand = () => rngNext(st.rng);
   for (let i = 0; i < B.start.households; i++) {
-    const h = addHousehold(st, false);
-    if (i < B.start.knowing) {
-      h.knows = true;
-      h.lineage = { root: 'elder', year: 0, by: h.name };
-    }
+    const h = addHousehold(st, false, B);
+    const couple = addFamily(st, h, 0, rand, B);
+    if (i < B.start.knowing) for (const p of couple) give(p, 'seed', { root: 'elder', year: 0, by: h.name });
   }
+  refreshHouseholds(st, 0, B);
   return st;
 }
 
@@ -84,7 +90,7 @@ function addHousehold(st, preferRidge, B = BALANCE) {
   }
   if (!slot && stage < 2) return null; // from Town on, households without a house of their own live in shared blocks
   const id = st.nextHid++;
-  const h = { id, name: householdName(id), knows: false, skills: {}, lineage: null, since: yearOf(st), house: slot ? slot.id : -1, gen: 1 };
+  const h = { id, name: householdName(id), knows: false, lineage: null, ideas: {}, mask: 0, lineSeen: 0, adults: 0, size: 0, lines: [], line: null, since: yearOf(st), house: slot ? slot.id : -1 };
   if (slot) {
     slot.state = 'home';
     slot.hid = id;
@@ -102,6 +108,7 @@ function removeHousehold(st, h, year) {
     slot.since = year;
   }
   st.households.splice(st.households.indexOf(h), 1);
+  removePeopleOf(st, h.id);
 }
 
 const tracePractice = (lin) =>
@@ -150,9 +157,10 @@ function spring(st, B, year, say) {
 
   // Labour slots: trained households first, so the best-kept fields get the seed-savers.
   const slots = [];
-  for (const h of st.households) if (h.knows) for (let i = 0; i < B.plotsPerHousehold; i++) slots.push(h);
+  const per = B.people.plotsPerAdult;
+  for (const h of st.households) if (h.knows) for (let i = 0; i < h.adults * per; i++) slots.push(h);
   const trainedSlots = slots.length;
-  for (const h of st.households) if (!h.knows) for (let i = 0; i < B.plotsPerHousehold; i++) slots.push(h);
+  for (const h of st.households) if (!h.knows) for (let i = 0; i < h.adults * per; i++) slots.push(h);
   let next = 0;
 
   // Repairs need a trained household: they know how to bring a silted plot back.
@@ -269,7 +277,7 @@ function summer(st, B, year, say, rand) {
       st.stats.eruptions++;
       lahar = true;
       if (severe) {
-        const lossChance = (stage >= 4 ? Hz.severeLossHold : Hz.severeLoss) * (1 - PRACTICE.watch.eruptionSave * share(st, 'watch'));
+        const lossChance = (stage >= 4 ? Hz.severeLossHold : Hz.severeLoss) * (1 - mod(st, 'eruptionSave'));
         const lost = st.households.filter(() => rand() < lossChance);
         for (const h of lost) destroyHousehold(st, h, year);
         for (const p of st.plots) if (p.state === 'planted' || p.state === 'fallow') Object.assign(p, { state: 'damaged', stage: null, since: year });
@@ -304,7 +312,7 @@ function summer(st, B, year, say, rand) {
     let lostCrops = 0;
     for (const p of st.plots) if (p.elev === side && p.state === 'planted' && rand() < Hz.tornadoCropLoss) (p.state = 'fallow'), (p.stage = null), lostCrops++;
     const inPath = stage >= 4 ? [] : st.households.filter((h) => (h.house >= 0 ? st.houses[h.house].elev : 'ridge') === side);
-    const houseLoss = Hz.tornadoHouseLoss * (1 - PRACTICE.stone.tornadoSave * share(st, 'stone'));
+    const houseLoss = Hz.tornadoHouseLoss * (1 - mod(st, 'tornadoSave'));
     const lost = inPath.filter(() => rand() < houseLoss);
     for (const h of lost) destroyHousehold(st, h, year);
     const store = side === 'low' ? st.stores.low : st.stores.ridge;
@@ -325,7 +333,7 @@ function summer(st, B, year, say, rand) {
     let seedLost = 0;
     const rs = st.stores.ridge;
     if (rs.built && rand() < Hz.slideStoreHit) {
-      const part = (Hz.slideStoreLoss[0] + rand() * (Hz.slideStoreLoss[1] - Hz.slideStoreLoss[0])) * (1 - PRACTICE.stone.slideSave * share(st, 'stone'));
+      const part = (Hz.slideStoreLoss[0] + rand() * (Hz.slideStoreLoss[1] - Hz.slideStoreLoss[0])) * (1 - mod(st, 'slideSave'));
       seedLost = rs.seed * part;
       rs.seed -= seedLost;
       rs.food *= 1 - part;
@@ -346,7 +354,7 @@ function summer(st, B, year, say, rand) {
       if (p.elev === 'low') {
         if (p.state === 'planted') {
           lowPlanted++;
-          if (rand() < (level === 1 ? cropLoss * CROP[p.crop].highWater : cropLoss)) {
+          if (rand() < (level === 1 ? cropLoss * CROP[p.crop].highWater * (1 - mod(st, 'highWaterSave')) : cropLoss)) {
             p.state = 'damaged';
             p.stage = null;
             p.since = year;
@@ -366,7 +374,7 @@ function summer(st, B, year, say, rand) {
     let seedLost = 0;
     let foodLost = 0;
     if (level >= 2) {
-      const part = (level === 3 ? 1 : F.granaryLoss[0] + rand() * (F.granaryLoss[1] - F.granaryLoss[0])) * B.stages.granaryLoss[stage] * (1 - PRACTICE.marks.granarySave * share(st, 'marks'));
+      const part = (level === 3 ? 1 : F.granaryLoss[0] + rand() * (F.granaryLoss[1] - F.granaryLoss[0])) * B.stages.granaryLoss[stage] * (1 - mod(st, 'granarySave'));
       const g = st.stores.low;
       seedLost = g.seed * part;
       foodLost = g.food * part;
@@ -414,7 +422,10 @@ function autumn(st, B, year, say, rand) {
   const Hz = B.hazards;
   const sky = st.sky;
   const skyMult = sky.ash > 0 ? Hz.ashYield[Hz.ashYield.length - sky.ash] : sky.fertile > 0 ? Hz.fertileYield : 1;
-  const terrace = 1 + PRACTICE.terrace.ridgeYield * share(st, 'terrace');
+  const terrace = 1 + mod(st, 'ridgeYield');
+  const lowBonus = 1 + mod(st, 'lowYield');
+  const allBonus = 1 + mod(st, 'yieldAll');
+  const droughtSave = mod(st, 'droughtSave');
   const foodUp = customValue(st, 'uphillFood');
   let food = 0;
   let seed = 0;
@@ -426,9 +437,9 @@ function autumn(st, B, year, say, rand) {
     if (p.state !== 'planted') continue;
     const noise = 1 + (rand() * 2 - 1) * B.yieldNoise;
     const crop = CROP[p.crop];
-    const dry = drought ? 1 - (1 - B.drought[p.elev]) * crop.drought : 1;
+    const dry = drought ? 1 - (1 - B.drought[p.elev]) * crop.drought * (1 - droughtSave) : 1;
     const mult = dry * skyMult * (sky.rain && p.elev === 'low' ? Hz.rainLowYield : 1);
-    const f = B.yield[p.elev] * crop.yield * (p.elev === 'ridge' ? terrace : 1) * B.stages.yield[st.civ.stage] * mult * noise;
+    const f = B.yield[p.elev] * crop.yield * (p.elev === 'ridge' ? terrace : lowBonus) * allBonus * B.stages.yield[st.civ.stage] * mult * noise;
     const s = (p.workerKnows ? B.seedSaved.trained : B.seedSaved.untrained) * Math.min(1, mult + 0.2);
     food += f;
     seed += s;
@@ -460,16 +471,24 @@ function autumn(st, B, year, say, rand) {
 function winter(st, B, year, say, rand) {
   const low = st.stores.low;
   const ridge = st.stores.ridge;
-  const spoil = B.spoil.food * (1 - PRACTICE.dry.spoilCut * share(st, 'dry'));
+  const spoil = B.spoil.food * (1 - mod(st, 'spoilCut', 0.8));
+  const seedSpoil = B.spoil.seed * (1 - mod(st, 'seedKeep', 0.9));
   low.food *= 1 - spoil;
   ridge.food *= 1 - spoil;
-  low.seed *= 1 - B.spoil.seed;
-  ridge.seed *= 1 - B.spoil.seed;
+  low.seed *= 1 - seedSpoil;
+  ridge.seed *= 1 - seedSpoil;
 
   if (isAlive(st)) {
-    const H = st.households.length;
-    const need = H * B.consumption;
-    let left = Math.max(0, need - H * B.forage);
+    const P = B.people;
+    let need = 0;
+    let adults = 0;
+    for (const p of st.people) {
+      const grown = year - p.born >= P.adultAge;
+      need += grown ? P.eat.adult : P.eat.child;
+      if (grown) adults++;
+    }
+    need = Math.max(need, 0.001);
+    let left = Math.max(0, need - adults * P.forage);
     const take = (store, key) => {
       const t = Math.min(store[key], left);
       store[key] -= t;
@@ -505,55 +524,75 @@ function winter(st, B, year, say, rand) {
     }
 
     if (isAlive(st)) {
-      // Generational turnover and teaching.
-      for (const h of st.households) {
-        if (rand() >= B.turnoverChance) continue;
-        h.gen++;
-        if (!h.knows) continue;
-        const others = knowers(st) - 1;
-        if (rand() >= (st.civ.stage >= 4 ? 1 : others > 0 ? B.keepKnowledgeShared : B.keepKnowledgeAlone)) {
-          h.knows = false;
-          h.lineage = null;
-          if (others === 0) {
-            st.knowersGone = year;
-            say(3, 'knowledge-lost', `${h.name}'s elder died and seed saving died with them. No household knows it now.`);
-          } else say(1, 'knowledge-fade', `${h.name}'s household let seed saving lapse.`);
-        }
-      }
-      let taught = 0;
-      for (const h of st.households.filter((x) => x.knows)) {
-        if (rand() >= B.teachChance) continue;
-        const pupils = st.households.filter((x) => !x.knows);
-        if (!pupils.length) break;
-        const pupil = pupils[Math.floor(rand() * pupils.length)];
-        pupil.knows = true;
-        pupil.lineage = { ...h.lineage };
-        taught++;
-      }
-      if (taught) say(1, 'teach', `${plural(taught, 'household')} learned seed saving from a neighbour.`, { n: taught });
+      // The people's year: deaths, learning, marriages between houses, births, new ideas.
+      const stock = low.food + ridge.food;
+      const pref = customValue(st, 'settle');
+      const uphill = pref === 'ridge' || (pref === 'memory' && st.floodMemory >= B.uphillMemory);
+      const roomy = () => shortage <= 0.001 && stock >= st.households.length * B.growthReserve;
+      let founded = 0;
+      const found = (a, b) => {
+        if (!roomy()) return null;
+        // Neither old house may be left without an adult.
+        for (const p of [a, b]) if ((st.households.find((x) => x.id === p.hid) || { adults: 0 }).adults < 2) return null;
+        const h = addHousehold(st, uphill, B);
+        if (!h) return null;
+        h.name = a.name;
+        h.line = a.lines[0];
+        founded++;
+        return h;
+      };
+      peopleYear(st, B, year, say, rand, shortage, found);
 
-      // The other practices pass down, spread and lapse by the same rules as seed saving.
-      for (const pr of PRACTICES) {
-        if (pr.id === 'seed') continue;
-        if (st.civ.stage >= 4) continue; // the Hold keeps what it knows
-        for (const h of st.households) {
-          if (!h.skills[pr.id]) continue;
-          const rt = rand();
-          const rk = rand();
-          const rteach = rand();
-          const rp = rand();
-          const n = holders(st, pr.id);
-          if (rt < B.turnoverChance && rk >= (n > 1 ? B.keepKnowledgeShared : B.keepKnowledgeAlone)) {
-            delete h.skills[pr.id];
-            if (n === 1) say(3, 'knowledge-lost', `${pr.name} died with ${h.name}'s elder. No household keeps it now.`);
-            continue;
+      // Houses with no adult left: children go to kin, the house stands empty.
+      const grown = new Map();
+      const count = new Map();
+      for (const p of st.people) {
+        count.set(p.hid, (count.get(p.hid) || 0) + 1);
+        if (year - p.born >= P.adultAge) grown.set(p.hid, (grown.get(p.hid) || 0) + 1);
+      }
+      for (const h of [...st.households]) {
+        if (grown.get(h.id)) continue;
+        const kin = st.households.find((x) => x !== h && grown.get(x.id));
+        if (count.get(h.id)) {
+          if (kin) for (const c of st.people) if (c.hid === h.id) c.hid = kin.id;
+          else st.people = st.people.filter((c) => c.hid !== h.id);
+        }
+        removeHousehold(st, h, year);
+        if (st.households.length) say(1, 'house-ends', `${h.name}'s house stands empty: no adult of that household is left.`);
+      }
+      if (st.households.length === 0) {
+        st.collapse = { year, cause: 'The last of them died, and nobody was left to keep a house.' };
+        say(3, 'collapse', `Nobody is left in the valley. ${st.collapse.cause}`);
+      }
+
+      // Now and then a family arrives from elsewhere: a new line, sometimes with an idea.
+      const rn = rand();
+      const ri = rand();
+      const rw = rand();
+      if (isAlive(st) && roomy() && rn < P.newcomerChance) {
+        const h = addHousehold(st, uphill, B);
+        if (h) {
+          const couple = addFamily(st, h, year, rand, B);
+          let brought = '';
+          if (ri < P.newcomerIdea) {
+            const idea = PRACTICES[Math.floor(rw * PRACTICES.length)];
+            for (const p of couple) give(p, idea.id, { root: 'newcomer', year, by: h.name });
+            brought = `, bringing ${idea.name.toLowerCase()} with them`;
           }
-          if (rteach < B.teachChance) {
-            const pupils = st.households.filter((x) => !x.skills[pr.id]);
-            if (pupils.length) pupils[Math.floor(rp * pupils.length)].skills[pr.id] = { ...h.skills[pr.id] };
-          }
+          founded++;
+          say(2, 'newcomers', `${h.name}'s family arrived from downriver and settled${brought}. A new family line.`);
         }
       }
+      if (founded) {
+        st.stats.settled += founded;
+        st.stats.peakHouseholds = Math.max(st.stats.peakHouseholds, st.households.length);
+        say(founded >= 3 ? 2 : 1, 'settle', founded === 1 ? 'A new household was founded.' : `${founded} new households were founded.`, { n: founded });
+      }
+      if (st.civ.stage >= 4) teachEveryone(st, year, B);
+      refreshHouseholds(st, year, B);
+      if (knowers(st) === 0 && st.knowersGone === null && isAlive(st)) st.knowersGone = year;
+    }
+    if (isAlive(st)) {
       // Customs slip back toward what villages do unprompted.
       for (const c of CUSTOMS) {
         const rdrift = rand();
@@ -562,38 +601,6 @@ function winter(st, B, year, say, rand) {
         say(2, 'custom-drift', `An old custom has slipped. ${c.name}: now "${c.options[st.customs[c.id]].label}".`);
       }
 
-      // Growth: larger settlements draw more newcomers.
-      const stock = low.food + ridge.food;
-      const tries = 1 + Math.floor(st.households.length / 12);
-      let settled = 0;
-      let where = '';
-      for (let i = 0; i < tries; i++) {
-        const rg = rand();
-        const rk = rand();
-        if (shortage > 0.001 || stock < st.households.length * B.growthReserve || rg >= B.growthChance) continue;
-        const seedShare = knowers(st) / st.households.length;
-        const pref = customValue(st, 'settle');
-        const h = addHousehold(st, pref === 'ridge' || (pref === 'memory' && st.floodMemory >= B.uphillMemory), B);
-        if (!h) break;
-        for (const pr of PRACTICES) {
-          if (pr.id === 'seed') continue;
-          const rs2 = rand();
-          const parent = st.households.find((x) => x.skills[pr.id]);
-          if (parent && (st.civ.stage >= 4 || rs2 < share(st, pr.id) * B.inheritChance)) h.skills[pr.id] = { ...parent.skills[pr.id] };
-        }
-        if (st.civ.stage >= 4 || rk < seedShare * B.inheritChance) {
-          h.knows = true;
-          const parent = st.households.find((x) => x.knows && x !== h);
-          h.lineage = parent && parent.lineage ? { ...parent.lineage } : null;
-        }
-        settled++;
-        where = h.house < 0 ? (st.civ.stage >= 4 ? 'in the Hold' : 'in the town') : st.houses[h.house].elev === 'ridge' ? 'on the ridge' : 'by the river';
-      }
-      if (settled) {
-        st.stats.settled += settled;
-        st.stats.peakHouseholds = Math.max(st.stats.peakHouseholds, st.households.length);
-        say(2, 'settle', settled === 1 ? `A new household settled ${where}.` : `${settled} new households settled.`, { n: settled });
-      }
       grow(st, B, year, say, shortage);
       adapt(st, B, year, say, rand);
     }
@@ -648,11 +655,8 @@ function grow(st, B, year, say, shortage) {
     for (const h of st.households) h.house = -1;
     for (const s of st.houses) Object.assign(s, { state: 'gone', hid: null, since: year });
     if (!st.stores.ridge.built) Object.assign(st.stores.ridge, { built: true, builtBy: 'village', builtYear: year });
-    for (const h of st.households) if (!h.knows) (h.knows = true), (h.lineage = (st.households.find((x) => x.lineage) || {}).lineage || null);
-    for (const pr of PRACTICES) {
-      const keeper = pr.id !== 'seed' && st.households.find((x) => x.skills[pr.id]);
-      if (keeper) for (const h of st.households) if (!h.skills[pr.id]) h.skills[pr.id] = { ...keeper.skills[pr.id] };
-    }
+    teachEveryone(st, year, B);
+    refreshHouseholds(st, year, B);
     say(3, 'stage', `The Hold is finished: one great terraced house on the ridge, above every flood, with room for all ${H} households and a seed vault at its heart.`);
   } else {
     const what = ['', `${H} households, a meeting hall and a shared threshing floor: the hamlet is a village.`, 'A levee along the bank and a market by the hall: the village is a town.', 'Stone blocks rise on the ridge and terraces climb behind them: the town is a city.'][civ.stage];
@@ -681,6 +685,7 @@ function adapt(st, B, year, say, rand) {
   const seed = st.stores.low.seed + st.stores.ridge.seed;
   const food = st.stores.low.food + st.stores.ridge.food;
   const free = (elev) => st.plots.find((p) => p.elev === elev && (p.state === 'wild' || p.state === 'overgrown'));
+  const hands = st.households.reduce((a, h) => a + h.adults, 0) * B.people.plotsPerAdult;
   const pace = customValue(st, 'pace');
   const ridgeShare = customValue(st, 'fields');
   const clear = (p) => {
@@ -698,7 +703,7 @@ function adapt(st, B, year, say, rand) {
   let uphill = 0;
   for (let i = 0; i < B.expandPerYear; i++) {
     const n = built.length + cleared;
-    if (H * B.plotsPerHousehold - n < 1 || seed < (n + 1) * pace.seed) break;
+    if (hands - n < 1 || seed < (n + 1) * pace.seed) break;
     const ridgeSite = free('ridge');
     const lowSite = free('low');
     // Villages copy what they see: once someone has farmed the ridge, they keep a share of fields there.
@@ -813,26 +818,56 @@ export function carrySeedUphill(st, by, B = BALANCE) {
   record(st, 'carry-seed', by, { amount: n });
   return { ok: true, text: `${by} carried ${Math.round(n)} seed up to the ridge store.` };
 }
-// The god knows every practice. Working through a villager, he shows it to whoever is watching;
-// the villager whose hands did it learns it too.
+// The god knows every base idea. Working through a villager, he shows it to whoever is watching:
+// everyone old enough to learn in that villager's house and in the houses of the onlookers.
 export function demonstrate(st, vesselHid, witnessHids, by, practice = 'seed', B = BALANCE) {
-  const pr = PRACTICE[practice];
-  const vessel = st.households.find((h) => h.id === vesselHid);
-  if (!pr || !vessel) return { ok: false, text: 'Nobody here to show it.' };
+  const pr = IDEA[practice];
+  if (!pr || !pr.base) return { ok: false, text: 'That cannot be shown; it has to be worked out by someone who holds both ideas it grows from.' };
   const year = yearOf(st);
-  const pupils = [vessel, ...witnessHids.map((id) => st.households.find((x) => x.id === id))].filter((h) => h && !holds(h, practice));
+  const houses = new Set([vesselHid, ...witnessHids]);
+  const pupils = st.people.filter((p) => houses.has(p.hid) && !p.ideas[practice] && year - p.born >= B.people.learnFrom);
   if (!pupils.length) return { ok: false, text: 'Everybody here already knows this.' };
   if (!pay(st, 'teach', B)) return HUNGRY;
-  const learned = [];
-  for (const h of pupils) {
-    const lin = { root: 'demo', year, by };
-    if (practice === 'seed') (h.knows = true), (h.lineage = lin);
-    else h.skills[practice] = lin;
-    learned.push(h.name);
-  }
-  record(st, 'demonstrate', by, { practice, learned });
-  return { ok: true, text: `${learned.join(', ')} learned ${pr.name.toLowerCase()}.`, learned };
+  for (const p of pupils) give(p, practice, { root: 'demo', year, by });
+  refreshHouseholds(st, year, B);
+  const learned = st.households.filter((h) => houses.has(h.id)).map((h) => h.name);
+  record(st, 'demonstrate', by, { practice, learned, people: pupils.length });
+  return { ok: true, text: `${plural(pupils.length, 'person')} of ${learned.join(', ')}'s ${learned.length > 1 ? 'houses' : 'house'} learned ${pr.name.toLowerCase()}.`.replace('persons', 'people'), learned };
 }
+// Planning for people and houses.
+export function betroth(st, aId, bId, by) {
+  const a = person(st, aId);
+  const b = person(st, bId);
+  if (!a || !b || !canBetroth(a, b)) return { ok: false, text: 'Those two cannot be promised to each other.' };
+  for (const p of st.people) if (p.betrothed === a.id || p.betrothed === b.id) p.betrothed = null;
+  a.betrothed = b.id;
+  b.betrothed = a.id;
+  record(st, 'betroth', by, { a: a.id, b: b.id });
+  return { ok: true, text: `${a.name} and ${b.name} are promised to each other.` };
+}
+export function setCalling(st, pid, calling, by) {
+  const p = person(st, pid);
+  if (!p) return { ok: false, text: 'Nobody by that name.' };
+  p.calling = calling;
+  record(st, 'calling', by, { pid, calling });
+  return { ok: true, text: calling ? `${p.name} will be a teacher: they pass on what they know far more readily.` : `${p.name} goes back to ordinary work.` };
+}
+export function moveHousehold(st, hid, slotId, by, B = BALANCE) {
+  const h = st.households.find((x) => x.id === hid);
+  const slot = st.houses[slotId];
+  if (!h || !slot || slot.state === 'home' || h.house < 0) return { ok: false, text: 'That house site is not free.' };
+  if (st.stores.low.food + st.stores.ridge.food < B.people.moveCost) return HUNGRY;
+  const a = Math.min(B.people.moveCost, st.stores.low.food);
+  st.stores.low.food -= a;
+  st.stores.ridge.food -= B.people.moveCost - a;
+  const year = yearOf(st);
+  Object.assign(st.houses[h.house], { state: 'empty', hid: null, since: year });
+  Object.assign(slot, { state: 'home', hid: h.id, since: year });
+  h.house = slot.id;
+  record(st, 'move-house', by, { hid, slot: slotId });
+  return { ok: true, text: `${h.name}'s household moved to ${slot.elev === 'ridge' ? 'the ridge' : 'the riverside'}.` };
+}
+export { membersOf, person };
 // Free decisions: they cost nothing but the thought.
 export function setCrop(st, id, crop, by) {
   const p = st.plots[id];

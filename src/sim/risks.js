@@ -10,6 +10,7 @@ export function summary(st) {
     stage: st.civ.stage,
     stageName: BALANCE.stages.names[st.civ.stage],
     households: st.households.length,
+    people: st.people.length,
     knowers: knowers(st),
     food: st.stores.low.food + st.stores.ridge.food,
     foodRidge: st.stores.ridge.food,
@@ -41,6 +42,8 @@ export function assessRisks(st, B = BALANCE) {
     else add('good', `${plural(s.fieldsRidge, 'ridge field')} sheltered from ordinary floods, ${plural(s.fieldsLow, 'floodplain field')} for the bigger harvests.`);
     if (fields < s.households) add('warn', `${plural(fields, 'field')} for ${plural(s.households, 'household')}: not enough harvest to go round yet.`);
   }
+  const onlyOne = Object.keys(st.discovered).concat(['seed', 'dry', 'terrace', 'marks', 'watch', 'stone']).filter((id) => st.people.filter((p) => p.ideas[id]).length === 1);
+  if (onlyOne.length) add('warn', `Held by one person only, and lost if they die: ${onlyOne.join(', ')}.`);
   if (s.knowers === 0) add('danger', 'No household knows how to save seed. What is planted will not come back.');
   else if (s.knowers === 1) add('warn', 'Only one household knows how to save seed. One death could end the practice.');
   else add('good', `${s.knowers} households know how to save seed.`);

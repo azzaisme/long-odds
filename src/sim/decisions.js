@@ -2,17 +2,38 @@
 // learn and pass on, customs the whole village keeps, and the crop grown on each field.
 // The simulation reads these tables; adding a row adds a decision.
 
-// Practices: taught by demonstration, spread to neighbours, lost at generational turnover.
-// `share` below means the share of households that hold the practice.
-export const PRACTICES = [
-  { id: 'seed', name: 'Seed saving', does: 'Keeps 1.5 seed from each field instead of 0.3, restores silted fields, and carries spare seed uphill.' },
-  { id: 'dry', name: 'Drying and smoking food', does: 'Stored food spoils up to half as fast.', spoilCut: 0.5 },
-  { id: 'terrace', name: 'Terracing', does: 'Ridge fields yield up to 30% more.', ridgeYield: 0.3 },
-  { id: 'marks', name: 'Flood marks', does: 'Households read the river and haul stock up before a flood: up to 70% less lost from the lowland granary.', granarySave: 0.7 },
-  { id: 'watch', name: 'Watching the mountain', does: 'When the volcano erupts in earnest, up to 80% of those who would have died get out in time.', eruptionSave: 0.8 },
-  { id: 'stone', name: 'Building in stone', does: 'Up to 70% fewer houses lost to a tornado, and a landslide takes half as much from the ridge store.', tornadoSave: 0.7, slideSave: 0.5 },
+// Ideas live in individual people. The six base ideas can be demonstrated by the god. Every
+// other idea has two parents (`from`) and can only be worked out by a person who holds both,
+// which usually means the child of a marriage between families that each kept one of them.
+// `fx` are effects on the simulation, each scaled by the share of households that hold the idea.
+export const IDEAS = [
+  { id: 'seed', name: 'Seed saving', base: true, does: 'Keeps 1.5 seed from each field instead of 0.3, restores silted fields, and carries spare seed uphill.', fx: {} },
+  { id: 'dry', name: 'Drying and smoking food', base: true, does: 'Stored food spoils up to half as fast.', fx: { spoilCut: 0.5 } },
+  { id: 'terrace', name: 'Terracing', base: true, does: 'Ridge fields yield up to 30% more.', fx: { ridgeYield: 0.3 } },
+  { id: 'marks', name: 'Flood marks', base: true, does: 'Stock is hauled up before a flood: up to 60% less lost from the lowland granary.', fx: { granarySave: 0.6 } },
+  { id: 'watch', name: 'Watching the mountain', base: true, does: 'In a killing eruption, up to 60% of those who would have died get out in time.', fx: { eruptionSave: 0.6 } },
+  { id: 'stone', name: 'Building in stone', base: true, does: 'Up to 50% fewer houses lost to a tornado; a landslide takes less from the ridge store.', fx: { tornadoSave: 0.5, slideSave: 0.4 } },
+
+  { id: 'jars', name: 'Seed jars', from: ['seed', 'dry'], does: 'Dried seed sealed in clay: stored seed spoils up to 60% slower.', fx: { seedKeep: 0.6 } },
+  { id: 'selection', name: 'Seed selection', from: ['seed', 'terrace'], does: 'Sowing only from the best plants: every field yields up to 12% more.', fx: { yieldAll: 0.12 } },
+  { id: 'sealed', name: 'Sealed granary', from: ['dry', 'stone'], does: 'A stone granary: less spoilage and up to 30% less lost to floods.', fx: { spoilCut: 0.2, granarySave: 0.3 } },
+  { id: 'levee', name: 'Levee', from: ['marks', 'stone'], does: 'A bank along the river: up to 80% of high-water crop losses avoided.', fx: { highWaterSave: 0.8 } },
+  { id: 'walls', name: 'Retaining walls', from: ['terrace', 'stone'], does: 'The slope is held: landslides do far less, ridge fields yield a little more.', fx: { slideSave: 0.6, ridgeYield: 0.1 } },
+  { id: 'irrigation', name: 'Irrigation channels', from: ['terrace', 'marks'], does: 'Water led to the fields: up to 70% of drought losses avoided.', fx: { droughtSave: 0.7 } },
+  { id: 'almanac', name: 'Almanac', from: ['watch', 'marks'], does: 'Years of sky and river written down: floodplain fields yield up to 10% more and warnings come sooner.', fx: { lowYield: 0.1, eruptionSave: 0.2, granarySave: 0.1 } },
+  { id: 'refuge', name: 'Refuge on the ridge', from: ['watch', 'stone'], does: 'A strong house to run to: fewer lost to tornadoes and eruptions.', fx: { tornadoSave: 0.3, eruptionSave: 0.2 } },
+
+  { id: 'canals', name: 'Canals', from: ['levee', 'irrigation'], does: 'The river put to work: floodplain fields yield up to 25% more.', fx: { lowYield: 0.25 } },
+  { id: 'vault', name: 'Seed vault', from: ['jars', 'sealed'], does: 'Seed kept for generations, and safe from water.', fx: { seedKeep: 0.4, granarySave: 0.2 } },
+  { id: 'school', name: 'School', from: ['almanac', 'jars'], does: 'Children are taught what the village knows, not only what their parents know.', fx: { schooling: 1 } },
+  { id: 'guild', name: 'Masons’ guild', from: ['walls', 'levee'], does: 'Built to last: everything yields a little more and storms break less.', fx: { yieldAll: 0.1, tornadoSave: 0.2 } },
 ];
-export const PRACTICE = Object.fromEntries(PRACTICES.map((p) => [p.id, p]));
+IDEAS.forEach((idea, i) => (idea.bit = 1 << i));
+export const IDEA = Object.fromEntries(IDEAS.map((p) => [p.id, p]));
+for (const idea of IDEAS) idea.need = idea.from ? IDEA[idea.from[0]].bit | IDEA[idea.from[1]].bit : 0;
+export const DERIVED = IDEAS.filter((i) => i.from);
+export const PRACTICES = IDEAS.filter((p) => p.base); // what the god can demonstrate
+export const PRACTICE = IDEA;
 
 // Customs: one setting each for the whole village. `base` is what a village does when nobody
 // has told it otherwise; over the centuries a custom drifts back toward it one step at a time.
@@ -46,13 +67,34 @@ export const CROP = Object.fromEntries(CROPS.map((c) => [c.id, c]));
 
 export const defaultCustoms = () => Object.fromEntries(CUSTOMS.map((c) => [c.id, c.base]));
 export const customValue = (st, id) => CUSTOM[id].options[st.customs[id]].v;
-export const holds = (h, id) => (id === 'seed' ? h.knows : !!h.skills[id]);
-export const holders = (st, id) => st.households.reduce((n, h) => n + (holds(h, id) ? 1 : 0), 0);
+export const holds = (h, id) => !!h.ideas[id];
+export const holders = (st, id) => st.households.reduce((n, h) => n + (h.ideas[id] ? 1 : 0), 0);
 export const share = (st, id) => (st.households.length ? holders(st, id) / st.households.length : 0);
+// Total effect of every idea that touches `key`, capped at `cap`.
+export function mod(st, key, cap = 0.95) {
+  const H = st.households.length;
+  if (!H) return 0;
+  let v = 0;
+  for (const idea of IDEAS) {
+    const f = idea.fx[key];
+    if (!f) continue;
+    let n = 0;
+    for (const h of st.households) if (h.ideas[idea.id]) n++;
+    v += (f * n) / H;
+  }
+  return Math.min(cap, v);
+}
+// Ideas that only this pairing brings within reach: each needs something from both sides.
+export function possibleIdeas(a, b) {
+  const have = { ...a.ideas, ...b.ideas };
+  const alone = (p, i) => p.ideas[i.from[0]] && p.ideas[i.from[1]];
+  return IDEAS.filter((i) => i.from && !a.ideas[i.id] && !b.ideas[i.id] && have[i.from[0]] && have[i.from[1]] && !alone(a, i) && !alone(b, i));
+}
 
 // Number of distinct settings a player can choose between, for the record.
 export function decisionCount(households, fields) {
   return {
+    ideas: IDEAS.length,
     practices: PRACTICES.length * households,
     customs: CUSTOMS.reduce((n, c) => n + c.options.length, 0),
     crops: CROPS.length * fields,

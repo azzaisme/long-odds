@@ -11,7 +11,7 @@ const teach = (st) => {
   return t && pupils.length ? demonstrate(st, t.id, pupils, t.name).ok : false;
 };
 const show = (st, id) => {
-  const lacking = st.households.filter((h) => !h.skills[id]);
+  const lacking = st.households.filter((h) => !h.ideas[id]);
   if (st.households.length - lacking.length >= 3 || !lacking.length) return false;
   return demonstrate(st, lacking[0].id, lacking.slice(1, 3).map((h) => h.id), lacking[0].name, id).ok;
 };
