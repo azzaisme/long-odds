@@ -8,6 +8,10 @@ import { summary, assessRisks, estimateSurvival } from '../sim/risks.js';
 import { Playback } from '../sim/playback.js';
 import { IDEAS, IDEA, PRACTICES, CUSTOMS, CROPS, CROP, BRIDGES, BRIDGE, holds, holders, possibleIdeas } from '../sim/decisions.js';
 import { canBetroth } from '../sim/people.js';
+import { WORK_TOUCH } from '../sim/decisions.js';
+
+// What a decision touches, as small tags: "harvest ▲", "forest ▼". No numbers, no verdict.
+const touch = (list) => (list && list.length ? `<span class="touch">${list.map((t) => { const d = t.slice(-1); return d === '+' || d === '-' ? `<i>${esc(t.slice(0, -1))} <b class="${d === '+' ? 'up' : 'dn'}">${d === '+' ? '▲' : '▼'}</b></i>` : `<i>${esc(t)}</i>`; }).join('')}</span>` : '');
 
 export const S = { TITLE: 'title', VISIT: 'visit', PLANNING: 'planning', PLAYBACK: 'playback', ARRIVAL: 'arrival', RUINS: 'ruins', RESULTS: 'results' };
 const $ = (id) => document.getElementById(id);
@@ -510,11 +514,11 @@ export class Game {
       const n = st.people.filter((p) => p.ideas[i.id]).length;
       const hn = holders(st, i.id);
       const d = st.discovered[i.id];
-      if (n) return `<li class="good"><b>${esc(i.name)}</b> · ${n} people in ${hn} house${hn === 1 ? '' : 's'}${d ? ` · worked out by ${esc(d.by)} (${esc(this.lineNames(d.lines))}) in year ${d.year}` : ''}<br><span class="note">${esc(i.does)}</span></li>`;
-      if (i.base) return `<li class="warn"><b>${esc(i.name)}</b> · nobody keeps it. You can demonstrate it (T).<br><span class="note">${esc(i.does)}</span></li>`;
+      if (n) return `<li class="good"><b>${esc(i.name)}</b> · ${n} people in ${hn} house${hn === 1 ? '' : 's'}${d ? ` · worked out by ${esc(d.by)} (${esc(this.lineNames(d.lines))}) in year ${d.year}` : ''}<br><span class="note">${esc(i.does)}</span> ${touch(i.t)}</li>`;
+      if (i.base) return `<li class="warn"><b>${esc(i.name)}</b> · nobody keeps it. You can demonstrate it (T).<br><span class="note">${esc(i.does)}</span> ${touch(i.t)}</li>`;
       const both = grown.filter((p) => p.ideas[i.from[0]] && p.ideas[i.from[1]]).length;
       const have = i.from.map((f) => `${IDEA[f].name}${st.people.some((p) => p.ideas[f]) ? '' : ' (unknown)'}`).join(' + ');
-      return `<li class="note"><b>${esc(i.name)}</b> · not yet. Grows from ${esc(have)}${both ? `; ${both} ${both === 1 ? 'person holds' : 'people hold'} both` : '; nobody holds both'}.<br><span class="note">${esc(i.does)}</span></li>`;
+      return `<li class="note"><b>${esc(i.name)}</b> · not yet. Grows from ${esc(have)}${both ? `; ${both} ${both === 1 ? 'person holds' : 'people hold'} both` : '; nobody holds both'}.<br><span class="note">${esc(i.does)}</span> ${touch(i.t)}</li>`;
     };
     this.modal(`${this.tabs('people')}
       <h2>The people of the valley</h2>
@@ -538,7 +542,7 @@ export class Game {
     this.modal(`${this.tabs('bridge')}
       <h2>Plan a bridge</h2>
       <p class="note">You decide what is to be built; the village builds it, one fed winter at a time, while you are away. Planning costs nothing. A bridge opens two far-bank fields (10% richer soil), brings new families ${B.bridge.newcomers}× as often, and lets the village trade for ${Math.round(B.bridge.trade * 100)}% of what it lacks in a hungry winter. If it goes while a crop stands across the river, that crop is lost. The old bridge stays in use while a bigger one is built.</p>
-      ${BRIDGES.map((k) => `<div class="custom"><b>${esc(k.name)}${br.built === k.id ? ' · standing' : ''}${br.plan === k.id && br.built !== k.id ? ` · planned, ${br.progress}/${k.years} years` : ''}</b><span class="note">${esc(k.does)}</span><div class="note">${k.years} year${k.years > 1 ? 's' : ''} · ${k.food} food a year · carried away by high water: ${pct(k.washout[0])}, flood: ${pct(k.washout[1])}, great flood: ${pct(k.washout[2])}${k.rot ? ` · rots ${pct(k.rot)} a year if it is no longer the plan` : ''}${k.needs ? ` · needs someone who knows ${IDEA[k.needs].name.toLowerCase()} (${holders(st, k.needs)} houses do)` : ''}</div><div class="opts"><button data-act="plan-bridge" data-arg="${k.id}" class="${br.plan === k.id ? 'primary' : ''}" ${br.plan === k.id ? 'disabled' : ''}>${br.plan === k.id ? 'This is the plan' : `Plan a ${esc(k.name.toLowerCase())}`}</button></div></div>`).join('')}
+      ${BRIDGES.map((k) => `<div class="custom"><b>${esc(k.name)}${br.built === k.id ? ' · standing' : ''}${br.plan === k.id && br.built !== k.id ? ` · planned, ${br.progress}/${k.years} years` : ''}</b><span class="note">${esc(k.does)}</span>${touch(k.t)}<div class="note">${k.years} year${k.years > 1 ? 's' : ''} · ${k.food} food a year · carried away by high water: ${pct(k.washout[0])}, flood: ${pct(k.washout[1])}, great flood: ${pct(k.washout[2])}${k.rot ? ` · rots ${pct(k.rot)} a year if it is no longer the plan` : ''}${k.needs ? ` · needs someone who knows ${IDEA[k.needs].name.toLowerCase()} (${holders(st, k.needs)} houses do)` : ''}</div><div class="opts"><button data-act="plan-bridge" data-arg="${k.id}" class="${br.plan === k.id ? 'primary' : ''}" ${br.plan === k.id ? 'disabled' : ''}>${br.plan === k.id ? 'This is the plan' : `Plan a ${esc(k.name.toLowerCase())}`}</button></div></div>`).join('')}
       <div class="row"><button data-act="plan-bridge" data-arg="none" ${br.plan ? '' : 'disabled'}>Plan no bridge</button></div>`);
   }
   planBridge(arg) {
@@ -557,8 +561,8 @@ export class Game {
     const st = this.sim;
     this.modal(`${this.tabs('customs')}
       <h2>Customs of the village</h2>
-      <p class="note">What the whole village does while you are away. Changing a custom costs nothing. Over the centuries each one slips back, a step at a time, toward what villages do unprompted (marked ·).</p>
-      ${CUSTOMS.map((c) => `<div class="custom"><b>${esc(c.name)}</b><span class="note">${esc(c.ask)}</span><div class="opts">${c.options.map((o, i) => `<button data-act="custom" data-arg="${c.id}:${i}" class="${st.customs[c.id] === i ? 'primary' : ''}">${esc(o.label)}${i === c.base ? ' ·' : ''}</button>`).join('')}</div></div>`).join('')}
+      <p class="note">What the whole village does while you are away. Changing a custom costs nothing. Over the centuries each one slips back, a step at a time, toward what villages do unprompted (marked ·). The tags under each choice say what it pushes up ▲ or down ▼, not by how much.</p>
+      ${CUSTOMS.map((c) => `<div class="custom"><b>${esc(c.name)}</b><span class="note">${esc(c.ask)}</span><div class="opts cols">${c.options.map((o, i) => `<div><button data-act="custom" data-arg="${c.id}:${i}" class="${st.customs[c.id] === i ? 'primary' : ''}">${esc(o.label)}${i === c.base ? ' ·' : ''}</button>${touch(o.t)}</div>`).join('')}</div></div>`).join('')}
 `);
   }
   setCustom(arg) {
@@ -944,7 +948,7 @@ export class Game {
       chip('food', n0(s.food), 'food', `Food in store: ${n0(s.food - s.foodRidge)} in the granary, ${n0(s.foodRidge)} on the ridge. Work is paid for out of this.`) +
       chip('seed', `${n0(s.seedLow)}${s.ridgeStore ? ` + ${n0(s.seedRidge)}▲` : ''}`, 'seed', s.ridgeStore ? `${n0(s.seedLow)} seed in the lowland granary, ${n0(s.seedRidge)} in the ridge store` : `${n0(s.seedLow)} seed, all in the lowland granary. There is no ridge store.`) +
       chip('fields', `${s.fieldsLow} + ${s.fieldsRidge}▲`, s.damaged ? `fields · ${s.damaged} silted` : 'fields', `${s.fieldsLow} floodplain fields and ${s.fieldsRidge} ridge fields${s.damaged ? `; ${s.damaged} buried in flood silt` : ''}`) +
-      chip('wood', n0(s.wood), `timber · forest ${Math.round((s.coverWest + s.coverEast) * 50)}%`, `${n0(s.wood)} cut timber. The west forest is ${Math.round(s.coverWest * 100)}% standing, the east ${Math.round(s.coverEast * 100)}%. Game: ${n0(st.forest.game.west)} west, ${n0(st.forest.game.east)} east.`) +
+      chip('wood', n0(s.wood), `forest ${Math.round((s.coverWest + s.coverEast) * 50)}%`, `${n0(s.wood)} cut timber. The west forest is ${Math.round(s.coverWest * 100)}% standing, the east ${Math.round(s.coverEast * 100)}%. Game: ${n0(st.forest.game.west)} west, ${n0(st.forest.game.east)} east.`) +
       chip('ideas', `${known}/${IDEAS.length}`, 'ideas', `${known} of ${IDEAS.length} ideas are kept by someone. ${s.knowers} houses know how to save seed.`);
     // First-visit checklist: what to try before leaving.
     const did = (type) => st.actions.some((a) => a.type === type);
@@ -976,7 +980,7 @@ export class Game {
       prompt.hidden = true;
       html = `<h3>Teach an idea</h3><p>You know all six. Everyone old enough in the houses of the three nearest villagers learns it. Each lesson costs ${B.workCost.teach} food. <kbd>Esc</kbd> to cancel.</p><div class="plist">${PRACTICES.map((p, i) => {
         const who = this.pupils(p.id);
-        return `<button data-act="teach" data-arg="${p.id}" ${who.length && afford('teach') ? '' : 'disabled'}><kbd>${i + 1}</kbd> <b>${esc(p.name)}</b> <small>${holders(st, p.id)}/${st.households.length} houses keep it${who.length ? ` · would teach ${esc(who.map((h) => h.name).join(', '))}` : ' · nobody new in reach'}</small><span>${esc(p.does)}</span></button>`;
+        return `<button data-act="teach" data-arg="${p.id}" ${who.length && afford('teach') ? '' : 'disabled'}><kbd>${i + 1}</kbd> <b>${esc(p.name)}</b> <small>${holders(st, p.id)}/${st.households.length} houses keep it${who.length ? ` · would teach ${esc(who.map((h) => h.name).join(', '))}` : ' · nobody new in reach'}</small><span>${esc(p.does)}</span>${touch(p.t)}</button>`;
       }).join('')}</div>`;
     } else if (t) {
       const d = this.describe(t);
@@ -985,10 +989,17 @@ export class Game {
       prompt.style.left = `${sx}px`;
       prompt.style.top = `${sy - 4}px`;
       if (prompt.dataset.k !== d.title) (prompt.dataset.k = d.title), (prompt.textContent = d.title);
+      // Each button carries, underneath, what doing it would touch.
+      const p = t.kind === 'plot' ? st.plots[t.id] : null;
+      let mainTags = null;
+      if (p && p.state === 'forest') mainTags = WORK_TOUCH.fell;
+      else if (p && p.state !== 'damaged') mainTags = WORK_TOUCH[p.far ? 'field-far' : p.elev === 'low' ? 'field-low' : 'field-ridge'];
+      else if (t.kind === 'store') mainTags = WORK_TOUCH.store;
+      else if (t.kind === 'granary') mainTags = WORK_TOUCH.carry;
       let acts = '';
-      if (visit && d.action) acts += `<button class="primary" data-act="site" ${afford(d.kind) ? '' : 'disabled'}><kbd>E</kbd> ${esc(d.action)}${cost(d.kind)}</button>`;
-      if (visit && d.forest && d.action2) acts += `<button data-act="crop" ${afford('clear') ? '' : 'disabled'}><kbd>2</kbd> ${esc(d.action2)}${cost('clear')}</button>`;
-      else if (visit && t.kind === 'plot' && st.plots[t.id].state !== 'eroded') acts += `<button data-act="crop"><kbd>2</kbd> Sown with ${esc(CROP[st.plots[t.id].crop].name.toLowerCase())}: change</button>`;
+      if (visit && d.action) acts += `<div><button class="primary" data-act="site" ${afford(d.kind) ? '' : 'disabled'}><kbd>E</kbd> ${esc(d.action)}${cost(d.kind)}</button>${touch(mainTags)}</div>`;
+      if (visit && d.forest && d.action2) acts += `<div><button data-act="crop" ${afford('clear') ? '' : 'disabled'}><kbd>2</kbd> ${esc(d.action2)}${cost('clear')}</button>${touch(WORK_TOUCH[`clear-${st.forest.stands[p.stand].side}`])}</div>`;
+      else if (visit && p && p.state !== 'eroded') acts += `<div><button data-act="crop"><kbd>2</kbd> Sown with ${esc(CROP[p.crop].name.toLowerCase())}: change</button>${touch(CROP[p.crop].t)}</div>`;
       if (visit && d.action && !afford(d.kind)) acts += '<span class="more">Not enough food in store for this.</span>';
       html = `<div class="card"><div class="txt"><h3>${esc(d.title)}</h3><p>${esc(d.text)}</p>${!acts && d.note && visit ? `<div class="more">${esc(d.note)}</div>` : ''}</div>${acts ? `<div class="acts">${acts}</div>` : ''}</div>`;
     } else prompt.hidden = true;
@@ -1053,7 +1064,7 @@ export class Game {
           }
         }
         cam.tx = a.x;
-        cam.ty = groundHeight(a.x) + 44;
+        cam.ty = groundHeight(a.x) + 32;
       }
       view.updateActors(dt, st, { gather: s === S.VISIT && a ? a.x : undefined });
       view.setMarkers(s === S.VISIT ? a : null, null);

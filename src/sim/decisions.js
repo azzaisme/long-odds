@@ -39,46 +39,67 @@ export const PRACTICE = IDEA;
 // has told it otherwise; over the centuries a custom drifts back toward it one step at a time.
 export const CUSTOMS = [
   { id: 'reserve', name: 'Ridge seed reserve', ask: 'How much ridge seed is left untouched in an ordinary spring?', base: 1,
-    options: [{ label: 'None', v: 0 }, { label: '4 seed', v: 4 }, { label: '8 seed', v: 8 }, { label: '12 seed', v: 12 }] },
+    options: [{ label: 'None', v: 0, t: ['fields planted+', 'seed kept safe-'] }, { label: '4 seed', v: 4, t: ['seed kept safe+'] }, { label: '8 seed', v: 8, t: ['seed kept safe+', 'fields planted-'] }, { label: '12 seed', v: 12, t: ['seed kept safe+', 'fields planted-'] }] },
   { id: 'uphillSeed', name: 'Seed carried uphill', ask: 'How much of the spare seed do seed-savers carry to the ridge store?', base: 2,
-    options: [{ label: 'None', v: 0 }, { label: 'A third', v: 0.3 }, { label: 'Most', v: 0.6 }, { label: 'Nearly all', v: 0.9 }] },
+    options: [{ label: 'None', v: 0, t: ['flood losses+', 'landslide losses-'] }, { label: 'A third', v: 0.3, t: ['flood losses-', 'landslide losses+'] }, { label: 'Most', v: 0.6, t: ['flood losses-', 'landslide losses+'] }, { label: 'Nearly all', v: 0.9, t: ['flood losses-', 'landslide losses+'] }] },
   { id: 'uphillFood', name: 'Food stored uphill', ask: 'How much of each harvest is stored on the ridge, safe from floods but in the path of landslides?', base: 1,
-    options: [{ label: 'None', v: 0 }, { label: 'A third', v: 0.3 }, { label: 'Half', v: 0.5 }, { label: 'Most', v: 0.7 }] },
+    options: [{ label: 'None', v: 0, t: ['flood losses+', 'landslide losses-', 'storm losses-'] }, { label: 'A third', v: 0.3, t: ['flood losses-', 'landslide losses+'] }, { label: 'Half', v: 0.5, t: ['flood losses-', 'landslide losses+', 'storm losses+'] }, { label: 'Most', v: 0.7, t: ['flood losses-', 'landslide losses+', 'storm losses+'] }] },
   { id: 'fields', name: 'Where new fields go', ask: 'When the village clears a field on its own, where?', base: 2,
-    options: [{ label: 'Floodplain only', v: 0 }, { label: 'Mostly floodplain', v: 0.25 }, { label: 'Balanced', v: 0.4 }, { label: 'Mostly ridge', v: 0.7 }] },
+    options: [{ label: 'Floodplain only', v: 0, t: ['harvest+', 'flood losses+', 'drought losses-'] }, { label: 'Mostly floodplain', v: 0.25, t: ['harvest+', 'flood losses+'] }, { label: 'Balanced', v: 0.4, t: ['harvest-', 'flood losses-'] }, { label: 'Mostly ridge', v: 0.7, t: ['harvest-', 'flood losses-', 'drought losses+'] }] },
   { id: 'pace', name: 'Pace of clearing', ask: 'How readily does the village clear new fields?', base: 1,
-    options: [{ label: 'Cautious', v: { seed: 2.0, chance: 0.3 } }, { label: 'Steady', v: { seed: 1.4, chance: 0.6 } }, { label: 'Eager', v: { seed: 1.0, chance: 0.9 } }] },
+    options: [{ label: 'Cautious', v: { seed: 2.0, chance: 0.3 }, t: ['seed in store+', 'fields-'] }, { label: 'Steady', v: { seed: 1.4, chance: 0.6 }, t: [] }, { label: 'Eager', v: { seed: 1.0, chance: 0.9 }, t: ['fields+', 'seed in store-', 'forest-'] }] },
   { id: 'settle', name: 'Where newcomers build', ask: 'Where do new households put their houses?', base: 1,
-    options: [{ label: 'By the river', v: 'low' }, { label: 'Uphill after floods', v: 'memory' }, { label: 'On the ridge', v: 'ridge' }] },
+    options: [{ label: 'By the river', v: 'low', t: ['storm losses+'] }, { label: 'Uphill after floods', v: 'memory', t: ['storm losses-'] }, { label: 'On the ridge', v: 'ridge', t: ['storm losses+'] }] },
   { id: 'plant', name: 'Planting order', ask: 'When seed or hands are short, which fields are planted first?', base: 0,
-    options: [{ label: 'Floodplain first', v: 'low' }, { label: 'Ridge first', v: 'ridge' }] },
+    options: [{ label: 'Floodplain first', v: 'low', t: ['harvest+', 'flood losses+'] }, { label: 'Ridge first', v: 'ridge', t: ['harvest-', 'flood losses-', 'drought losses+'] }] },
   { id: 'hunger', name: 'Seed in a hungry winter', ask: 'When food runs out, is the seed eaten?', base: 0,
-    options: [{ label: 'Only if nobody knows better', v: 'default' }, { label: 'Never touch the seed', v: 'never' }, { label: 'Eat seed before anyone leaves', v: 'eat' }] },
+    options: [{ label: 'Only if nobody knows better', v: 'default', t: [] }, { label: 'Never touch the seed', v: 'never', t: ['seed in store+', 'people leaving+'] }, { label: 'Eat seed before anyone leaves', v: 'eat', t: ['seed in store-', 'people leaving-'] }] },
   { id: 'woodcut', name: 'Cutting wood', ask: 'How does the village take its firewood and timber?', base: 1,
-    options: [{ label: 'Leave the forest alone', v: 'none' }, { label: 'Thin it: never the last trees of a stand', v: 'thin' }, { label: 'Fell whatever is nearest', v: 'clear' }] },
+    options: [{ label: 'Leave the forest alone', v: 'none', t: ['forest+', 'timber-', 'new houses-', 'winter deaths+'] }, { label: 'Thin it: never the last trees of a stand', v: 'thin', t: ['timber+', 'forest-'] }, { label: 'Fell whatever is nearest', v: 'clear', t: ['timber+', 'forest-', 'game-', 'flood risk+', 'landslide risk+'] }] },
   { id: 'hunt', name: 'Hunting', ask: 'How hard is the game in the forests hunted?', base: 2,
-    options: [{ label: 'Never', v: 0 }, { label: 'Lightly', v: 0.08 }, { label: 'As the pot needs', v: 0.2 }, { label: 'All that can be caught', v: 0.45 }] },
+    options: [{ label: 'Never', v: 0, t: ['game+', 'food-'] }, { label: 'Lightly', v: 0.08, t: ['game+', 'food-'] }, { label: 'As the pot needs', v: 0.2, t: ['food+', 'game-'] }, { label: 'All that can be caught', v: 0.45, t: ['food+', 'game-'] }] },
   { id: 'clearing', name: 'Forest into fields', ask: 'When the open ground is all taken, does the village clear forest for fields?', base: 1,
-    options: [{ label: 'Never', v: 'never' }, { label: 'Only in a hungry year', v: 'hungry' }, { label: 'Whenever land runs out', v: 'always' }] },
+    options: [{ label: 'Never', v: 'never', t: ['forest+', 'game+', 'fields-'] }, { label: 'Only in a hungry year', v: 'hungry', t: ['fields+', 'forest-'] }, { label: 'Whenever land runs out', v: 'always', t: ['fields+', 'forest-', 'game-', 'flood risk+', 'landslide risk+'] }] },
 ];
 export const CUSTOM = Object.fromEntries(CUSTOMS.map((c) => [c.id, c]));
 
 // Crops: chosen field by field. Multipliers apply to that field's harvest and losses.
 export const CROPS = [
-  { id: 'grain', name: 'Grain', does: 'The full harvest in a good year.', yield: 1, highWater: 1, drought: 1 },
-  { id: 'roots', name: 'Roots', does: 'Three-quarters of the harvest, but high water does not spoil it and drought hurts it less.', yield: 0.75, highWater: 0, drought: 0.4 },
-  { id: 'millet', name: 'Millet', does: 'Slightly less than grain; shrugs off drought, rots twice as readily in high water.', yield: 0.85, highWater: 2, drought: 0 },
+  { id: 'grain', name: 'Grain', does: 'The full harvest in a good year.', yield: 1, highWater: 1, drought: 1, t: ['harvest+', 'flood losses+', 'drought losses+'] },
+  { id: 'roots', name: 'Roots', does: 'Three-quarters of the harvest, but high water does not spoil it and drought hurts it less.', yield: 0.75, highWater: 0, drought: 0.4, t: ['harvest-', 'flood losses-', 'drought losses-'] },
+  { id: 'millet', name: 'Millet', does: 'Slightly less than grain; shrugs off drought, rots twice as readily in high water.', yield: 0.85, highWater: 2, drought: 0, t: ['harvest-', 'drought losses-', 'flood losses+'] },
 ];
 export const CROP = Object.fromEntries(CROPS.map((c) => [c.id, c]));
 
 // Bridges: planned by the god, built by the village over years of fed winters. `washout` is the
 // chance each kind is carried away by high water, a flood, and a great flood.
 export const BRIDGES = [
-  { id: 'rope', name: 'Footbridge', years: 1, food: 2, washout: [0.5, 1, 1], rot: 0.08, does: 'Rope and planks. Up in a year. Any high water may take it, and a real flood will.' },
-  { id: 'timber', name: 'Timber bridge', years: 6, food: 2, washout: [0.03, 0.5, 1], rot: 0.01, does: 'Trestles driven into the bed. Six years of work. Stands through high water; a flood takes it half the time.' },
-  { id: 'stone', name: 'Stone bridge', years: 25, food: 3, washout: [0, 0.04, 0.4], rot: 0, needs: 'stone', does: 'Arches on stone piers. Twenty-five years, and only while somebody knows building in stone. Almost nothing moves it.' },
+  { id: 'rope', name: 'Footbridge', years: 1, food: 2, washout: [0.5, 1, 1], rot: 0.08, does: 'Rope and planks. Up in a year. Any high water may take it, and a real flood will.', t: ['far-bank fields+', 'west forest+', 'newcomers+', 'timber-', 'cut-off risk+'] },
+  { id: 'timber', name: 'Timber bridge', years: 6, food: 2, washout: [0.03, 0.5, 1], rot: 0.01, does: 'Trestles driven into the bed. Six years of work. Stands through high water; a flood takes it half the time.', t: ['far-bank fields+', 'west forest+', 'newcomers+', 'timber-', 'food-'] },
+  { id: 'stone', name: 'Stone bridge', years: 25, food: 3, washout: [0, 0.04, 0.4], rot: 0, needs: 'stone', does: 'Arches on stone piers. Twenty-five years, and only while somebody knows building in stone. Almost nothing moves it.', t: ['far-bank fields+', 'west forest+', 'newcomers+', 'food-', 'cut-off risk-'] },
 ];
 export const BRIDGE = Object.fromEntries(BRIDGES.map((b) => [b.id, b]));
+
+// What each decision touches, and which way it pushes: "harvest+" reads "harvest up". These are
+// shown beside every choice. They carry no numbers and no verdict; the weighing is the player's.
+const FX_TOUCH = {
+  spoilCut: 'food spoilage-', ridgeYield: 'ridge harvest+', granarySave: 'flood losses-', eruptionSave: 'eruption deaths-',
+  tornadoSave: 'storm losses-', slideSave: 'landslide losses-', seedKeep: 'seed spoilage-', yieldAll: 'harvest+',
+  highWaterSave: 'flood losses-', droughtSave: 'drought losses-', lowYield: 'floodplain harvest+', schooling: 'ideas kept+',
+};
+for (const idea of IDEAS) idea.t = idea.id === 'seed' ? ['seed in store+', 'fields restored+', 'seed kept safe+'] : [...new Set(Object.keys(idea.fx).map((k) => FX_TOUCH[k]))];
+// Work done on the ground.
+export const WORK_TOUCH = {
+  'field-low': ['harvest+', 'flood losses+', 'seed needed+'],
+  'field-ridge': ['harvest+', 'drought losses+', 'seed needed+'],
+  'field-far': ['harvest+', 'flood losses+', 'cut-off risk+'],
+  store: ['seed kept safe+', 'flood losses-', 'landslide losses+'],
+  carry: ['seed kept safe+', 'landslide losses+'],
+  fell: ['timber+', 'forest-', 'game-'],
+  'clear-west': ['fields+', 'timber+', 'forest-', 'game-', 'flood risk+'],
+  'clear-east': ['fields+', 'timber+', 'forest-', 'game-', 'landslide risk+'],
+  move: { ridge: ['flood losses-', 'storm losses'], low: ['storm losses'] },
+};
 
 export const defaultCustoms = () => Object.fromEntries(CUSTOMS.map((c) => [c.id, c.base]));
 export const customValue = (st, id) => CUSTOM[id].options[st.customs[id]].v;

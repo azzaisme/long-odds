@@ -4,7 +4,7 @@ Checked on Node 22 and headless Chromium (software WebGL, 1280×720, 16–27 fps
 describes the build as it stands: individual people and family lines, ideas, customs, crops,
 bridges, disasters, the god's exit and return, and settlement stages.
 
-## Automated: `npm test` — 29 of 29 pass (about 100 s)
+## Automated: `npm test` — 30 of 30 pass (about 100 s)
 
 | What | How | Result |
 | --- | --- | --- |
@@ -33,6 +33,8 @@ bridges, disasters, the god's exit and return, and settlement stages.
 | Regrowth and running out | one stand felled among neighbours vs the whole east forest felled, nobody cutting, 60 and 200 years | the single stand regrows past 8 of 10; the bare forest stays at 0, is reported gone once, and its game is 0; the west forest is untouched |
 | Forest customs change the outcome | default vs greedy (fell nearest, hunt everything, always clear) vs careful (hunt lightly, never clear), 40 seeds × 311 years | greedy leaves less east forest and hunts game out more often; careful leaves more game |
 | Timber and firewood matter | fed villages with and without any timber, 30 seeds × 25 years | no houses founded without timber, more than 20 with; deaths more than 20% higher without firewood |
+
+| Every decision says what it touches | all custom settings, crops, bridges, ideas and ground work | each has tags; no tag contains a number; every non-default custom setting has at least one |
 
 ## Headless balance run: `npm run sim -- 100`
 
@@ -104,6 +106,10 @@ Real key presses throughout, no console errors in any run.
   god stopped at x 1862 before the cliff, stopped at the river with no bridge, and reached the
   far edge of the west forest once a bridge stood; the Customs tab listed the three forest
   customs; a 1,000-year jump ran with the whole valley in frame. No console errors.
+- **Decision tags.** Looked at the tags on a forest stand's two buttons and on the first three
+  customs: arrows on one line, gold up and blue down, no numbers. The field-site card, the
+  ridge-store card, the Bridge tab, the idea list and the teach list also carry them (37 tags
+  counted on the teach view); those were captured but not each examined.
 - **Bridges.** Planned a footbridge at the crossing; walking stopped at the bank with no
   bridge; after a 1-year jump the footbridge stood; walked across on the deck and cleared a
   far-bank field.

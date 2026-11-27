@@ -155,6 +155,14 @@ winter without firewood raises deaths; a bare west bank makes floods up to 40% l
 east ridge makes landslides up to three times as likely; and a forest cut to nothing has
 nothing to seed it. An abandoned forest field returns to forest after 60 years.
 
+### What a decision touches
+
+Every choice carries small tags saying what it pushes up ▲ or down ▼: "harvest ▲", "forest ▼",
+"flood losses ▲". They are on each custom setting, crop, bridge and idea, and under the buttons
+on the card for whatever you are standing at. They give no numbers and mark nothing as best;
+the arrows are gold and blue, not green and red, because up is not always good. Weighing them
+is the game.
+
 ### Customs and crops
 
 - **Customs (11, 37 settings)** — village-wide rules, set with `C`: ridge seed reserve, seed and

@@ -11,7 +11,7 @@ import { setCrop, setCustom, canAfford, betroth, setCalling, moveHousehold } fro
 import { IDEAS, IDEA, possibleIdeas } from '../src/sim/decisions.js';
 import { canBetroth, give } from '../src/sim/people.js';
 import { planBridge, fellStand, clearStand, forestCover } from '../src/sim/sim.js';
-import { BRIDGE } from '../src/sim/decisions.js';
+import { BRIDGE, BRIDGES, WORK_TOUCH } from '../src/sim/decisions.js';
 
 const LOW = PLOT_SITES.filter((p) => p.elev === 'low' && !p.far).map((p) => p.id);
 const FAR = PLOT_SITES.filter((p) => p.far).map((p) => p.id);
@@ -630,4 +630,21 @@ test('no timber means no new houses, and no firewood means a deadlier winter', (
   assert.ok(without <= 0, `houses founded with no timber: ${without}`);
   assert.ok(withWood > 20, `houses founded with timber: ${withWood}`);
   assert.ok(deathsCold > deathsWarm * 1.2, `deaths in 25 years: cold ${deathsCold} vs warm ${deathsWarm}`);
+});
+
+test('every decision says what it touches, without numbers', () => {
+  const lists = [
+    ...CUSTOMS.flatMap((c) => c.options.map((o) => [`${c.id}: ${o.label}`, o.t])),
+    ...CROPS.map((c) => [c.name, c.t]),
+    ...BRIDGES.map((b) => [b.name, b.t]),
+    ...IDEAS.map((i) => [i.name, i.t]),
+    ...Object.entries(WORK_TOUCH).flatMap(([k, v]) => (Array.isArray(v) ? [[k, v]] : Object.entries(v).map(([k2, v2]) => [`${k}.${k2}`, v2]))),
+  ];
+  for (const [name, t] of lists) {
+    assert.ok(Array.isArray(t), `${name} has a list`);
+    for (const tag of t) assert.ok(!/\d/.test(tag) && tag.length > 3, `${name}: "${tag}" carries no number`);
+  }
+  // A custom's default may be neutral, but every other setting must say what it changes.
+  for (const c of CUSTOMS) c.options.forEach((o, i) => { if (i !== c.base) assert.ok(o.t.length > 0, `${c.id}: ${o.label}`); });
+  for (const x of [...CROPS, ...BRIDGES, ...IDEAS]) assert.ok(x.t.length > 0, x.name);
 });
