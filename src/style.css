@@ -117,3 +117,53 @@ button.danger:hover { background: #963a2c; }
 #panel .opts button { padding: 3px 8px; font-size: 13px; }
 #panel h3 { margin: 12px 0 4px; color: var(--gold); font-size: 16px; }
 #buttons { flex-wrap: wrap; }
+
+/* ---- interface pass: one info row on top, one action row at the bottom, a card in between ---- */
+#top { flex-wrap: nowrap; align-items: stretch; gap: 8px; }
+#clock { min-width: 150px; padding: 6px 12px; }
+#clock b { font-size: 19px; }
+#clock span { font-size: 12px; white-space: nowrap; }
+#stats { flex: 1; display: flex; gap: 0; align-items: stretch; padding: 0; min-width: 0; flex-wrap: nowrap; }
+.chip { flex: 1; display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 8px; align-items: center; padding: 6px 12px; border-left: 1px solid var(--line); min-width: 0; cursor: help; }
+.chip:first-child { border-left: 0; }
+.chip .ico { grid-row: 1 / 3; width: 14px; height: 14px; box-shadow: inset 0 0 0 2px #0008; }
+.chip b { font-size: 18px; color: var(--ink); white-space: nowrap; line-height: 1.1; }
+.chip small { color: var(--dim); font-size: 11px; letter-spacing: 0.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; text-transform: none; }
+.ico.people { background: #c8553d; } .ico.food { background: #e2b84a; } .ico.seed { background: #b88a2c; border-radius: 50%; }
+.ico.fields { background: #6b4526; box-shadow: inset 0 -5px 0 #8fd05a, inset 0 0 0 2px #0008; } .ico.ideas { background: #7cc4ff; transform: rotate(45deg) scale(0.8); }
+#tools { display: flex; gap: 6px; align-items: center; padding: 6px 8px; }
+#tools button { width: 34px; height: 34px; padding: 0; }
+
+#toast { top: 78px; font-size: 14px; max-width: min(760px, 80vw); pointer-events: none; }
+#goals { position: absolute; left: 10px; top: 78px; width: 300px; font-size: 13px; padding: 8px 12px; }
+#goals.done { display: none; }
+#goals b { color: var(--gold); display: block; margin-bottom: 4px; letter-spacing: 1px; text-transform: uppercase; font-size: 12px; }
+#goals div { color: var(--ink); padding: 2px 0 2px 18px; text-indent: -18px; }
+#goals div.ok { color: var(--dim); text-decoration: line-through; text-decoration-color: #0008; }
+#goals div.ok::first-letter { color: var(--good); }
+
+#bar { position: absolute; left: 0; right: 0; bottom: 10px; display: flex; gap: 8px; justify-content: center; align-items: center; pointer-events: none; }
+#bar button { pointer-events: auto; padding: 8px 14px; font-size: 15px; }
+#bar .move { color: var(--dim); font-size: 13px; margin-right: 6px; text-shadow: 0 1px 0 #000; }
+#bar .primary { margin-left: 10px; }
+
+#prompt { background: #0c0f18dd; color: var(--gold); border: 1px solid var(--line); padding: 1px 8px; font-size: 12px; }
+#prompt::after { content: ''; position: absolute; left: 50%; bottom: -6px; margin-left: -5px; border: 5px solid transparent; border-bottom: 0; border-top-color: var(--line); }
+#context { bottom: 62px; width: min(760px, 94vw); padding: 10px 14px; }
+#context.raised { bottom: 150px; }
+#context .card { display: flex; gap: 16px; align-items: center; }
+#context .card .txt { flex: 1; min-width: 0; }
+#context .card h3 { margin: 0 0 2px; font-size: 15px; }
+#context .card p { margin: 0; font-size: 13px; color: var(--dim); }
+#context .card .acts { flex-direction: column; align-items: stretch; flex-shrink: 0; max-width: 46%; }
+#context .card .acts button { text-align: left; padding: 7px 10px; font-size: 14px; }
+#context .more { font-size: 12px; }
+
+#panel .tabs { display: flex; gap: 4px; margin: -18px -22px 14px; padding: 8px 10px 0; background: #12162299; border-bottom: 2px solid var(--line); position: sticky; top: -18px; z-index: 2; }
+#panel .tabs button { background: transparent; box-shadow: none; border: 2px solid transparent; border-bottom: 0; color: var(--dim); padding: 6px 12px; font-size: 14px; }
+#panel .tabs button:hover { color: var(--ink); background: #2f385488; }
+#panel .tabs button.on { background: #1d2233; color: var(--gold); border-color: var(--line); margin-bottom: -2px; padding-bottom: 8px; }
+#panel .tabs .x { margin-left: auto; font-size: 16px; }
+#panel .keys span:nth-child(odd) { white-space: nowrap; }
+@media (max-width: 1100px) { .chip small { display: none; } #goals { display: none; } #bar .move { display: none; } }
+#goals kbd { text-indent: 0; }

@@ -144,5 +144,5 @@ export const BALANCE = {
   // Player actions
   carryShare: 0.5, // share of lowland seed carried uphill in one work action
   teachRadius: 52, // world pixels
-  teachWitnesses: 2, // onlookers one demonstration can teach
+  teachWitnesses: 3, // nearest villagers whose houses one lesson reaches
 };

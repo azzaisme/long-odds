@@ -87,11 +87,23 @@ Real key presses throughout, no console errors in any run.
   during playback was refused; the timber bridge stood by year 11 and drew correctly with a
   villager on its deck; the village collapsed in year 27 and the verdict read "They only made
   it 27 years." The odds panel had given that jump 20%. (Run before the bridge-reserve rule.)
+- **God-only play and the new interface.** The player is the god actor from the first frame;
+  Q and Tab do nothing; `E` at a staked site cleared a field ("You cleared a floodplain
+  field."); `2` changed its crop; `T` then `1` taught seed saving to 11 people in three houses;
+  the People, Customs, Bridge, Controls and Step out tabs opened by key and `Esc` closed them;
+  the god was absent during playback and every action tried then was refused; the playback
+  clock read 30.16 s; he reappeared at the destination and visit 2 began. Screens checked by
+  eye: start, the site card, the teach list, the People and Step out tabs, and the return.
 - **Bridges.** Planned a footbridge at the crossing; walking stopped at the bank with no
   bridge; after a 1-year jump the footbridge stood; walked across on the deck and cleared a
   far-bank field.
 
 ## Not covered
+
+- The collapse verdict, the ruins and the Customs, Bridge and Controls tabs were not looked at
+  again after the interface change; the first-visit checklist's key labels were fixed after
+  the last screenshot and only build-tested.
+- The interface was checked at 1280×720 only.
 
 - Only headless Chromium. Firefox, Safari and real GPUs were not tried. Sound was never heard.
 - One full playthrough has been run since the people rebuild (below); it ended in a collapse at

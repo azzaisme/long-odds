@@ -12,20 +12,24 @@
       <header id="top" hidden>
         <div class="box" id="clock"><b id="year">Year 0</b><span id="visit"></span></div>
         <div class="box" id="stats"></div>
-        <div class="box" id="buttons">
-          <span id="pips" title="Work actions left this visit"></span>
-          <button id="btn-switch"></button>
-          <button data-act="people">People <kbd>P</kbd></button>
-          <button data-act="customs">Customs <kbd>C</kbd></button>
-          <button id="btn-jump" class="primary">Plan the jump <kbd>J</kbd></button>
+        <div class="box" id="tools">
+          <button data-act="help" title="Controls (H)">?</button>
           <button id="btn-sound" title="Sound on/off">♪</button>
         </div>
       </header>
-      <div id="who" class="box" hidden></div>
+      <div id="toast" hidden></div>
+      <aside id="goals" class="box" hidden></aside>
       <div id="prompt" hidden></div>
       <div id="context" class="box" hidden></div>
-      <div id="toast" hidden></div>
-      <div id="hint" hidden><kbd>A</kbd><kbd>D</kbd> walk · <kbd>E</kbd> inspect · <kbd>Q</kbd> switch villager · <kbd>J</kbd> plan the jump</div>
+      <nav id="bar" hidden>
+        <span class="move"><kbd>A</kbd><kbd>D</kbd> walk</span>
+        <button data-act="teach"><kbd>T</kbd> Teach</button>
+        <button data-act="people"><kbd>P</kbd> People</button>
+        <button data-act="customs"><kbd>C</kbd> Customs</button>
+        <button data-act="bridge"><kbd>B</kbd> Bridge</button>
+        <button data-act="plan" class="primary"><kbd>J</kbd> Step out of the world</button>
+      </nav>
+      <div id="hint" hidden><kbd>A</kbd><kbd>D</kbd> walk · stand at something to read it</div>
 
       <section id="playback" hidden>
         <div class="box" id="pb-head">

@@ -33,36 +33,46 @@ Other commands:
 
 ## You are a god
 
-You look after one valley. During a visit you act through a villager (the one with the blue
-aura); `Q` moves you to the other. When you commit to a jump you step out of the villager and
-vanish in a column of blue light, the years run, and you flash back in at the destination.
+You look after one valley, and the god is the only character you ever play. He walks among the
+villagers in his own form: a robed figure of blue light. He does the work himself, and he knows
+all six base ideas and can teach them to the houses of whoever is standing near him.
 
-If the settlement is alive you step back into a villager and the arrival report opens. If it
-collapsed, the camera pushes in on you standing in the ruins: "Nope. Not like that. They only
-made it 51 years." **Try again** has you say "Maybe I could…" while the scene wipes to black and
+When you step out of the world he vanishes in a column of blue light, the years run, and he
+flashes back in at the destination. If the settlement is alive, the arrival report opens. If it
+collapsed, the camera pushes in on him standing in the ruins: "Nope. Not like that. They only
+made it 51 years." **Try again** has him say "Maybe I could…" while the scene wipes to black and
 a new valley wipes in. **What happened** opens the full report; **Walk the ruins** lets you look.
 
 The departure takes about one second and happens before the thirty-second clock starts, so the
 playback itself is still exactly thirty seconds.
 
+## The screen
+
+- **Top:** the year, and five readouts (people, food, seed, fields, ideas). Hover one for detail.
+- **Middle:** a card appears for whatever you are standing at, with what `E` will do and what
+  it costs. On the first visit a short checklist sits at the top left.
+- **Bottom:** the action row: Teach, People, Customs, Bridge, and Step out of the world.
+- **Panels:** Step out, People, Customs, Bridge and Controls are tabs of one panel; their
+  letter keys switch between them and `Esc` closes it.
+
 ## Controls
 
-| Key | Button | Action |
-| --- | --- | --- |
-| `A` / `D` or `←` / `→` | | Walk |
-| `E` | | Inspect the nearest field site, store, house or building |
-| `1` | gold button in the inspect panel | Do the work shown there (build, repair, carry seed) |
-| `T`, then `1`–`6` | practice list | Demonstrate a practice to the villager you act through and the two nearest onlookers |
-| `2` | "Crop" in the inspect panel | Change what a field is sown with |
-| `C` | "Customs" | Set the village's customs |
-| `P` | "People" | Family lines, houses, ideas; from a house: matches, callings, moving |
-| `Q` | "Switch to …" | Switch to the other villager; the one you leave goes back to their routine |
-| `J` | "Plan the jump" | Condition report, then `1`–`4` to pick 1 / 10 / 100 / 1,000 years |
-| `Enter` / `Esc` | Commit / Back | Confirm or cancel the jump; `Enter` also continues after arrival |
+| Key | Action |
+| --- | --- |
+| `A` / `D` or `←` / `→` | Walk |
+| `E` | Do the main thing on the card: clear or repair a field, build the ridge store, carry seed, meet a household, plan the bridge |
+| `2` | Change the crop of the field you are standing at |
+| `T`, then `1`–`6` | Teach an idea to everyone old enough in the houses of the three nearest villagers |
+| `P` | People: family lines, houses, ideas; from a house: matches, callings, moving |
+| `C` | Customs the village keeps while you are away |
+| `B` | Plan a bridge |
+| `J` | Review the settlement, then `1`–`4` to step out for 1 / 10 / 100 / 1,000 years |
+| `H` | All controls |
+| `Enter` / `Esc` | Confirm / close or go back |
 
 There is no limit on how much you do in a visit, and no last visit: you keep coming back until
 nobody is left. Work is paid for in food from the stores (clear a field 1.5, repair 1, build the
-ridge store 3, demonstrate an idea 1, move a household 2; carrying seed is free), so everything
+ridge store 3, teach an idea 1, move a household 2; carrying seed is free), so everything
 you build comes out of the reserve the village has to live on. Matches, callings, customs,
 crops and bridge plans cost nothing to set.
 
@@ -80,9 +90,9 @@ belongs to, and new lines arrive with families from downriver.
 
 **Ideas live in people.** There are 18:
 
-- **Six you can demonstrate** (`T`): seed saving, drying food, terracing, flood marks, watching
-  the mountain, building in stone. Everyone old enough in the house you are acting through
-  learns it, and so does everyone in the houses of the two nearest villagers.
+- **Six you can teach** (`T`): seed saving, drying food, terracing, flood marks, watching
+  the mountain, building in stone. Everyone old enough in the houses of the three nearest
+  villagers learns it.
 - **Twelve that nobody can be taught.** Each grows from two others, and only a person who holds
   both can work it out: seed jars (seed saving + drying), sealed granary (drying + stone), levee
   (flood marks + stone), irrigation (terracing + flood marks), and so on, up to canals, a seed
