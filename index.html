@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Long Odds</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+    <div id="ui">
+      <header id="top" hidden>
+        <div class="box" id="clock"><b id="year">Year 0</b><span id="visit"></span></div>
+        <div class="box" id="stats"></div>
+        <div class="box" id="buttons">
+          <span id="pips" title="Work actions left this visit"></span>
+          <button id="btn-switch"></button>
+          <button id="btn-jump" class="primary">Plan the jump <kbd>J</kbd></button>
+          <button id="btn-sound" title="Sound on/off">♪</button>
+        </div>
+      </header>
+      <div id="who" class="box" hidden></div>
+      <div id="prompt" hidden></div>
+      <div id="context" class="box" hidden></div>
+      <div id="toast" hidden></div>
+      <div id="hint" hidden><kbd>A</kbd><kbd>D</kbd> walk · <kbd>E</kbd> inspect · <kbd>Q</kbd> switch villager · <kbd>J</kbd> plan the jump</div>
+
+      <section id="playback" hidden>
+        <div class="box" id="pb-head">
+          <div id="pb-years"><b id="pb-year">Year 0</b><span id="pb-dest"></span></div>
+          <div id="pb-bar"><i id="pb-fill"></i></div>
+          <div id="pb-phase"></div>
+        </div>
+        <div id="pb-era"></div>
+        <ul id="captions"></ul>
+        <div id="pb-lock">Interventions locked until arrival</div>
+      </section>
+
+      <div id="modal" hidden><div id="panel" class="box"></div></div>
+      <div id="ruinbar" class="box" hidden></div>
+    </div>
+    <script type="module" src="/src/game/main.js"></script>
+  </body>
+</html>
