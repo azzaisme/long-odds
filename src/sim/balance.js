@@ -61,19 +61,19 @@ export const BALANCE = {
 
   // Weather and disasters, all resolved in summer before the river.
   hazards: {
-    rainChance: 0.08, // heavy-rain year (scaled by wetness)
+    rainChance: 0.06, // heavy-rain year (scaled by wetness)
     rainFloodBoost: 1.5, // flood chances multiply in a heavy-rain year
     rainLowYield: 0.85, // waterlogged floodplain harvest
-    slideChance: 0.008, // landslide off the slope onto the near ridge
+    slideChance: 0.005, // landslide off the slope onto the near ridge
     slideRainBoost: 4,
     slideEruptBoost: 6,
     slideStoreHit: 0.5, // chance the slide reaches the ridge store
     slideStoreLoss: [0.3, 0.7], // share of ridge store stock buried
-    tornadoChance: 0.008,
+    tornadoChance: 0.004,
     tornadoHouseLoss: 0.25, // chance each household in the path loses its house and leaves
     tornadoCropLoss: 0.6,
     tornadoStoreLoss: 0.3, // share of food scattered from the store in the path
-    eruptChance: 0.002, // yearly chance the volcano wakes; it then smokes for rumbleYears first
+    eruptChance: 0.001, // yearly chance the volcano wakes; it then smokes for rumbleYears first
     rumbleYears: 3,
     severeShare: 0.3, // share of eruptions that send fire and mud into the valley
     severeLoss: 0.5, // chance each household is lost in a severe eruption

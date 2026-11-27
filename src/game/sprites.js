@@ -255,8 +255,28 @@ export function buildSprites() {
     const colors = { h: i % 3 === 1 ? '#7a5a36' : PAL.hair, s: PAL.skin, c: SHIRTS[i], t: '#4a4458', b: PAL.boots };
     for (const f of Object.keys(VILLAGER)) fromMap(`v${i}_${f}`, VILLAGER[f], colors);
   }
-  const ghost = { h: '#d8d4c4', s: '#c9c2b0', c: '#8f8a7c', t: '#6d695f', b: '#4b4841' };
-  for (const f of Object.keys(VILLAGER)) fromMap(`vt_${f}`, VILLAGER[f], ghost);
+  // The god: a tall robed figure of blue light. This is the player's own form.
+  const GOD = {
+    idle: ['...wwww...', '..wllllw..', '..wleelw..', '..wllllw..', '...wllw...', '..rrrrrr..', '.rrrrrrrr.', '.rrbrrbrr.', '.rrrrrrrr.', '.rrrrrrrr.', '..rrrrrr..', '..rrrrrr..', '..rrbbrr..', '..rrrrrr..', '.rrrrrrrr.', '.rr.rr.rr.'],
+    walk1: ['...wwww...', '..wllllw..', '..wleelw..', '..wllllw..', '...wllw...', '..rrrrrr..', '.rrrrrrrr.', '.rrbrrbrr.', '.rrrrrrrr.', '.rrrrrrrr.', '..rrrrrr..', '..rrrrrr..', '..rrbbrr..', '.rrrrrrr..', 'rrrrrrrr..', 'rr.rr.rr..'],
+    walk2: ['...wwww...', '..wllllw..', '..wleelw..', '..wllllw..', '...wllw...', '..rrrrrr..', '.rrrrrrrr.', '.rrbrrbrr.', '.rrrrrrrr.', '.rrrrrrrr.', '..rrrrrr..', '..rrrrrr..', '..rrbbrr..', '..rrrrrrr.', '..rrrrrrrr', '..rr.rr.rr'],
+  };
+  const godColors = { w: '#e9fbff', l: '#bfeaff', e: '#1b3a66', r: '#4f9de0', b: '#9fd8ff' };
+  for (const f of Object.keys(GOD)) fromMap(`god_${f}`, GOD[f], godColors);
+  make('beam', 16, 64, (g) => {
+    for (let x = 0; x < 16; x++) {
+      const a = 1 - Math.abs(x - 7.5) / 8;
+      g.fillStyle = `rgba(${150 + Math.round(a * 100)}, ${215 + Math.round(a * 40)}, 255, ${a.toFixed(2)})`;
+      g.fillRect(x, 0, 1, 64);
+    }
+  });
+  make('aura', 14, 18, (g) => {
+    for (let y = 0; y < 18; y++) for (let x = 0; x < 14; x++) {
+      const d = Math.hypot((x - 6.5) / 7, (y - 8.5) / 9);
+      if (d < 1 && (x + y) % 2 === 0) R(g, d < 0.6 ? '#bfeaff' : '#6fb8f0', x, y);
+    }
+  });
+  make('spark', 2, 2, (g) => R(g, '#bfeaff', 0, 0, 2, 2));
 
   for (const s of ['home', 'empty', 'ruin', 'rubble']) make(`house_${s}`, 26, 22, (g) => house(g, s, rnd));
   for (const e of ['low', 'ridge'])
@@ -344,10 +364,10 @@ export function buildSprites() {
     }
   });
   make('marker', 7, 6, (g) => {
-    R(g, '#fff4c8', 0, 0, 7, 2);
-    R(g, '#fff4c8', 1, 2, 5, 2);
-    R(g, '#fff4c8', 3, 4, 1, 2);
-    R(g, '#fff4c8', 2, 4, 3, 1);
+    R(g, '#bfeaff', 0, 0, 7, 2);
+    R(g, '#bfeaff', 1, 2, 5, 2);
+    R(g, '#bfeaff', 3, 4, 1, 2);
+    R(g, '#bfeaff', 2, 4, 3, 1);
   });
   make('marker_dim', 5, 3, (g) => {
     R(g, '#b9b39c', 0, 0, 5, 1);

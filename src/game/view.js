@@ -36,9 +36,9 @@ export class View {
       m.opacityMap = tex;
       m.opacityMapChannel = 'a';
       m.cull = pc.CULLFACE_NONE;
-      if (name.startsWith('water') || name === 'smoke' || name === 'floodline' || name === 'cloud') {
+      if (name === 'beam' || name === 'aura' || name.startsWith('water') || name === 'smoke' || name === 'floodline' || name === 'cloud') {
         m.blendType = pc.BLEND_NORMAL;
-        m.opacity = name.startsWith('water') ? 0.72 : name === 'cloud' ? 0.8 : 0.6;
+        m.opacity = name === 'beam' ? 0.85 : name === 'aura' ? 0.55 : name.startsWith('water') ? 0.72 : name === 'cloud' ? 0.8 : 0.6;
         m.depthWrite = false;
       } else m.alphaTest = 0.5;
       m.update();
@@ -144,6 +144,12 @@ export class View {
     this.waterEnt = this.sprite('water0', 0, 0, Z.water);
     this.floodline = this.sprite('floodline', 0, 0, Z.water - 0.5);
     this.floodline.enabled = false;
+    this.aura = this.sprite('aura', 0, 0, Z.actor - 1);
+    this.aura.enabled = false;
+    this.beam = this.sprite('beam', 0, 0, Z.fx - 0.5);
+    this.beam.enabled = false;
+    this.flashT = 0;
+    this.pulse = 0;
     this.marker = this.sprite('marker', 0, 0, Z.badge);
     this.markerDim = this.sprite('marker_dim', 0, 0, Z.badge);
     this.carry = this.sprite('sack', 0, 0, Z.badge);
@@ -311,6 +317,8 @@ export class View {
     this.marker.enabled = !!active;
     this.markerDim.enabled = !!other;
     const bob = Math.round(Math.sin(this.time * 5) * 1);
+    this.aura.enabled = !!active;
+    if (active) this.aura.setLocalPosition(Math.round(active.x), groundHeight(active.x) + 7 + bob * 0.5, Z.actor - 1);
     if (active) this.place(this.marker, Math.round(active.x), groundHeight(active.x) + (active.knows ? 22 : 16) + bob);
     if (other) this.place(this.markerDim, Math.round(other.x), groundHeight(other.x) + (other.knows ? 22 : 16));
   }
@@ -328,6 +336,11 @@ export class View {
       else if (kind === 'plume') Object.assign(f, { x: x + vrand() * 14 - 7, vx: 5 + vrand() * 6, vy: 10 + vrand() * 8, life: 6, tex: vrand() < 0.5 ? 'ashflake' : 'smoke' });
       else if (kind === 'lava') Object.assign(f, { x: x + vrand() * 10 - 5, vx: vrand() * 70 - 35, vy: 50 + vrand() * 70, life: 2.4, tex: 'ember', g: -60 });
       else if (kind === 'debris') Object.assign(f, { vx: vrand() * 120 - 60, vy: 20 + vrand() * 90, life: 1.2, tex: vrand() < 0.5 ? 'ashflake' : 'smoke', g: -120 });
+      else if (kind === 'spark') {
+        const a = vrand() * Math.PI * 2;
+        const v = 30 + vrand() * 90;
+        Object.assign(f, { vx: Math.cos(a) * v, vy: Math.sin(a) * v + 30, life: 0.5 + vrand() * 0.6, tex: 'spark', g: -40 });
+      } else if (kind === 'rise') Object.assign(f, { x: x + vrand() * 12 - 6, vx: 0, vy: 60 + vrand() * 120, life: 0.9, tex: 'spark' });
       else if (kind === 'smoke') Object.assign(f, { vx: 3 + vrand() * 3, vy: 8 + vrand() * 4, life: 2.6, tex: 'smoke' });
       else if (kind === 'dust') Object.assign(f, { x: x + vrand() * 30 - 15, vx: vrand() * 30 - 15, vy: 18 + vrand() * 25, life: 0.7, tex: 'smoke', g: -80 });
       else if (kind === 'seed') Object.assign(f, { x: x + vrand() * 16 - 8, vx: vrand() * 40 - 20, vy: 30 + vrand() * 30, life: 1.1, tex: 'seed', g: -90 });
@@ -437,8 +450,20 @@ export class View {
     // Season wash.
     const t = this.tint;
     t.a += (t.ta - t.a) * (1 - Math.exp(-dt * 2));
-    this.tintMat.emissive.set(t.r, t.g, t.b);
-    this.tintMat.opacity = t.a;
+    if (this.pulse > 0) this.pulse = Math.max(0, this.pulse - dt * 0.9);
+    const pz = this.pulse;
+    if (pz > t.a) (this.tintMat.emissive.set(0.6, 0.85, 1), (this.tintMat.opacity = pz));
+    else (this.tintMat.emissive.set(t.r, t.g, t.b), (this.tintMat.opacity = t.a));
+    this.beam.enabled = this.flashT > 0;
+    if (this.flashT > 0) {
+      this.flashT -= dt;
+      const life = this.flashBig ? 0.75 : 0.35;
+      const k = Math.max(0, this.flashT / life);
+      const w = (this.flashBig ? 26 : 10) * Math.sin(k * Math.PI) + 2;
+      const h = this.flashBig ? 420 : 40;
+      this.beam.setLocalScale(w, 1, h);
+      this.beam.setLocalPosition(this.flashAt[0], this.flashAt[1] + h / 2, Z.fx - 0.5);
+    }
     this.tintMat.update();
     this.tintEnt.setLocalScale(vw + 4, 1, vh + 4);
     this.tintEnt.setLocalPosition(cx, cy, Z.tint);
@@ -454,6 +479,16 @@ export class View {
         }
       }
     this.updateFx(dt, this.viewRect);
+  }
+
+  // The god's coming and going: a column of blue light, a burst of sparks, a wash over the frame.
+  flash(x, big = true) {
+    this.flashAt = [x, groundHeight(x)];
+    this.flashT = big ? 0.75 : 0.35;
+    this.flashBig = big;
+    this.pulse = big ? 0.5 : 0.15;
+    this.emit('spark', x, groundHeight(x) + 9, big ? 46 : 14);
+    if (big) this.emit('rise', x, groundHeight(x) + 4, 24);
   }
 
   // One-off disaster effects, triggered by simulation events.

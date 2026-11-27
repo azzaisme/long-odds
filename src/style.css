@@ -92,3 +92,9 @@ button.danger:hover { background: #963a2c; }
 #ruinbar b { color: var(--gold); }
 #context.raised { bottom: 150px; }
 #panel .row:last-child { position: sticky; bottom: -18px; background: #1d2233; padding: 10px 0 12px; margin-bottom: -18px; border-top: 1px solid var(--line); }
+#speech { position: absolute; transform: translate(-50%, -100%); background: #f4fbff; color: #14233d; border: 3px solid #14233d; box-shadow: 0 0 0 3px #7cc4ff, 0 6px 0 #0008; padding: 10px 16px; font-size: 20px; max-width: min(520px, 80vw); text-align: center; }
+#speech::after { content: ''; position: absolute; left: 50%; bottom: -14px; margin-left: -8px; border: 8px solid transparent; border-top-color: #14233d; }
+#wipe { position: absolute; inset: 0; background: #000; transform: translateX(-101%); pointer-events: none; z-index: 20; }
+#wipe.in { transform: translateX(0); transition: transform 0.9s cubic-bezier(0.6, 0, 0.4, 1); pointer-events: auto; }
+#wipe.out { transform: translateX(101%); transition: transform 0.9s cubic-bezier(0.6, 0, 0.4, 1); }
+#ruinbar .btns { display: flex; gap: 8px; flex-shrink: 0; }

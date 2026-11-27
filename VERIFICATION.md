@@ -29,15 +29,16 @@ Checked on Node 22 and headless Chromium (software WebGL, 1280×720, 16–27 fps
 | --- | --- | --- | --- | --- | --- | --- |
 | No farms | 5 | 1% | 0% | 0% | 0% | 0% |
 | Lowland only | 8 | 35% | 4% | 3% | 3% | 2% |
-| Lowland + teaching | 15 | 65% | 22% | 14% | 14% | 10% |
-| Ridge only + teaching | 119 | 96% | 56% | 39% | 37% | 26% |
-| Mixed, no ridge store | 56 | 87% | 38% | 28% | 27% | 18% |
-| Mixed + ridge seed store | 45 | 82% | 42% | 39% | 39% | 27% |
+| Lowland + teaching | 16 | 66% | 24% | 18% | 18% | 14% |
+| Ridge only + teaching | 200 | 97% | 60% | 45% | 45% | 35% |
+| Mixed, no ridge store | 73 | 88% | 44% | 34% | 33% | 26% |
+| Mixed + ridge seed store | 55 | 82% | 46% | 44% | 43% | 36% |
 
 These figures include the weather and disaster systems. Mixed-elevation farming with ridge seed
-storage is still standing at year 500 in 39% of seeds against 3% for lowland-only (14% with
+storage is still standing at year 500 in 44% of seeds against 3% for lowland-only (18% with
 teaching added). Before disasters were added the same comparison was 53% against 5%; disaster
-chances were then lowered once to keep the best strategy near 40%. Earlier tuning from these
+chances were lowered twice (the second time on request: tornado 0.4%, landslide 0.5%, volcano
+waking 0.1% a year). Earlier tuning from these
 runs: opening food went from 14 to 22, departures per hungry winter were softened, villages were
 made to keep ridge seed as a reserve rather than plant it every spring, and to copy a ridge
 field once they have seen one.
@@ -73,6 +74,13 @@ The extra 0.1–0.3 s is one rendered frame plus the test's polling interval.
   landslide, all in year 0 of a 1-year jump: funnel, rain and captions visible); seed 125
   (smoke in year 2, eruption in year 5 of a 10-year jump: lava on the cone, ash fall, mudflow
   flood, collapse in year 6 attributed to the eruption); seed 158 (landslide).
+- **The god's exit and return.** Two runs, no console errors. Alive (seed 1, 1 year): blue
+  beam and sparks at the villager on commit, actions refused during the departure, playback
+  clock 30.19 s (31.24 s from commit including the one-second departure), report opens after
+  the return flash, Enter begins visit 2 with three actions. Collapsed (seed 125, 10 years):
+  camera at twice the normal zoom on the god, speech "Nope. Not like that. They only made it 6
+  years.", Try again shows "Maybe I could…", the screen wipes to black, and a new valley with a
+  different seed appears at year 0, visit 1, six households, no actions, no collapse record.
 - No console errors in any run.
 
 ## Not covered
@@ -82,7 +90,8 @@ The extra 0.1–0.3 s is one rendered frame plus the test's polling interval.
   30-second timing code was not changed.
 - The volcano was moved lower in the backdrop after the last screenshots; that position was only
   build-tested.
-- Median survival for the best scripted strategy fell from 1,211 to 45 years once disasters were
+- The disaster screenshots were taken at the earlier, higher disaster odds.
+- Median survival for the best scripted strategy fell from 1,211 to 55 years once disasters were
   added: the first decades are now more dangerous than before.
 
 - Only headless Chromium was used. Firefox, Safari and real GPUs were not tried.

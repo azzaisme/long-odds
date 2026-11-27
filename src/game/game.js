@@ -52,6 +52,10 @@ export class Game {
     this.jumps = [];
     this.pb = null;
     this.inspect = null;
+    this.verdict = null;
+    this.returnT = 0;
+    this.say = null;
+    $('speech').hidden = true;
     this.view.clearActors();
     this.view.sync(this.sim);
     this.view.syncActors(this.sim, true);
@@ -154,7 +158,7 @@ export class Game {
       if (this.pending && k === 'Enter') return this.act('commit');
       const i = ['1', '2', '3', '4'].indexOf(k);
       if (!this.pending && i >= 0) return this.act('choose', B.jumpChoices[i]);
-    } else if (s === S.ARRIVAL && k === 'Enter') return this.act('next');
+    } else if (s === S.ARRIVAL && k === 'Enter') return this.verdict ? this.retry() : this.act('next');
   }
   act(name, arg) {
     this.sound.start();
@@ -168,7 +172,9 @@ export class Game {
       case 'commit': return this.commit();
       case 'next': return this.next();
       case 'look': return this.lookAround();
-      case 'new': return this.showTitle();
+      case 'new': return this.retry();
+      case 'retry': return this.retry();
+      case 'details': return this.state === S.ARRIVAL && this.modal(this.arrivalHtml, true);
     }
   }
 
@@ -180,7 +186,7 @@ export class Game {
     this.modal(`
       <h1>LONG ODDS</h1>
       <div class="tag">Plant a field. Bet a century.</div>
-      <p>Keep a riverside settlement alive for as many years as you can. Walk the bank as a villager, build farms and a seed store, show a neighbour how to save seed. Then skip ahead <b>1, 10, 100 or 1,000 years</b> and watch the village live with what you left it.</p>
+      <p>You are a god with a small valley to look after. Keep its riverside settlement alive for as many years as you can. Step into a villager and walk the bank, build farms and a seed store, show a neighbour how to save seed. Then step out of the world for <b>1, 10, 100 or 1,000 years</b> and watch the village live with what you left it.</p>
       <p>Last long enough, fed and unflooded, and the hamlet grows: village, town, city, and finally <b>the Hold</b>, one great terraced house on the ridge with room for every resident and a seed vault of its own.</p>
       <p>The valley is not gentle. The river floods, heavy rains bring landslides, tornadoes cross the plain, and the volcano behind the hills smokes for a few years before it erupts.</p>
       <p class="note">Five visits. Three work actions each. Every jump plays out over thirty seconds and cannot be undone.</p>
@@ -364,6 +370,7 @@ export class Game {
     this.carrying = null;
     if (left) (left.target = null), (left.wait = 0.6); // the villager you leave goes back to their routine
     this.sound.swap();
+    if (left) this.view.flash(left.x, false);
     const h = this.myHouse();
     this.toast(`You are now ${h.name}. ${this.hh(this.pair[1 - this.active]).name} goes back to work.`);
     this.refreshHud();
@@ -445,10 +452,20 @@ export class Game {
     $('captions').innerHTML = '';
     $('pb-era').textContent = ERA[years];
     $('pb-dest').textContent = `→ year ${n0(this.jump.to)}`;
-    this.sound.commit();
+    // The god steps out of the villager and is gone in a flash of blue light. Only then does
+    // the thirty-second clock start.
+    const body = this.me();
+    this.godX = body ? body.x : 560;
     this.setState(S.PLAYBACK);
-    this.pb = new Playback(st, years, performance.now());
-    this.updatePlaybackHud(performance.now());
+    this.pb = null;
+    this.departT = 1.0;
+    $('toast').hidden = true;
+    this.view.addActor(-2, 'god', this.godX);
+    this.view.flash(this.godX, false);
+    this.sound.commit();
+    $('pb-year').textContent = `Year ${n0(this.jump.from)}`;
+    $('pb-fill').style.width = '0%';
+    $('pb-phase').textContent = 'You step out of the world…';
   }
   zeroCounts() { return { disasters: 0, floods: 0, left: 0, settled: 0, cleared: 0, repaired: 0, harvests: 0 }; }
 
@@ -556,7 +573,6 @@ export class Game {
     this.view.weather = 'none';
     this.view.water.target = WORLD.waterLevels[0];
     const alive = Sim.isAlive(st);
-    this.sound.arrive(alive);
     const a = summary(st);
     const b = j.before;
     const cell = (k, x, y) => `<div><small>${k}</small><b>${x} → ${y}</b></div>`;
@@ -575,29 +591,49 @@ export class Game {
     const trace = this.traceHtml(j);
     const grid = `<div class="grid">${cell('Households', b.households, a.households)}${cell('Know seed saving', b.knowers, a.knowers)}${cell('Fields', b.fieldsLow + b.fieldsRidge, a.fieldsLow + a.fieldsRidge)}${cell('Ridge fields', b.fieldsRidge, a.fieldsRidge)}${cell('Seed', n0(b.seedLow + b.seedRidge), n0(a.seedLow + a.seedRidge))}</div>`;
     const span = `Year ${n0(j.from)} → year ${n0(j.to)}`;
+    let html;
     if (!alive) {
       const c = st.collapse;
       const during = c.year >= j.from;
-      this.modal(`
+      html = `
         <h2>Year ${n0(j.to)}. Nobody is here.</h2>
         <p>${during ? `The last household left in <b>year ${n0(c.year)}</b>, ${n0(j.to - c.year)} years before you arrived.` : `The valley has been empty since year ${n0(c.year)}.`} ${esc(c.cause)}</p>
         <div class="big">${n0(c.year)} years survived</div>
         <h3>${span}</h3>${events}${trace}
-        <div class="row"><button class="primary" data-act="next">Walk the ruins <kbd>Enter</kbd></button><button data-act="new">Start a new run</button></div>`, true);
+        <div class="row"><button class="primary" data-act="retry">Try again</button><button data-act="next">Walk the ruins</button></div>`;
     } else if (this.visit >= B.visitsPerRun) {
-      this.modal(`
+      html = `
         <h2>Still standing</h2>
         <div class="big">Year ${n0(j.to)} · ${esc(a.stageName)}</div>
         <p>${a.stage >= 4 ? `All ${a.households} households live in the Hold, the great terraced house on the ridge, finished in year ${n0(st.civ.reached[4])}. It feeds itself and keeps its own seed.` : `${plural(a.households, 'household')} still farm the valley after your fifth and last jump. It is a ${esc(a.stageName.toLowerCase())}; the Hold, one great house for everyone, was never finished.`}</p>
         ${grid}<h3>${span}</h3>${events}${trace}
         <p class="note">Valley seed ${this.seed} · run fingerprint ${Sim.hashState(st)}</p>
-        <div class="row"><button class="primary" data-act="new">Start a new run</button><button data-act="look">Look around</button></div>`, true);
+        <div class="row"><button class="primary" data-act="new">Start a new run</button><button data-act="look">Look around</button></div>`;
     } else {
-      this.modal(`
+      html = `
         <h2>Arrived in year ${n0(j.to)}</h2>
         <p>The settlement survived the jump. It is ${a.stage >= 4 ? 'the Hold' : `a ${esc(a.stageName.toLowerCase())}`} of ${plural(a.households, 'household')}.</p>
         ${grid}<h3>${span}</h3>${events}${trace}
-        <div class="row"><button class="primary" data-act="next">Begin visit ${this.visit + 1} of ${B.visitsPerRun} <kbd>Enter</kbd></button></div>`, true);
+        <div class="row"><button class="primary" data-act="next">Begin visit ${this.visit + 1} of ${B.visitsPerRun} <kbd>Enter</kbd></button></div>`;
+    }
+    this.arrivalHtml = html;
+    // He flashes back into existence.
+    const x = Math.max(WORLD.walkMin + 20, Math.min(WORLD.walkMax - 20, this.godX || 560));
+    this.view.flash(x, true);
+    this.sound.appear();
+    this.view.cam.tx = x;
+    this.view.cam.ty = groundHeight(x) + 44;
+    $('modal').hidden = true;
+    if (alive) {
+      this.view.addActor(-2, 'god', x);
+      this.verdict = null;
+      this.returnT = 1.3; // then he steps back into a villager and the arrival report opens
+    } else {
+      this.view.clearActors();
+      this.view.addActor(-1, 'god', x);
+      this.view.setTint(0.55, 0.6, 0.75, 0.14);
+      const n = st.collapse.year;
+      this.verdict = { t: 0, said: false, line: n < 1 ? 'Nope. Not like that. They didn’t even make it a year.' : `Nope. Not like that. They only made it ${n0(n)} year${n === 1 ? '' : 's'}.` };
     }
   }
   // Recoveries during this jump that go back to something the player did.
@@ -615,7 +651,7 @@ export class Game {
     return lines.length ? `<h3>Traced to your visits</h3><ul>${lines.map((l) => `<li class="good">${l}</li>`).join('')}</ul>` : '';
   }
   next() {
-    if (this.state !== S.ARRIVAL) return;
+    if (this.state !== S.ARRIVAL || this.returnT > 0) return;
     const st = this.sim;
     this.sound.click();
     if (!Sim.isAlive(st)) return this.lookAround();
@@ -638,12 +674,49 @@ export class Game {
       this.setState(S.RESULTS);
       $('ruinbar').innerHTML = `<span><b>Still standing in year ${n0(Sim.yearOf(st))}: ${esc(STAGE[st.civ.stage])}.</b> Walk the valley; <kbd>E</kbd> inspects.</span><button class="primary" data-act="new">Start a new run</button>`;
     } else {
-      this.view.clearActors();
-      this.view.addActor(-1, 'vt', 560);
+      this.verdict = null;
+      $('speech').hidden = true;
+      if (!this.view.actors.get(-1)) this.view.addActor(-1, 'god', 560);
       this.setState(S.RUINS);
       this.view.setTint(0.55, 0.6, 0.75, 0.14);
-      $('ruinbar').innerHTML = `<span><b>Year ${n0(Sim.yearOf(st))}. ${n0(st.collapse.year)} years survived.</b> ${esc(st.collapse.cause)} Walk the ruins; <kbd>E</kbd> reads what is left.</span><button class="primary" data-act="new">Start a new run</button>`;
+      $('ruinbar').innerHTML = `<span><b>Year ${n0(Sim.yearOf(st))}. ${n0(st.collapse.year)} years survived.</b> ${esc(st.collapse.cause)} Walk the ruins; <kbd>E</kbd> reads what is left.</span><button class="primary" data-act="retry">Try again</button>`;
     }
+  }
+
+  // "Maybe I could…": the scene wipes to black and a new world wipes in.
+  retry() {
+    if (this.wiping || this.state === S.PLAYBACK || this.state === S.TITLE) return;
+    this.wiping = true;
+    this.sound.start();
+    const god = this.view.actors.get(-1) || this.me();
+    $('modal').hidden = true;
+    $('ruinbar').hidden = true;
+    $('context').hidden = true;
+    this.say = { text: 'Maybe I could…', actor: god };
+    const wipe = $('wipe');
+    wipe.className = '';
+    setTimeout(() => (wipe.className = 'in', this.sound.wipe()), 700);
+    setTimeout(() => {
+      this.say = null;
+      this.verdict = null;
+      $('speech').hidden = true;
+      this.newRun((Math.random() * 2 ** 31) >>> 0);
+      this.view.update(0.001, this.sim, { camSnap: true });
+      const a = this.me();
+      if (a) this.view.flash(a.x, true);
+      this.sound.appear();
+      wipe.className = 'out';
+      this.wiping = false;
+    }, 1900);
+  }
+  speechAt(actor, text) {
+    const el = $('speech');
+    if (!actor) return (el.hidden = true);
+    const [sx, sy] = this.view.toScreen(actor.x, groundHeight(actor.x) + 22);
+    el.hidden = false;
+    el.style.left = `${sx}px`;
+    el.style.top = `${sy}px`;
+    if (el.textContent !== text) el.textContent = text;
   }
 
   // ---- interface helpers --------------------------------------------------------------------
@@ -755,6 +828,17 @@ export class Game {
     } else if (s === S.PLAYBACK) {
       const now = performance.now();
       const j = this.jump;
+      if (!this.pb) {
+        const before = this.departT;
+        this.departT -= dt;
+        if (before > 0.45 && this.departT <= 0.45) (view.removeActor(-2), view.flash(this.godX, true), this.sound.vanish());
+        if (this.departT <= 0) this.pb = new Playback(st, j.years, now);
+        cam.tx = this.godX;
+        view.updateActors(dt, st, {});
+        view.setMarkers(null, null);
+        view.update(dt, st, opts);
+        return;
+      }
       this.pb.advance(now, (ev, sim) => this.onTick(ev, sim));
       view.sync(st);
       const fast = j.years >= 100;
@@ -801,8 +885,33 @@ export class Game {
       // Title and arrival: the valley idles behind the panel.
       view.updateActors(dt, st, {});
       view.setMarkers(null, null);
+      if (s === S.ARRIVAL && this.returnT > 0 && (this.returnT -= dt) <= 0) {
+        // Alive: the god steps back into a villager, and the report opens.
+        view.removeActor(-2);
+        view.flash(this.godX || 560, false);
+        this.sound.arrive(true);
+        this.modal(this.arrivalHtml, true);
+      }
+      const v = s === S.ARRIVAL ? this.verdict : null;
+      if (v) {
+        // Collapsed: push in on him while he gives the verdict.
+        v.t += dt;
+        const god = view.actors.get(-1);
+        cam.tzoom = view.baseZoom() * 2;
+        cam.tx = god.x;
+        cam.ty = groundHeight(god.x) + 26;
+        if (v.t > 1.0 && !v.said) {
+          v.said = true;
+          this.sound.bad();
+          $('ruinbar').hidden = false;
+          $('ruinbar').innerHTML = `<span><b>${n0(st.collapse.year)} years survived.</b> ${esc(st.collapse.cause)}</span><span class="btns"><button class="primary" data-act="retry">Try again <kbd>Enter</kbd></button><button data-act="details">What happened</button><button data-act="next">Walk the ruins</button></span>`;
+        }
+        if (v.said && !this.say) this.speechAt(god, v.line);
+      }
       if (s === S.TITLE) (cam.tx = 560 + Math.sin(view.time * 0.08) * 160), (cam.ty = 48);
     }
+    if (this.say) this.speechAt(this.say.actor, this.say.text);
+    else if (!(s === S.ARRIVAL && this.verdict && this.verdict.said)) $('speech').hidden = true;
     view.update(dt, st, opts);
   }
 }

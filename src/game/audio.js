@@ -72,6 +72,9 @@ export class Sound {
   swap() { this.tone(440, 0.07, 'triangle', 0.09); this.tone(587, 0.09, 'triangle', 0.09, 0.07); }
   commit() { [196, 147, 98].forEach((f, i) => this.tone(f, 0.5, 'sawtooth', 0.07, i * 0.16)); }
   flood(level) { this.noise(1.2 + level * 0.6, 240 + level * 60, 0.12 + level * 0.07); }
+  vanish() { this.tone(330, 0.7, 'sine', 0.16, 0, 1400); this.tone(660, 0.6, 'triangle', 0.08, 0.05, 1800); this.noise(0.5, 3000, 0.08, 'highpass', 0.1); }
+  appear() { this.tone(1800, 0.6, 'sine', 0.14, 0, -1400); this.tone(990, 0.5, 'triangle', 0.08, 0.05, -500); this.noise(0.3, 2500, 0.07, 'highpass'); }
+  wipe() { this.noise(1.0, 400, 0.14); this.tone(220, 0.9, 'sine', 0.08, 0, -120); }
   erupt() { this.noise(3.5, 120, 0.45); this.tone(55, 2.5, 'sawtooth', 0.14, 0, -20); this.noise(1.5, 900, 0.12, 'bandpass', 0.3); }
   tornado() { this.noise(2.4, 500, 0.22, 'bandpass'); this.tone(90, 2.2, 'sawtooth', 0.05, 0, 60); }
   slide() { this.noise(1.6, 180, 0.35); }
