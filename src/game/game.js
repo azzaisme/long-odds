@@ -682,7 +682,7 @@ export class Game {
       else if (e.type === 'tornado') (this.view.tornado(e.side), this.sound.tornado(), c.disasters++);
       else if (e.type === 'landslide') (this.view.landslide(), this.sound.slide(), c.disasters++);
       if (e.type === 'collapse') this.sound.collapse();
-      else if (e.type === 'flood' && e.level >= 2 && this.floodSoundT <= 0) (this.sound.flood(e.level), (this.floodSoundT = 1.2));
+      else if (e.type === 'flood' && e.level >= 2 && this.floodSoundT <= 0) (this.sound.flood(e.level), (this.floodSoundT = 1.2), (this.view.shake = Math.max(this.view.shake, e.level === 3 ? 1.6 : 0.6)));
       else if (e.type === 'harvest' && j.years <= 10) this.sound.harvest();
       else if (e.type === 'stage' || e.type === 'idea') this.sound.arrive(true);
       else if (e.type === 'recovery' && j.years <= 100 && this.floodSoundT <= 0.6) this.sound.good();
@@ -1110,6 +1110,7 @@ export class Game {
 
       const level = st.river.level;
       view.water.target = WORLD.waterLevels[level] + (j.years === 1 && upcoming === 1 ? 3 : 0);
+      view.rainPower = level >= 3 ? 3 : level >= 2 ? 2 : 1;
       opts.waterRate = { 1: 0.9, 10: 5, 100: 14, 1000: 22 }[j.years];
       opts.cloudSpeed = { 1: 6, 10: 30, 100: 90, 1000: 200 }[j.years];
       const sky = st.sky;

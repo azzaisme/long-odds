@@ -117,6 +117,12 @@ Real key presses throughout, no console errors in any run.
   characters, all field states and trees, the houses, stores, civic buildings and three
   bridges, the city and Hold with their ruins, both volcanoes, the funnel and the slide, and
   the three backdrop layers composited.
+- **The flood on screen.** Raised the water by hand to each of the three flood heights over a
+  planted lowland village: muddy water lying above the banks with the houses and grain visible
+  through it, a foam crest along the surface, drifting wreckage (two pieces at high water, more
+  as it rises), heavier rain at each level, and the river clear again once it fell. No console
+  errors. A first version painted the water solid over the ground below the surface; that was
+  fixed and re-checked. Not seen: a flood arriving during a real jump, and the screen shake.
 - **Bridges.** Planned a footbridge at the crossing; walking stopped at the bank with no
   bridge; after a 1-year jump the footbridge stood; walked across on the deck and cleared a
   far-bank field.

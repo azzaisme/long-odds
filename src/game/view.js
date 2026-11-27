@@ -21,7 +21,7 @@ export class View {
       const tex = new pc.Texture(app.graphicsDevice, {
         width: c.width, height: c.height, format: pc.PIXELFORMAT_RGBA8, mipmaps: false,
         minFilter: pc.FILTER_NEAREST, magFilter: pc.FILTER_NEAREST,
-        addressU: name.startsWith('water') || name === 'floodline' ? pc.ADDRESS_REPEAT : pc.ADDRESS_CLAMP_TO_EDGE,
+        addressU: name.startsWith('water') || name.startsWith('flood') || name === 'foam' ? pc.ADDRESS_REPEAT : pc.ADDRESS_CLAMP_TO_EDGE,
         addressV: pc.ADDRESS_CLAMP_TO_EDGE,
       });
       tex.setSource(c);
@@ -35,7 +35,7 @@ export class View {
       m.opacityMap = tex;
       m.opacityMapChannel = 'a';
       m.cull = pc.CULLFACE_NONE;
-      if (name === 'beam' || name === 'aura' || name.startsWith('water') || name === 'smoke' || name === 'floodline' || name === 'cloud') {
+      if (name === 'beam' || name === 'aura' || name === 'foam' || name === 'flood0' || name === 'flood1' || name.startsWith('water') || name === 'smoke' || name === 'floodline' || name === 'cloud') {
         m.blendType = pc.BLEND_NORMAL;
         m.opacity = name === 'beam' ? 0.85 : name === 'aura' ? 0.55 : name.startsWith('water') ? 0.72 : name === 'cloud' ? 0.8 : 0.6;
         m.depthWrite = false;
@@ -167,6 +167,18 @@ export class View {
     this.deck = false;
 
     this.waterEnt = this.sprite('water0', 0, 0, Z.water);
+    // Flood water lies over the river and thickens as it rises; foam rides its crest and
+    // wreckage drifts on it.
+    this.floodEnt = this.sprite('flood0', 0, 0, Z.water + 0.2);
+    this.floodEnt.enabled = false;
+    this.foamEnt = this.sprite('foam', 0, 0, Z.water + 0.4);
+    this.foamEnt.enabled = false;
+    this.drift = ['drift_log', 'drift_thatch', 'drift_barrel', 'drift_log', 'drift_thatch', 'drift_barrel'].map((t, i) => {
+      const e = this.sprite(t, 0, 0, Z.water + 0.3);
+      e.enabled = false;
+      return { e, x: 0, v: 14 + i * 4, phase: i * 1.3, placed: false, flip: i % 2 === 1 };
+    });
+    this.rainPower = 1;
     this.floodline = this.sprite('floodline', 0, 0, Z.water - 0.5);
     this.floodline.enabled = false;
     this.aura = this.sprite('aura', 0, 0, Z.actor - 1);
@@ -395,6 +407,7 @@ export class View {
       const f = { e, kind, x, y, vx: 0, vy: 0, life: 1, age: 0 };
       if (kind === 'snow') Object.assign(f, { vx: -6 + vrand() * 12, vy: -18 - vrand() * 14, life: 6, tex: 'white' });
       else if (kind === 'rain') Object.assign(f, { vx: -30, vy: -190, life: 1.6, tex: 'rain' });
+      else if (kind === 'splash') Object.assign(f, { vx: vrand() * 16 - 8, vy: 14 + vrand() * 14, life: 0.28, tex: 'white', g: -90 });
       else if (kind === 'ash') Object.assign(f, { vx: -10 + vrand() * 8, vy: -26 - vrand() * 16, life: 7, tex: 'ashflake' });
       else if (kind === 'plume') Object.assign(f, { x: x + vrand() * 14 - 7, vx: 5 + vrand() * 6, vy: 10 + vrand() * 8, life: 6, tex: vrand() < 0.5 ? 'ashflake' : 'smoke' });
       else if (kind === 'lava') Object.assign(f, { x: x + vrand() * 10 - 5, vx: vrand() * 70 - 35, vy: 50 + vrand() * 70, life: 2.4, tex: 'ember', g: -60 });
@@ -414,7 +427,7 @@ export class View {
   updateFx(dt, view) {
     if (this.weather === 'snow') for (let i = 0; i < 2; i++) this.emit('snow', view.x0 + vrand() * (view.x1 - view.x0), view.y1 + 4);
     else if (this.weather === 'ash') for (let i = 0; i < 3; i++) this.emit('ash', view.x0 + vrand() * (view.x1 - view.x0 + 40), view.y1 + 4);
-    else if (this.weather === 'rain') for (let i = 0; i < 3; i++) this.emit('rain', view.x0 + vrand() * (view.x1 - view.x0 + 60), view.y1 + 4);
+    else if (this.weather === 'rain') for (let i = 0; i < 3 * this.rainPower; i++) this.emit('rain', view.x0 + vrand() * (view.x1 - view.x0 + 60), view.y1 + 4);
     for (let i = this.fx.length - 1; i >= 0; i--) {
       const f = this.fx[i];
       f.age += dt;
@@ -488,17 +501,70 @@ export class View {
     w.level += (w.target - w.level) * (1 - Math.exp(-dt * (opts.waterRate || 1.2)));
     const edge = waterEdge(w.level);
     const wl = waterLeft(w.level);
-    const depth = w.level + 100;
-    this.setTex(this.waterEnt, Math.floor(this.time * 2.5) % 2 ? 'water0' : 'water1');
-    this.waterEnt.setLocalScale(edge - wl, 1, depth);
-    this.waterEnt.setLocalPosition((edge + wl) / 2, -100 + depth / 2, Z.water);
-    const wm = this.waterEnt.render.meshInstances[0].material;
-    for (const m of [this.mats.water0, this.mats.water1]) {
-      m.emissiveMapTiling = new pc.Vec2((edge - wl) / 64, 1);
+    const normal = WORLD.waterLevels[0];
+    // The river itself never rises above its banks; what rises is flood water laid over it.
+    const riverTop = Math.min(w.level, normal);
+    const rEdge = waterEdge(riverTop);
+    const rLeft = waterLeft(riverTop);
+    const frame = Math.floor(this.time * 2.5) % 2;
+    this.setTex(this.waterEnt, frame ? 'water0' : 'water1');
+    this.waterEnt.setLocalScale(rEdge - rLeft, 1, riverTop + 100);
+    this.waterEnt.setLocalPosition((rEdge + rLeft) / 2, -100 + (riverTop + 100) / 2, Z.water);
+    const tile = (m, width, offset = 0) => {
+      m.emissiveMapTiling = new pc.Vec2(width / 64, 1);
       m.opacityMapTiling = m.emissiveMapTiling;
+      m.emissiveMapOffset = new pc.Vec2(offset, 0);
+      m.opacityMapOffset = m.emissiveMapOffset;
+    };
+    for (const m of [this.mats.water0, this.mats.water1]) {
+      tile(m, rEdge - rLeft);
       m.update();
     }
-    void wm;
+    const rise = w.level - normal; // how far over the banks
+    const murk = Math.max(0, Math.min(1, rise / 7));
+    const flooding = murk > 0.02;
+    const swell = flooding ? Math.sin(this.time * 1.7) * 0.6 + Math.sin(this.time * 0.9 + 1) * 0.4 : 0;
+    const top = w.level + swell;
+    this.surface0 = { top, left: wl, right: edge, flooding };
+    this.floodEnt.enabled = flooding;
+    this.foamEnt.enabled = flooding;
+    if (flooding) {
+      const width = edge - wl;
+      this.setTex(this.floodEnt, frame ? 'flood0' : 'flood1');
+      // Only the water above the banks: below that is the river, and the ground.
+      this.floodEnt.setLocalScale(width, 1, top - normal);
+      this.floodEnt.setLocalPosition((edge + wl) / 2, normal + (top - normal) / 2, Z.water + 0.2);
+      for (const m of [this.mats.flood0, this.mats.flood1]) {
+        tile(m, width, this.time * 0.05); // the whole sheet slides downstream
+        m.opacity = 0.68 * murk; // murky, but the drowned village shows through
+        m.update();
+      }
+      this.foamEnt.setLocalScale(width, 1, 3);
+      this.foamEnt.setLocalPosition((edge + wl) / 2, top + 0.5, Z.water + 0.4);
+      tile(this.mats.foam, width, this.time * 0.11);
+      this.mats.foam.opacity = 0.95 * murk;
+      this.mats.foam.update();
+      // Foam breaks where the water meets the land, and rain pocks the surface.
+      if (vrand() < 0.5) this.emit('splash', edge - 1 - vrand() * 4, top);
+      if (this.weather === 'rain' && this.viewRect) for (let i = 0; i < this.rainPower; i++) {
+        const x = Math.max(wl, this.viewRect.x0) + vrand() * (Math.min(edge, this.viewRect.x1) - Math.max(wl, this.viewRect.x0));
+        if (x > wl && x < edge) this.emit('splash', x, top);
+      }
+    }
+    // Wreckage: more of it the higher the water.
+    const want = rise > 40 ? 6 : rise > 18 ? 4 : rise > 8 ? 2 : 0;
+    this.drift.forEach((d, i) => {
+      const on = flooding && i < want;
+      d.e.enabled = on;
+      if (!on) return (d.placed = false);
+      if (!d.placed) (d.x = wl + ((i * 0.37 + 0.2) % 1) * (edge - wl)), (d.placed = true);
+      d.x -= d.v * dt; // carried downstream
+      if (d.x < wl + 8) d.x = edge - 10;
+      if (d.x > edge - 6) d.x = edge - 10;
+      const bob = Math.sin(this.time * 2.2 + d.phase) * 0.8;
+      d.e.setLocalScale(d.flip ? -d.e._w : d.e._w, 1, d.e._h);
+      d.e.setLocalPosition(Math.round(d.x), Math.round(top + bob - 2 + d.e._h / 2), Z.water + 0.3);
+    });
     const showLine = opts.showFloodLine && this.floodLevel > 0;
     this.floodline.enabled = !!showLine;
     if (showLine) {
