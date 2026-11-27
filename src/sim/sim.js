@@ -677,7 +677,9 @@ function buildBridge(st, B, year, say, rand, shortage) {
   const food = st.stores.low.food + st.stores.ridge.food;
   const adults = st.households.reduce((n, h) => n + h.adults, 0);
   const knows = !kind.needs || st.households.some((h) => h.ideas[kind.needs]);
-  if (shortage > 0.001 || food < kind.food + st.households.length || adults < B.bridge.hands + 2 || !knows) {
+  // Nobody builds on an empty stomach: the stores must cover most of the coming year first.
+  const size = st.households.reduce((n, h) => n + h.size, 0);
+  if (shortage > 0.001 || food - kind.food < size * B.people.eat.adult * B.bridge.reserve || adults < B.bridge.hands + 2 || !knows) {
     if (!knows && !br.stalled) say(2, 'bridge-stalled', `Work on the ${kind.name.toLowerCase()} has stopped: nobody left knows ${IDEA[kind.needs].name.toLowerCase()}.`);
     br.stalled = !knows;
     return;

@@ -116,7 +116,8 @@ A standing bridge opens two far-bank fields with 10% richer soil, brings new fam
 their ideas and lines) 2.5 times as often, and lets the village trade for 30% of what it lacks
 in a hungry winter. If the bridge goes while a crop stands on the far bank, that crop rots
 unreached, and the far fields stay out of use until a bridge stands again. The old bridge stays
-in use while a bigger one is built, and the village rebuilds whatever is planned.
+in use while a bigger one is built, and the village rebuilds whatever is planned. Work is put
+off in any year the stores could not cover three-quarters of the coming year's food.
 
 ### Customs and crops
 

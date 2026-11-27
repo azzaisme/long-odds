@@ -51,6 +51,7 @@ export const BALANCE = {
     newcomerIdea: 0.6, // and more often bring an idea
     trade: 0.3, // share of a winter shortage made up by trading across the river
     hands: 2, // grown people a building year needs free
+    reserve: 0.75, // share of a year's food that must be left in store after paying for the year's work
   },
 
   // Farms

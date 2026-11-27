@@ -472,6 +472,7 @@ test('a bridge is planned at once but built over years; bigger bridges take long
       assert.equal(st.stores.low.food, food, 'planning is free');
       assert.equal(st.bridge.built, null, 'nothing stands the moment it is planned');
       assert.equal(buildPlot(st, FAR[0], 'Ama').ok, false, 'no way across yet');
+      st.stores.low.food = 400; // well fed, so the work is never put off
       let at = null;
       runYears(st, 60, (ev) => ev.forEach((e) => { if (e.type === 'bridge' && at === null) at = e.year; }));
       if (at !== null) finished[type].push(at + 1);
@@ -519,4 +520,20 @@ test('a stone bridge stalls when nobody knows building in stone', () => {
   st.stores.low.food = 300;
   runYears(st, 2);
   assert.ok(st.bridge.progress >= 1, 'work starts once someone knows stone');
+});
+
+test('a hungry village puts bridge work off rather than starve for it', () => {
+  let builtHungry = 0, builtFed = 0;
+  for (let seed = 1; seed <= 30; seed++) {
+    for (const fed of [false, true]) {
+      const st = prepared(seed);
+      demonstrate(st, 0, [1, 2], 'Ama');
+      planBridge(st, 'timber', 'Ama');
+      st.stores.low.food = fed ? 400 : 8;
+      runYears(st, 1);
+      if (st.bridge.progress > 0) fed ? builtFed++ : builtHungry++;
+    }
+  }
+  assert.equal(builtHungry, 0, 'no work on the bridge in a year the stores cannot cover');
+  assert.equal(builtFed, 30);
 });

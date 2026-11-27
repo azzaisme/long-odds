@@ -4,7 +4,7 @@ Checked on Node 22 and headless Chromium (software WebGL, 1280×720, 16–27 fps
 describes the build as it stands: individual people and family lines, ideas, customs, crops,
 bridges, disasters, the god's exit and return, and settlement stages.
 
-## Automated: `npm test` — 24 of 24 pass (about 70 s)
+## Automated: `npm test` — 25 of 25 pass (about 70 s)
 
 | What | How | Result |
 | --- | --- | --- |
@@ -25,8 +25,9 @@ bridges, disasters, the god's exit and return, and settlement stages.
 | People are born, marry between houses and die; lines mix | 30 seeds × 80 years | births and weddings occur, spouses are mutual, everyone lives in a house, nobody passes 110, and all but at most one surviving village has people of mixed lines |
 | A planned match produces a new idea, traceably | one house keeps drying, another stone; promise a child of each; 60 years | the pairing is listed as able to reach the sealed granary; the promise is kept; the sealed granary is worked out by one of the pair or their child, and the betrothal is in the action log |
 | Ideas die with their last holder; teachers spread them; houses move | single old keeper, 20 seeds; teacher vs none, 40 seeds | lost when the keeper dies in at least 3 of 20; more holders with a teacher; a move costs 2 food |
-| Bridges are planned at once and built over years | each kind planned on 40 seeds, 60 years | nothing stands when planned; far bank unreachable until built; earliest finish = 1 year (footbridge), 6 (timber); stone never earlier than 25 |
+| Bridges are planned at once and built over years | each kind planned on 40 well-fed seeds, 60 years | nothing stands when planned; far bank unreachable until built; earliest finish = 1 year (footbridge), 6 (timber); stone never earlier than 25 |
 | Small bridges are lost more, and strand crops | each kind standing, well-fed, 40 seeds × 80 years | losses: footbridge > 2× timber > 2× stone; the footbridge strands the most far-bank crops |
+| A hungry village puts bridge work off | timber planned, 30 seeds, one year with 8 food vs 400 | no progress in any hungry year; progress in every fed one |
 | A stone bridge stalls without stone-builders | plan it with nobody knowing stone, then teach it | no progress and a stall notice; work starts once someone knows it |
 
 ## Headless balance run: `npm run sim -- 100`
@@ -43,14 +44,19 @@ actions a visit so the rows stay comparable; the game itself has no cap. About t
 | Mixed, no ridge store | 48 | 87% | 40% | 34% | 34% | 11% |
 | Mixed + ridge seed store | 71 | 85% | 44% | 42% | 42% | 11% |
 | Mixed + store + the five other base ideas | 84 | 83% | 46% | 44% | 44% | 44% |
-| … + footbridge planned | 61 | 87% | 41% | 38% | 38% | 38% |
-| … + timber bridge planned | 83 | 87% | 45% | 42% | 42% | 42% |
-| … + timber, then stone bridge | 1,211 | 87% | 53% | 51% | 51% | 51% |
+| … + footbridge planned | 95 | 83% | 49% | 46% | 46% | 46% |
+| … + timber bridge planned | 89 | 83% | 46% | 44% | 44% | 44% |
+| … + timber, then stone bridge | 120 | 83% | 50% | 49% | 49% | 49% |
 
 With 100 seeds each figure carries several points of noise. What they show: mixed farming with
 ridge seed storage stands at year 500 in 42% of seeds against 1% for lowland-only; teaching the
-other base ideas is what gets a village to the Hold (44% against 11%); a footbridge is a net
-cost, a timber bridge about neutral, and a stone bridge the best long-run plan.
+other base ideas is what gets a village to the Hold (44% against 11%); no bridge plan now
+costs early survival (83% reach year 10 with or without one), and a stone bridge is the best
+long-run plan by a few points, which is within the noise at 100 seeds.
+
+An earlier version let the village pay for bridge work in years it could not feed itself; a
+full browser playthrough showed a village starving while it built. Bridge work now waits until
+the stores cover three-quarters of the coming year.
 
 Tuning done from these runs over the build: opening food 14 → 26; departures per hungry winter
 softened; ridge seed kept as a reserve; villages copy a ridge field once they have seen one;
@@ -75,6 +81,12 @@ Real key presses throughout, no console errors in any run.
 - **People.** The People panel, a house panel, the match list with "their children could work
   out…", a promise, a teacher's calling and a house move all worked; after a 100-year jump the
   village had 133 people in 29 houses, 11 family lines, and had worked out seed jars.
+- **Full playthrough after people and bridges (seed 7).** Four fields and the ridge store built,
+  three ideas demonstrated, a timber bridge planned; jumps of 1, 10 and 100 years each ran
+  30.10–30.15 s on the playback clock and landed on the exact year; every intervention tried
+  during playback was refused; the timber bridge stood by year 11 and drew correctly with a
+  villager on its deck; the village collapsed in year 27 and the verdict read "They only made
+  it 27 years." The odds panel had given that jump 20%. (Run before the bridge-reserve rule.)
 - **Bridges.** Planned a footbridge at the crossing; walking stopped at the bank with no
   bridge; after a 1-year jump the footbridge stood; walked across on the deck and cleared a
   far-bank field.
@@ -82,12 +94,11 @@ Real key presses throughout, no console errors in any run.
 ## Not covered
 
 - Only headless Chromium. Firefox, Safari and real GPUs were not tried. Sound was never heard.
-- No full multi-visit playthrough has been run since the people rebuild; the 30-second timing
-  code itself was not changed.
-- The bridge sprite was drawn too low in the one bridge screenshot; that was corrected
-  afterwards and only build-tested. Bridge washouts were checked in the simulation, not watched.
-- The itch.io workflow's test and build job has passed on `main`. Its first deploy failed for
-  want of the right secret names; it now reads `ITCH_KEY` and `ITCH_URL`.
+- One full playthrough has been run since the people rebuild (below); it ended in a collapse at
+  year 27, so no long-lived city has been watched in the browser with people and bridges.
+- Bridge washouts were checked in the simulation, not watched on screen.
+- The itch.io workflow has published once from `main` (run 3, after two failed attempts). The
+  itch.io page itself was not looked at.
 - The simulation is about ten times slower than before people were individuals: a 1,000-year
   jump for a full city takes roughly 0.8 s of compute, spread over the 30 seconds. Odds
   estimates for 1,000-year jumps therefore take noticeably longer to fill in.
