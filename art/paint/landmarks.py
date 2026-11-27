@@ -136,12 +136,15 @@ def creeper(c, x, y, length, r, ramp, only_on_wall=True):
                     c.set(x + dx, y + k + dy, ramp[2])
 
 
-def garden(c, r, x0, x1, y, ruin, tall):
+def garden(c, r, x0, x1, y, ruin, tall, ok=None):
     """Greenery along a ledge whose top row is `y`, between x0 and x1. `tall` is how often a tree stands."""
     x = x0 + r.i(0, 3)
     while x < x1 - 3:
         room = x1 - x
         kind = r.f()
+        if ok and not all(ok(q) for q in range(x, min(x1, x + 12))):
+            x += r.i(3, 6)                    # nothing stands here to grow on
+            continue
         if ruin:
             ramp = r.pick([WILD, WILD, SCRUB])
             if kind < tall and room >= 9:
@@ -404,8 +407,8 @@ def hold(ruin):
             if x >= R[4] - 30:
                 return min(12, 3 + ((x - R[4] + 30) // 6) * 4)
             return 0
-        if i == 3 and L[3] + 40 <= x < L[3] + 58:
-            return 3 if x < L[3] + 47 else 6
+        if i == 3 and L[3] + 8 <= x < L[3] + 26:
+            return 3 if x < L[3] + 15 else 6
         return 0
 
     # the tower and its beacon, behind the top tier's garden
@@ -543,9 +546,10 @@ def hold(ruin):
         nxt_l = L[i + 1] if i + 1 < T else x1
         nxt_r = R[i + 1] if i + 1 < T else x0
         if i + 1 < T:
-            garden(c, r, x0 + 1, nxt_l - 1, y, ruin, 0.3 if ruin else 0.2)
-            garden(c, r, nxt_l + 24, nxt_r - 1, y, ruin, 0.1 if ruin else 0.0)
-            garden(c, r, nxt_r + 1, x1 - 1, y, ruin, 0.3 if ruin else 0.2)
+            ok = (lambda q, i=i: fall(i, q) == 0) if ruin else None
+            garden(c, r, x0 + 1, nxt_l - 1, y, ruin, 0.3 if ruin else 0.2, ok)
+            garden(c, r, nxt_l + 24, nxt_r - 1, y, ruin, 0.1 if ruin else 0.0, ok)
+            garden(c, r, nxt_r + 1, x1 - 1, y, ruin, 0.3 if ruin else 0.2, ok)
         else:
             if ruin:
                 garden(c, r, L[6] + 12, L[6] + 38, y, True, 0.3)
@@ -635,7 +639,7 @@ def volcano(hot):
 
     streams = []
     if hot:
-        for u0, y0, length, ph in ((-0.42, 14, 78, 0.0), (0.08, 20, 118, 2.0), (0.52, 16, 62, 4.0)):
+        for u0, y0, length, ph in ((-0.5, 13, 84, 0.0), (0.04, 20, 122, 2.0), (0.26, 70, 44, 1.0), (0.6, 15, 66, 4.0)):
             streams.append((u0, y0, length, ph))
 
     for y in range(H):
@@ -655,9 +659,9 @@ def volcano(hot):
                 v += 0.28 * (1 - y / 90.0)                           # ash darkens the upper cone
             tone = 'vol-3' if v < -0.3 else ('vol-2' if v < 0.32 else 'vol-1')
             # snow: a cap with fingers running down the gullies, lower on the lit side
-            line = 52 - 10 * u + 13 * math.sin(7 * u + 0.6) + 7 * math.sin(15 * u + 2.1)
+            line = 60 - 8 * u + 13 * math.sin(7 * u + 0.6) + 7 * math.sin(15 * u + 2.1)
             if hot:
-                line = line - 44 if u < -0.25 else -1
+                line = -1                                            # the heat has taken the snow
             depth = y - tops[x]
             if y < line and not (hot and depth < 5):
                 tone = 'snow' if v < 0.18 else 'far-3'
@@ -670,11 +674,13 @@ def volcano(hot):
         if hot:
             c.set(x, t, 'lava-3')
             c.set(x, t + 1, 'lava-3' if a < 11 else 'lava-2')
-            c.set(x, t + 2, 'lava-2')
-            if a < 12:
-                c.set(x, t + 3, 'lava-2' if a < 8 else 'lava-1')
-            if a < 9:
-                c.set(x, t + 4, 'lava-1')
+            c.set(x, t + 2, 'lava-3' if a < 8 else 'lava-2')
+            c.set(x, t + 3, 'lava-2')
+            if a < 13:
+                c.set(x, t + 4, 'lava-2' if a < 9 else 'lava-1')
+                c.set(x, t + 5, 'lava-1' if a > 4 else 'lava-2')
+            if a < 10:
+                c.set(x, t + 6, 'lava-1')
         elif a <= 12:
             c.set(x, t, 'vol-1' if x < 163 else 'vol-2')
             c.set(x, t + 1, 'vol-1' if x < 163 else 'vol-2')
@@ -695,9 +701,11 @@ def volcano(hot):
             f = j / float(length)
             a, b = (x, x) if prev is None else (min(prev, x), max(prev, x))
             for xx in range(a, b + 1):
-                if f < 0.45:
-                    cols = ['lava-2', 'lava-3', 'lava-3', 'lava-1']
-                elif f < 0.8:
+                if f < 0.25:
+                    cols = ['lava-3', 'lava-3', 'lava-3', 'lava-2', 'lava-1']
+                elif f < 0.5:
+                    cols = ['lava-3', 'lava-3', 'lava-2', 'lava-1']
+                elif f < 0.82:
                     cols = ['lava-2', 'lava-2', 'lava-1']
                 else:
                     cols = ['lava-1', 'lava-1']
@@ -738,51 +746,52 @@ def slide():
     W, H = 150, 46
     c = Canvas(W, H)
     r = Rng(88)
-    tops, bots = [], []
+    EARTH = ['soil-1', 'soil-2', 'soil-3']
+
+    def centre(x):
+        return 43.0 - 40.0 * x / float(W - 1)
+
+    def thick(x):
+        return 1.0 + 8.0 * math.sin(math.pi * x / float(W - 1)) ** 0.8
+
+    # the body of the tongue, dark underneath
     for x in range(W):
-        f = x / float(W - 1)
-        yc = 43.5 - 41.0 * f
-        th = 1.2 + 9.0 * math.sin(math.pi * f) ** 0.8
-        lump = (1.2 * math.sin(x * 0.45) + 1.6 * math.sin(x * 0.16 + 1)) * (th / 10.0)
-        t, b = int(round(yc - th + lump)), int(round(yc + th * 0.5 + 1))
-        tops.append(t)
-        bots.append(b)
+        yc, th = centre(x), thick(x)
+        t, b = int(round(yc - th * 0.6)), int(round(yc + th * 0.55 + 1))
         for y in range(t, b + 1):
-            d = (y - t) / float(max(1, b - t))
-            # flow lines run with the slope: lit on top, dark underneath
-            s = d + 0.14 * math.sin((x + 3.6 * y) * 0.21)
-            col = 'soil-3' if s < 0.3 else ('soil-2' if s < 0.78 else 'soil-1')
-            c.set(x, y, col)
-    # clods of paler earth on the surface
-    for x0 in range(10, W - 12, 13):
-        x = x0 + r.i(0, 5)
-        y = tops[x] + 1
-        if tops[x] >= 0:
-            c.rect(x, y, 3, 1, 'soil-4')
-            c.rect(x + 1, y + 1, 3, 1, 'soil-4')
+            c.set(x, y, 'soil-1' if y >= b - 1 - int(th / 5) else 'soil-2')
+    # clods tumbled over one another, the lower ones lying on the upper
+    x = W - 5.0
+    while x > 3:
+        th = thick(int(x))
+        rad = max(1.6, th * (0.45 + 0.4 * r.f()))
+        cy = centre(int(x)) - th * 0.25 + (r.f() - 0.5) * th * 0.7
+        blob(c, x, cy, rad * 1.25, rad * 0.85, EARTH)
+        if rad > 4.2 and r.chance(0.6):
+            c.rect(int(x - rad * 0.6), int(cy - rad * 0.5), 3, 1, 'soil-4')
+            c.rect(int(x - rad * 0.6) - 1, int(cy - rad * 0.5) + 1, 3, 1, 'soil-4')
+        x -= rad * (0.8 + 0.5 * r.f())
     # rocks: more and larger towards the foot of the slide
     placed = []
     tries = 0
-    while len(placed) < 17 and tries < 400:
+    while len(placed) < 13 and tries < 600:
         tries += 1
-        f = r.f() ** 1.4
-        x = int(4 + f * (W - 14))
-        big = 1 - f
-        w = 3 + int(r.f() * (2 + 4 * big))
-        h = max(2, int(w * 0.7))
-        span = bots[x] - tops[x] - h
-        if span < 1:
+        f = r.f() ** 1.3
+        x = int(5 + f * (W - 20))
+        w = 4 + int(r.f() * (2 + 5 * (1 - f)))
+        h = max(3, int(w * 0.7))
+        th = thick(x)
+        y = int(centre(x) - th * 0.8 + r.f() * th * 1.0)
+        if c.get(x + w // 2, y + h) is None or c.get(x, y + h - 1) is None or y < 0:
             continue
-        y = tops[x] + r.i(0, span)
-        if any(abs(x - px) < (w + pw) // 2 + 3 and abs(y - py) < (h + ph) // 2 + 2 for px, py, pw, ph in placed):
+        if any(abs(x - px) < (w + pw) // 2 + 4 and abs(y - py) < (h + ph) // 2 + 2 for px, py, pw, ph in placed):
             continue
         placed.append((x, y, w, h))
         for j in range(h):
             for k in range(w):
-                corner = (j in (0, h - 1)) and (k in (0, w - 1)) and w >= 4
-                if corner:
+                if (j in (0, h - 1)) and (k in (0, w - 1)):
                     continue
-                if j == 0 or (k == 0 and j < h - 1):
+                if j == 0 or (k == 0 and j < h - 1) or (j == 1 and k == 1):
                     col = 'stone-4'
                 elif j == h - 1 or k == w - 1:
                     col = 'stone-1'
@@ -790,8 +799,7 @@ def slide():
                     col = 'stone-3'
                 else:
                     col = 'stone-2'
-                if c.get(x + k, y + j) is not None or j < h - 1:
-                    c.set(x + k, y + j, col)
+                c.set(x + k, y + j, col)
         for k in range(1, w + 1):                                    # the shadow it throws on the earth
             c.paint_over(x + k, y + h, 'soil-1')
     return c

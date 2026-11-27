@@ -128,22 +128,22 @@
     {
       "color": "#55525a",
       "name": "stone-1",
-      "id": "p5"
+      "id": "p8"
     },
     {
       "color": "#77747a",
       "name": "stone-2",
-      "id": "p10"
+      "id": "p7"
     },
     {
       "color": "#9a968f",
       "name": "stone-3",
-      "id": "p9"
+      "id": "p10"
     },
     {
       "color": "#bdb8ab",
       "name": "stone-4",
-      "id": "p4"
+      "id": "p5"
     },
     {
       "color": "#2f5234",
@@ -184,12 +184,12 @@
     {
       "color": "#3b2a1e",
       "name": "soil-1",
-      "id": "p7"
+      "id": "p6"
     },
     {
       "color": "#553a24",
       "name": "soil-2",
-      "id": "p6"
+      "id": "p4"
     },
     {
       "color": "#73502f",
@@ -199,7 +199,7 @@
     {
       "color": "#94703f",
       "name": "soil-4",
-      "id": "p8"
+      "id": "p9"
     },
     {
       "color": "#9a6c20",

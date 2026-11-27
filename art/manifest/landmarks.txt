@@ -1,0 +1,9 @@
+# bundle  frame  variant  sprite-name-in-the-game
+city 0 - city
+city_ruin 0 - city_ruin
+hold 0 - hold
+hold_ruin 0 - hold_ruin
+volcano 0 - volcano
+volcano_hot 0 - volcano_hot
+funnel 0 - funnel
+slide 0 - slide
