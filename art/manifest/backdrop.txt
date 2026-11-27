@@ -1,0 +1,6 @@
+# bundle  frame  variant  sprite-name-in-the-game
+sky 0 - sky
+far 0 - far
+mid 0 - mid
+water0 0 - water0
+water1 0 - water1
