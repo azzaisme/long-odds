@@ -3,8 +3,10 @@
 export const BALANCE = {
   ticksPerYear: 4,
   playbackMs: 30000,
-  visitsPerRun: 5,
-  actionsPerVisit: 3,
+  visitsPerRun: 0, // 0 = no limit: the god keeps checking back until the settlement is gone
+  actionsPerVisit: 3, // budget for the scripted headless strategies only; the game has no cap
+  workCost: { build: 1.5, repair: 1, store: 3, carry: 0, teach: 1 }, // food eaten by the work party
+  customDrift: 0.003, // yearly chance each custom slips one step back toward what villages do unprompted
   jumpChoices: [1, 10, 100, 1000],
 
   start: { households: 6, food: 22, seed: 6, knowing: 1 },

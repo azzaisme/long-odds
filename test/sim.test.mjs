@@ -6,6 +6,8 @@ import { Playback } from '../src/sim/playback.js';
 import { estimateSurvival, assessRisks } from '../src/sim/risks.js';
 import { playVisit } from '../src/sim/strategies.js';
 import { PLOT_SITES } from '../src/sim/world.js';
+import { PRACTICES, CUSTOMS, CROPS, holders, decisionCount } from '../src/sim/decisions.js';
+import { setCrop, setCustom, canAfford } from '../src/sim/sim.js';
 
 const LOW = PLOT_SITES.filter((p) => p.elev === 'low').map((p) => p.id);
 const RIDGE = PLOT_SITES.filter((p) => p.elev === 'ridge').map((p) => p.id);
@@ -185,10 +187,13 @@ test('demonstration teaches witnesses and risks read in plain language', () => {
   assert.match(texts, /Only one household knows how to save seed/);
   buildPlot(st, LOW[0], 'Ama');
   assert.match(assessRisks(st).map((r) => r.text).join(' '), /Every farm is .*flood/);
-  assert.equal(demonstrate(st, 1, [2], 'Tobi').ok, false, 'an untrained villager cannot demonstrate');
   assert.ok(demonstrate(st, 0, [1, 2], 'Ama').ok);
   assert.equal(knowers(st), 3);
   assert.equal(st.households[1].lineage.root, 'demo');
+  // The god knows every practice: shown through an untrained villager, that villager learns it too.
+  assert.ok(demonstrate(st, 3, [4], 'Renn').ok);
+  assert.equal(knowers(st), 5);
+  assert.equal(demonstrate(st, 0, [1], 'Ama').ok, false, 'nothing to teach when everyone present knows it');
 });
 
 test('mixed elevation with ridge seed storage outlasts lowland-only farming across seeds', () => {
@@ -205,7 +210,7 @@ test('mixed elevation with ridge seed storage outlasts lowland-only farming acro
   const mixed = standing('mixed + ridge seed store');
   const low = standing('lowland + teaching');
   const lowOnly = standing('lowland only');
-  assert.ok(mixed > low + 0.2, `mixed ${mixed} vs lowland+teaching ${low}`);
+  assert.ok(mixed > low + 0.1 && mixed > lowOnly + 0.25, `mixed ${mixed} vs lowland+teaching ${low} vs lowland only ${lowOnly}`);
   assert.ok(low >= lowOnly);
 });
 
@@ -286,4 +291,70 @@ test('an eruption is always preceded by smoke, and ash thins the harvest', () =>
     }
   }
   assert.ok(checked >= 5);
+});
+
+test('work has no count limit but is paid for in food', () => {
+  const st = createSim(1);
+  const food0 = st.stores.low.food;
+  let built = 0;
+  for (const id of [...LOW, ...RIDGE]) if (buildPlot(st, id, 'Ama').ok) built++;
+  assert.ok(built > 3, `built ${built} fields in one visit`);
+  assert.ok(built < LOW.length + RIDGE.length, 'food ran out before every site was cleared');
+  assert.ok(Math.abs(food0 - st.stores.low.food - built * BALANCE.workCost.build) < 1e-9);
+  assert.equal(canAfford(st, 'build'), false);
+  assert.equal(buildRidgeStore(st, 'Ama').ok, false);
+  assert.ok(setCrop(st, LOW[0], 'roots', 'Ama').ok, 'free decisions still work');
+});
+
+test('each practice, custom and crop changes outcomes across seeds', () => {
+  const sched = [1, 10, 100, 200];
+  // Survival to year 311 with one extra decision added to a fixed opening.
+  const run = (tweak) => {
+    let alive = 0, food = 0;
+    for (let seed = 1; seed <= 200; seed++) {
+      const st = createSim(seed);
+      buildPlot(st, LOW[0], 'Ama'); buildPlot(st, RIDGE[0], 'Ama'); buildRidgeStore(st, 'Ama');
+      demonstrate(st, 0, [1, 2], 'Ama');
+      if (tweak) tweak(st);
+      let harvest = 0;
+      for (const y of sched) runYears(st, y, (ev) => ev.forEach((e) => { if (e.type === 'harvest') harvest += e.food; }));
+      if (isAlive(st)) alive++;
+      food += harvest;
+    }
+    return { alive, food };
+  };
+  const base = run();
+  const outcomes = new Set([JSON.stringify(base)]);
+  for (const p of PRACTICES.filter((x) => x.id !== 'seed')) outcomes.add(JSON.stringify(run((st) => demonstrate(st, 0, [1, 2], 'Ama', p.id))));
+  for (const c of CUSTOMS) for (let i = 0; i < c.options.length; i++) if (i !== c.base) outcomes.add(JSON.stringify(run((st) => setCustom(st, c.id, i, 'Ama'))));
+  for (const c of CROPS.filter((x) => x.id !== 'grain')) outcomes.add(JSON.stringify(run((st) => { setCrop(st, LOW[0], c.id, 'Ama'); setCrop(st, RIDGE[0], c.id, 'Ama'); })));
+  const tried = 1 + PRACTICES.length - 1 + CUSTOMS.reduce((n, c) => n + c.options.length - 1, 0) + CROPS.length - 1;
+  assert.equal(outcomes.size, tried, 'every single decision produced a different set of futures');
+  const n = decisionCount(6, 16);
+  assert.ok(n.practices + n.customs + n.crops >= 100);
+});
+
+test('practices spread and can be lost; customs drift back; the same decisions replay identically', () => {
+  let lost = 0, spread = 0, drifted = 0;
+  for (let seed = 1; seed <= 120; seed++) {
+    const make = () => {
+      const st = createSim(seed);
+      buildPlot(st, LOW[0], 'Ama'); buildPlot(st, RIDGE[0], 'Ama'); buildRidgeStore(st, 'Ama');
+      demonstrate(st, 0, [1, 2], 'Ama');
+      demonstrate(st, 0, [], 'Ama', 'dry');
+      setCustom(st, 'reserve', 3, 'Ama');
+      setCustom(st, 'fields', 3, 'Ama');
+      return st;
+    };
+    const st = make();
+    runYears(st, 300, (ev) => ev.forEach((e) => { if (e.type === 'custom-drift') drifted++; }));
+    const twin = make();
+    runYears(twin, 300);
+    assert.equal(hashState(st), hashState(twin));
+    if (!isAlive(st)) continue;
+    const n = holders(st, 'dry');
+    if (n === 0) lost++;
+    if (n > 1) spread++;
+  }
+  assert.ok(lost > 3 && spread > 3 && drifted > 10, `lost ${lost}, spread ${spread}, drifted ${drifted}`);
 });

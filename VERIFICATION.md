@@ -2,7 +2,7 @@
 
 Checked on Node 22 and headless Chromium (software WebGL, 1280×720, 16–27 fps).
 
-## Automated: `npm test` — 15 of 15 pass
+## Automated: `npm test` — 18 of 18 pass
 
 | Acceptance point | Test | Result |
 | --- | --- | --- |
@@ -20,6 +20,9 @@ Checked on Node 22 and headless Chromium (software WebGL, 1280×720, 16–27 fps
 | Growth to the Hold | 120 seeds × 2 strategies | stages reached in order; in a living Hold every household is housed in it and knows seed saving; lowland-only reaches it far less often |
 | Weather and disasters | 300 seeds × 1,211 years | heavy rain, landslides, tornadoes, volcano smoke and eruptions all occur; houses are torn down and fields buried; some collapses are attributed to an eruption or tornado |
 | Eruption warning | 5 eruptions followed year by year | each is preceded by exactly 3 years of smoke; ash is on the fields afterwards |
+| No work cap; work costs food | clear every site in one visit | more than three fields built; building stops when the food is gone; free decisions still work |
+| Every decision matters | fixed opening plus one extra decision, 200 seeds × 311 years, for each practice, each non-default custom setting and each crop | all 27 variants give a different set of futures from the baseline and from each other |
+| Practices and customs over time | 120 seeds × 300 years | practices both spread and die out; customs drift back; identical decisions replay to identical fingerprints |
 
 ## Headless balance run: `npm run sim -- 1000`
 
@@ -28,15 +31,20 @@ Checked on Node 22 and headless Chromium (software WebGL, 1280×720, 16–27 fps
 | Strategy | Median years | ≥ 10 y | ≥ 100 y | ≥ 500 y | ≥ 1,211 y | Reached the Hold |
 | --- | --- | --- | --- | --- | --- | --- |
 | No farms | 5 | 1% | 0% | 0% | 0% | 0% |
-| Lowland only | 8 | 35% | 4% | 3% | 3% | 2% |
-| Lowland + teaching | 16 | 66% | 24% | 18% | 18% | 14% |
-| Ridge only + teaching | 200 | 97% | 60% | 45% | 45% | 35% |
-| Mixed, no ridge store | 73 | 88% | 44% | 34% | 33% | 26% |
-| Mixed + ridge seed store | 55 | 82% | 46% | 44% | 43% | 36% |
+| Lowland only | 7 | 34% | 5% | 3% | 3% | 2% |
+| Lowland + teaching | 16 | 67% | 24% | 18% | 18% | 14% |
+| Ridge only + teaching | 161 | 96% | 57% | 44% | 44% | 35% |
+| Mixed, no ridge store | 54 | 87% | 39% | 29% | 29% | 22% |
+| Mixed + ridge seed store | 32 | 76% | 39% | 37% | 36% | 28% |
+| Mixed + store + the five new practices | 32 | 73% | 42% | 42% | 42% | 42% |
+
+The scripted strategies still take three actions a visit over five visits so the rows stay
+comparable; they now pay for work in food like the player. Teaching the five new practices
+lifts long-run survival from 37% to 42% and brings the Hold forward from about year 810 to 480.
 
 These figures include the weather and disaster systems. Mixed-elevation farming with ridge seed
-storage is still standing at year 500 in 44% of seeds against 3% for lowland-only (18% with
-teaching added). Before disasters were added the same comparison was 53% against 5%; disaster
+storage is still standing at year 500 in 37% of seeds against 3% for lowland-only (18% with
+teaching added); paying for work in food cost it about seven points. Before disasters were added the same comparison was 53% against 5%; disaster
 chances were lowered twice (the second time on request: tornado 0.4%, landslide 0.5%, volcano
 waking 0.1% a year). Earlier tuning from these
 runs: opening food went from 14 to 22, departures per hungry winter were softened, villages were
@@ -81,9 +89,20 @@ The extra 0.1–0.3 s is one rendered frame plus the test's polling interval.
   camera at twice the normal zoom on the god, speech "Nope. Not like that. They only made it 6
   years.", Try again shows "Maybe I could…", the screen wipes to black, and a new valley with a
   different seed appears at year 0, visit 1, six households, no actions, no collapse record.
+- **Decisions.** One run, no console errors: five fields cleared in a single visit; flood
+  marks demonstrated to Ama, Tobi and Ilse; two customs changed in the Customs panel; a crop
+  changed by key and by button; building refused once food reached 0 (17 actions that visit);
+  after a 1-year jump the next visit opened as "Visit 2" with no visit total.
 - No console errors in any run.
 
 ## Not covered
+
+- The "Still standing" result screen is now unreachable in play (there is no last visit); its
+  code remains behind `visitsPerRun`. The full five-visit browser playthroughs predate this.
+- The headless strategies do not use customs or crops. No scripted player explores unlimited
+  work in one visit, so the balance of a long first visit is untested beyond the unit test.
+- The opening is harsher for the scripted strategies than before (median 32 years) because work
+  now eats the food reserve.
 
 - The three full five-visit playthroughs above were run before the disaster systems went in.
   After that, only the three shorter disaster runs and the automated tests were run; the

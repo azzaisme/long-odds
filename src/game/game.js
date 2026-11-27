@@ -6,6 +6,7 @@ import { hashSeed } from '../sim/rng.js';
 import * as Sim from '../sim/sim.js';
 import { summary, assessRisks, estimateSurvival } from '../sim/risks.js';
 import { Playback } from '../sim/playback.js';
+import { PRACTICES, PRACTICE, CUSTOMS, CROPS, CROP, holds, holders } from '../sim/decisions.js';
 
 export const S = { TITLE: 'title', VISIT: 'visit', PLANNING: 'planning', PLAYBACK: 'playback', ARRIVAL: 'arrival', RUINS: 'ruins', RESULTS: 'results' };
 const $ = (id) => document.getElementById(id);
@@ -46,7 +47,7 @@ export class Game {
     this.seed = seed >>> 0;
     this.sim = Sim.createSim(this.seed);
     this.visit = 1;
-    this.actionsLeft = B.actionsPerVisit;
+    this.picking = false;
     this.pair = [];
     this.active = 0;
     this.jumps = [];
@@ -69,7 +70,7 @@ export class Game {
     if (o) o.x = 610;
     this.setState(S.VISIT);
     this.view.cam.tzoom = this.view.baseZoom();
-    this.toast('Six households, a little food and seed, and no farms. You have three work actions before the jump.');
+    this.toast('Six households, a little food and seed, and no farms. Take as long as you like. Work is paid for in food.');
   }
 
   setState(s) {
@@ -81,7 +82,7 @@ export class Game {
     $('playback').hidden = s !== S.PLAYBACK;
     $('ruinbar').hidden = !(s === S.RUINS || s === S.RESULTS);
     $('context').classList.toggle('raised', s === S.RUINS || s === S.RESULTS);
-    $('hint').innerHTML = s === S.VISIT ? '<kbd>A</kbd><kbd>D</kbd> walk · <kbd>E</kbd> inspect · <kbd>T</kbd> demonstrate · <kbd>Q</kbd> switch villager · <kbd>J</kbd> plan the jump' : '<kbd>A</kbd><kbd>D</kbd> walk · <kbd>E</kbd> inspect';
+    $('hint').innerHTML = s === S.VISIT ? '<kbd>A</kbd><kbd>D</kbd> walk · <kbd>E</kbd> inspect · <kbd>T</kbd> demonstrate · <kbd>C</kbd> customs · <kbd>Q</kbd> switch villager · <kbd>J</kbd> plan the jump' : '<kbd>A</kbd><kbd>D</kbd> walk · <kbd>E</kbd> inspect';
     if (s !== S.VISIT && s !== S.RUINS && s !== S.RESULTS) {
       $('context').hidden = true;
       $('prompt').hidden = true;
@@ -150,7 +151,14 @@ export class Game {
       if (k === 'j') return this.openPlan();
       if (k === 'e') return this.toggleInspect();
       if (k === 't') return this.act('teach');
+      if (k === 'c') return this.openCustoms();
+      if (this.picking) {
+        if (k === 'Escape') return (this.picking = false);
+        const pr = PRACTICES[Number(k) - 1];
+        if (pr) return this.act('teach', pr.id);
+      }
       if (k === '1' && this.inspect) return this.act('site');
+      if (k === '2' && this.inspect) return this.act('crop');
     } else if (s === S.RUINS || s === S.RESULTS) {
       if (k === 'e') return this.toggleInspect();
     } else if (s === S.PLANNING) {
@@ -165,7 +173,10 @@ export class Game {
     switch (name) {
       case 'begin': return this.begin();
       case 'site': return this.siteAction();
-      case 'teach': return this.teach();
+      case 'teach': return this.teach(arg);
+      case 'crop': return this.cycleCrop();
+      case 'customs': return this.openCustoms();
+      case 'custom': return this.setCustom(arg);
       case 'close': return this.state === S.PLANNING && (this.sound.click(), this.setState(S.VISIT));
       case 'choose': return this.choose(Number(arg));
       case 'back': return this.openPlan();
@@ -189,11 +200,12 @@ export class Game {
       <p>You are a god with a small valley to look after. Keep its riverside settlement alive for as many years as you can. Step into a villager and walk the bank, build farms and a seed store, show a neighbour how to save seed. Then step out of the world for <b>1, 10, 100 or 1,000 years</b> and watch the village live with what you left it.</p>
       <p>Last long enough, fed and unflooded, and the hamlet grows: village, town, city, and finally <b>the Hold</b>, one great terraced house on the ridge with room for every resident and a seed vault of its own.</p>
       <p>The valley is not gentle. The river floods, heavy rains bring landslides, tornadoes cross the plain, and the volcano behind the hills smokes for a few years before it erupts.</p>
-      <p class="note">Five visits. Three work actions each. Every jump plays out over thirty seconds and cannot be undone.</p>
+      <p class="note">Take as long as you like over each visit. Work is paid for in food from the stores; customs and crops cost nothing to change. Every jump plays out over thirty seconds and cannot be undone. There is no last visit: you come back until nobody is left.</p>
       <div class="keys">
         <span><kbd>A</kbd><kbd>D</kbd> or <kbd>←</kbd><kbd>→</kbd></span><span>Walk</span>
         <span><kbd>E</kbd></span><span>Inspect what is nearby, then <kbd>1</kbd> to work on it</span>
-        <span><kbd>T</kbd></span><span>Demonstrate seed saving to villagers standing close</span>
+        <span><kbd>T</kbd></span><span>Demonstrate a practice to villagers standing close</span>
+        <span><kbd>C</kbd></span><span>Set the customs of the village</span>
         <span><kbd>Q</kbd></span><span>Switch to the other villager</span>
         <span><kbd>J</kbd></span><span>Review the settlement and choose a jump</span>
       </div>
@@ -240,16 +252,18 @@ export class Game {
         ? `Rich river silt: about ${B.yield.low} food a year. Every flood reaches it.`
         : `Thin soil: about ${B.yield.ridge} food a year. Ordinary floods never climb this far; drought bites harder.`;
       const by = p.builtBy ? ` Cleared by ${p.builtBy === 'village' ? 'the village' : p.builtBy} in year ${p.builtYear}.` : '';
-      if (p.state === 'wild') return { title: `${place} site`, text: `Open ground. ${trait}`, action: 'Clear and build a field here' };
-      if (p.state === 'overgrown') return { title: `Overgrown ${place.toLowerCase()} field`, text: `Abandoned ${ago(p.since)}; last worked in year ${Math.max(0, p.lastWorked)}.${by} ${trait}`, action: 'Clear and rebuild this field' };
-      if (p.state === 'damaged') return { title: `Flood-damaged ${place.toLowerCase()} field`, text: `Buried in silt since year ${p.since}. Seed-saving households can restore it in spring; nobody else knows how.${by}`, action: 'Dig out and repair this field' };
+      const cropLine = ` Sown with ${CROP[p.crop].name.toLowerCase()}: ${CROP[p.crop].does.toLowerCase()}`;
+      if (p.state === 'wild') return { kind: 'build', title: `${place} site`, text: `Open ground. ${trait}`, action: 'Clear and build a field here' };
+      if (p.state === 'overgrown') return { title: `Overgrown ${place.toLowerCase()} field`, text: `Abandoned ${ago(p.since)}; last worked in year ${Math.max(0, p.lastWorked)}.${by} ${trait}`, action: 'Clear and rebuild this field', kind: 'build' };
+      if (p.state === 'damaged') return { title: `Flood-damaged ${place.toLowerCase()} field`, text: `Buried in silt since year ${p.since}. Seed-saving households can restore it in spring; nobody else knows how.${by}`, action: 'Dig out and repair this field', kind: 'repair' };
       if (p.state === 'eroded') return { title: 'Lost to the river', text: `The river cut this bank away in year ${p.since}.` };
-      return { title: `${place} field`, text: `${trait}${by} It is planted each spring while seed and hands last.` };
+      return { title: `${place} field`, text: `${trait}${by}${cropLine}` };
     }
     if (t.kind === 'granary') {
       const g = st.stores.low;
       const n = Sim.carryAmount(st);
       return {
+        kind: 'carry',
         title: 'Lowland granary',
         text: `Holds ${n0(g.food)} food and ${n0(g.seed)} seed. It stands on the floodplain: a big flood ruins most of what is inside.`,
         action: st.stores.ridge.built ? (n >= 0.5 ? `Carry ${n0(n)} seed up to the ridge store` : null) : null,
@@ -258,7 +272,7 @@ export class Game {
     }
     if (t.kind === 'store') {
       const r = st.stores.ridge;
-      if (!r.built) return { title: 'Dry shelf on the ridge', text: 'Stone footings and a marker stake. A seed store here would sit above any ordinary flood.', action: 'Build a seed store here' };
+      if (!r.built) return { title: 'Dry shelf on the ridge', text: 'Stone footings and a marker stake. A seed store here would sit above any ordinary flood.', action: 'Build a seed store here', kind: 'store' };
       return { title: 'Ridge seed store', text: `Built by ${r.builtBy === 'village' ? 'the village' : r.builtBy} in year ${r.builtYear}. Holds ${n0(r.seed)} seed and ${n0(r.food)} food. Households that know seed saving carry part of each harvest's seed up here.` };
     }
     if (t.kind === 'civic') {
@@ -274,13 +288,15 @@ export class Game {
       const h = this.hh(s.hid);
       const lin = h.lineage;
       const how = !h.knows ? 'They do not know how to save seed.' : lin && lin.root === 'demo' ? `They save seed, a practice ${lin.by} demonstrated in year ${lin.year}.` : `They save seed${lin ? `, as ${lin.by}'s household always has` : ''}.`;
-      return { title: `${h.name}'s household`, text: `Here since year ${h.since}, now in its ${ordinal(h.gen)} generation. ${how}` };
+      const also = PRACTICES.filter((p) => p.id !== 'seed' && holds(h, p.id)).map((p) => p.name.toLowerCase());
+      return { title: `${h.name}'s household`, text: `Here since year ${h.since}, now in its ${ordinal(h.gen)} generation. ${how}${also.length ? ` They also keep: ${also.join(', ')}.` : ''}` };
     }
     const what = { empty: 'An empty house', ruin: 'A ruin', rubble: 'Rubble' }[s.state];
     return { title: what, text: s.state === 'empty' ? `The household left ${ago(s.since)}.` : s.state === 'ruin' ? `The roof fell in ${ago(s.since)}.` : `Only the footings are left. It has lain like this for ${plural(year - s.since, 'year')}.` };
   }
 
-  witnesses() {
+  // The two nearest villagers within reach who do not yet hold the practice.
+  witnesses(practice = 'seed') {
     const a = this.me();
     const mine = this.myHouse();
     if (!a || !mine) return [];
@@ -288,15 +304,20 @@ export class Game {
     for (const [id, v] of this.view.actors) {
       if (id === mine.id || id < 0 || v.leaving) continue;
       const h = this.hh(id);
-      if (h && !h.knows && Math.abs(v.x - a.x) <= B.teachRadius) out.push({ h, d: Math.abs(v.x - a.x) });
+      if (h && !holds(h, practice) && Math.abs(v.x - a.x) <= B.teachRadius) out.push({ h, d: Math.abs(v.x - a.x) });
     }
-    // A demonstration reaches the two nearest onlookers.
     return out.sort((p, q) => p.d - q.d).slice(0, B.teachWitnesses).map((o) => o.h);
+  }
+  // Who a demonstration of this practice would reach right now, the vessel included.
+  pupils(practice) {
+    const me = this.myHouse();
+    return me ? [...(holds(me, practice) ? [] : [me]), ...this.witnesses(practice)] : [];
   }
 
   toggleInspect() {
     const t = this.nearest();
     this.inspect = t && this.inspect !== t.key ? t.key : null;
+    this.picking = false;
     if (t) this.sound.click();
   }
 
@@ -306,8 +327,7 @@ export class Game {
       this.sound.deny();
       return false;
     }
-    this.actionsLeft--;
-    this.toast(result.text + (this.actionsLeft ? '' : ' That was the last work action of this visit.'));
+    this.toast(result.text);
     this.sound[sound]();
     this.view.sync(this.sim);
     this.view.syncActors(this.sim, true);
@@ -316,14 +336,12 @@ export class Game {
   }
   canWork() {
     if (this.state !== S.VISIT) return false; // interventions are locked outside a visit
-    if (this.actionsLeft > 0) return true;
-    this.toast('No work actions left this visit. Press J to plan the jump.', true);
-    this.sound.deny();
-    return false;
+    return true;
   }
   siteAction() {
     const t = this.nearest();
     if (!t || t.key !== this.inspect || !this.describe(t).action || !this.canWork()) return;
+    this.picking = false;
     const who = this.myHouse().name;
     const st = this.sim;
     const a = this.me();
@@ -342,17 +360,21 @@ export class Game {
       }
     }
   }
-  teach() {
-    if (this.state !== S.VISIT) return;
+  // T opens the list of practices the god can show; a number picks one.
+  teach(id) {
+    if (this.state !== S.VISIT || !this.myHouse()) return;
+    if (!id) {
+      this.picking = !this.picking;
+      this.inspect = null;
+      return this.sound.click();
+    }
     const me = this.myHouse();
-    if (!me) return;
-    if (!me.knows) return this.toast(`${me.name} does not know how to save seed. Switch to someone who does, or learn it from them.`, true), this.sound.deny();
-    const ws = this.witnesses();
-    if (!ws.length) return this.toast('Nobody close enough still needs to learn this. Walk up to a villager without the seed mark.', true), this.sound.deny();
-    if (!this.canWork()) return;
+    const ws = this.witnesses(id);
     const a = this.me();
-    if (this.spend(Sim.demonstrate(this.sim, me.id, ws.map((h) => h.id), me.name), 'teach')) {
+    if (this.spend(Sim.demonstrate(this.sim, me.id, ws.map((h) => h.id), me.name, id), 'teach')) {
+      this.picking = false;
       this.view.emit('seed', a.x, groundHeight(a.x) + 10, 16);
+      this.view.flash(a.x, false);
       for (const h of ws) {
         const v = this.view.actors.get(h.id);
         v.target = null;
@@ -361,12 +383,42 @@ export class Game {
       }
     }
   }
+  cycleCrop() {
+    const t = this.nearest();
+    if (this.state !== S.VISIT || !t || t.kind !== 'plot' || t.key !== this.inspect) return;
+    const p = this.sim.plots[t.id];
+    if (p.state === 'eroded') return;
+    const next = CROPS[(CROPS.findIndex((c) => c.id === p.crop) + 1) % CROPS.length];
+    const r = Sim.setCrop(this.sim, t.id, next.id, this.myHouse().name);
+    if (r.ok) (this.toast(`${r.text} ${next.does}`), this.sound.click());
+  }
+  openCustoms() {
+    if (this.state !== S.VISIT && this.state !== S.PLANNING) return;
+    this.pending = null;
+    this.odds = null;
+    this.setState(S.PLANNING);
+    const st = this.sim;
+    this.modal(`
+      <h2>Customs of the village</h2>
+      <p class="note">What the whole village does while you are away. Changing a custom costs nothing. Over the centuries each one slips back, a step at a time, toward what villages do unprompted (marked ·).</p>
+      ${CUSTOMS.map((c) => `<div class="custom"><b>${esc(c.name)}</b><span class="note">${esc(c.ask)}</span><div class="opts">${c.options.map((o, i) => `<button data-act="custom" data-arg="${c.id}:${i}" class="${st.customs[c.id] === i ? 'primary' : ''}">${esc(o.label)}${i === c.base ? ' ·' : ''}</button>`).join('')}</div></div>`).join('')}
+      <div class="row"><button data-act="close">Done <kbd>Esc</kbd></button></div>`);
+  }
+  setCustom(arg) {
+    if (this.state !== S.PLANNING) return;
+    const [id, i] = arg.split(':');
+    const top = $('panel').scrollTop;
+    if (Sim.setCustom(this.sim, id, Number(i), this.myHouse() ? this.myHouse().name : 'the god').ok) this.sound.click();
+    this.openCustoms();
+    $('panel').scrollTop = top;
+  }
   switchVillager() {
     if (this.state !== S.VISIT) return;
     if (this.pair.length < 2) return this.toast('There is nobody else to switch to.', true);
     const left = this.me();
     this.active = 1 - this.active;
     this.inspect = null;
+    this.picking = false;
     this.carrying = null;
     if (left) (left.target = null), (left.wait = 0.6); // the villager you leave goes back to their routine
     this.sound.swap();
@@ -385,6 +437,7 @@ export class Game {
       ${cell('Food in store', n0(s.food))}${cell('Seed: granary', n0(s.seedLow))}${cell('Seed: ridge', s.ridgeStore ? n0(s.seedRidge) : 'no store')}
       ${cell('Floodplain fields', s.fieldsLow)}${cell('Ridge fields', s.fieldsRidge)}${s.damaged ? cell('Flood-damaged', s.damaged) : ''}
     </div>
+    <p class="note">Practices kept: ${PRACTICES.map((p) => `${esc(p.name)} ${holders(this.sim, p.id)}/${s.households}`).join(' · ')}</p>
     <ul>${assessRisks(this.sim).map((r) => `<li class="${r.level}">${esc(r.text)}</li>`).join('')}</ul>`;
   }
   openPlan() {
@@ -394,11 +447,11 @@ export class Game {
     this.sound.click();
     this.setState(S.PLANNING);
     const year = Sim.yearOf(this.sim);
-    const left = this.actionsLeft ? `<p class="note">You still have ${plural(this.actionsLeft, 'work action')} this visit. Unused actions are lost when you jump.</p>` : '';
+    const left = '';
     this.modal(`
       <h2>Year ${n0(year)}: how the settlement stands</h2>
       ${this.conditionHtml()}${left}
-      <p>How far ahead will you skip? This is visit ${this.visit} of ${B.visitsPerRun}.</p>
+      <p>How far ahead will you skip? This is visit ${this.visit}.</p>
       <div class="row jumps">${B.jumpChoices.map((y, i) => `<button data-act="choose" data-arg="${y}"><b>${n0(y)} year${y > 1 ? 's' : ''}</b><small>to year ${n0(year + y)} · <kbd>${i + 1}</kbd></small></button>`).join('')}</div>
       <div class="row"><button data-act="close">Keep working <kbd>Esc</kbd></button><span class="note">Every jump takes thirty seconds to play out. You cannot act or turn back until it lands.</span></div>`);
   }
@@ -601,7 +654,7 @@ export class Game {
         <div class="big">${n0(c.year)} years survived</div>
         <h3>${span}</h3>${events}${trace}
         <div class="row"><button class="primary" data-act="retry">Try again</button><button data-act="next">Walk the ruins</button></div>`;
-    } else if (this.visit >= B.visitsPerRun) {
+    } else if (B.visitsPerRun && this.visit >= B.visitsPerRun) {
       html = `
         <h2>Still standing</h2>
         <div class="big">Year ${n0(j.to)} · ${esc(a.stageName)}</div>
@@ -614,7 +667,7 @@ export class Game {
         <h2>Arrived in year ${n0(j.to)}</h2>
         <p>The settlement survived the jump. It is ${a.stage >= 4 ? 'the Hold' : `a ${esc(a.stageName.toLowerCase())}`} of ${plural(a.households, 'household')}.</p>
         ${grid}<h3>${span}</h3>${events}${trace}
-        <div class="row"><button class="primary" data-act="next">Begin visit ${this.visit + 1} of ${B.visitsPerRun} <kbd>Enter</kbd></button></div>`;
+        <div class="row"><button class="primary" data-act="next">Begin visit ${this.visit + 1} <kbd>Enter</kbd></button></div>`;
     }
     this.arrivalHtml = html;
     // He flashes back into existence.
@@ -655,9 +708,9 @@ export class Game {
     const st = this.sim;
     this.sound.click();
     if (!Sim.isAlive(st)) return this.lookAround();
-    if (this.visit >= B.visitsPerRun) return;
+    if (B.visitsPerRun && this.visit >= B.visitsPerRun) return;
     this.visit++;
-    this.actionsLeft = B.actionsPerVisit;
+    this.picking = false;
     this.inspect = null;
     this.pickPair();
     this.view.setTint(1, 1, 1, 0);
@@ -737,18 +790,18 @@ export class Game {
     const st = this.sim;
     const s = summary(st);
     $('year').textContent = `Year ${n0(s.year)}`;
-    $('visit').textContent = `Visit ${this.visit} of ${B.visitsPerRun}`;
+    $('visit').textContent = `Visit ${this.visit}`;
     const cell = (k, v) => `<div><small>${k}</small><b>${v}</b></div>`;
     $('stats').innerHTML =
       cell(esc(s.stageName), `${s.households} households`) + cell('Seed-savers', s.knowers) + cell('Food', n0(s.food)) +
       cell('Seed', `${n0(s.seedLow)} low · ${s.ridgeStore ? n0(s.seedRidge) : '–'} ridge`) +
       cell('Fields', `${s.fieldsLow} flood · ${s.fieldsRidge} ridge${s.damaged ? ` · ${s.damaged} silted` : ''}`);
-    $('pips').innerHTML = `${'●'.repeat(this.actionsLeft)}${'○'.repeat(B.actionsPerVisit - this.actionsLeft)}<small>work left</small>`;
+    $('pips').innerHTML = `<small>work is paid in food</small>`;
     const me = this.myHouse();
     const o = this.pair.length > 1 ? this.hh(this.pair[1 - this.active]) : null;
     $('btn-switch').innerHTML = o ? `Switch to ${esc(o.name)} <kbd>Q</kbd>` : 'Nobody to switch to';
     $('btn-switch').disabled = !o;
-    if (me) $('who').innerHTML = `You are <b>${esc(me.name)}</b>. ${me.knows ? 'Knows seed saving ◆' : 'Does not know seed saving yet'}`;
+    if (me) $('who').innerHTML = `You are acting through <b>${esc(me.name)}</b>. ${PRACTICES.filter((p) => holds(me, p.id)).map((p) => p.name).join(', ') || 'Knows no practices yet'}`;
   }
 
   updateContext() {
@@ -767,17 +820,24 @@ export class Game {
       const key = `${d.title}`;
       if (prompt.dataset.k !== key) (prompt.dataset.k = key), (prompt.innerHTML = `<kbd>E</kbd> ${esc(d.title)}`);
     } else prompt.hidden = true;
+    const st = this.sim;
+    const afford = (kind) => Sim.canAfford(st, kind);
+    const cost = (kind) => (B.workCost[kind] ? `costs ${B.workCost[kind]} food` : 'free');
     if (t && this.inspect) {
       const d = this.describe(t);
       const can = this.state === S.VISIT && d.action;
       html += `<h3>${esc(d.title)}</h3><p>${esc(d.text)}</p>`;
-      if (can) html += `<div class="acts"><button class="primary" data-act="site" ${this.actionsLeft ? '' : 'disabled'}><kbd>1</kbd> ${esc(d.action)} · 1 work action</button></div>`;
+      let acts = '';
+      if (can) acts += `<button class="primary" data-act="site" ${afford(d.kind) ? '' : 'disabled'}><kbd>1</kbd> ${esc(d.action)} · ${cost(d.kind)}</button>`;
+      if (this.state === S.VISIT && t.kind === 'plot' && st.plots[t.id].state !== 'eroded') acts += `<button data-act="crop"><kbd>2</kbd> Crop: ${esc(CROP[st.plots[t.id].crop].name)} (change) · free</button>`;
+      if (acts) html += `<div class="acts">${acts}</div>`;
       else if (d.note && this.state === S.VISIT) html += `<div class="more">${esc(d.note)}</div>`;
     }
-    if (this.state === S.VISIT && a) {
-      const me = this.myHouse();
-      const ws = me && me.knows ? this.witnesses() : [];
-      if (ws.length) html += `<div class="acts" style="margin-top:${html ? 8 : 0}px"><button data-act="teach" ${this.actionsLeft ? '' : 'disabled'}><kbd>T</kbd> Demonstrate seed saving to ${esc(ws.map((h) => h.name).join(', '))} · 1 work action</button></div>`;
+    if (this.state === S.VISIT && a && this.picking) {
+      html = `<h3>Demonstrate a practice</h3><p>You know them all. Whoever's hands you use learns it, and so do the two nearest villagers within reach. Each demonstration ${cost('teach')}.</p><div class="plist">${PRACTICES.map((p, i) => {
+        const who = this.pupils(p.id);
+        return `<button data-act="teach" data-arg="${p.id}" ${who.length && afford('teach') ? '' : 'disabled'}><kbd>${i + 1}</kbd> <b>${esc(p.name)}</b> <small>${holders(st, p.id)}/${st.households.length} keep it${who.length ? ` · would teach ${esc(who.map((h) => h.name).join(', '))}` : ' · nobody new in reach'}</small><span>${esc(p.does)}</span></button>`;
+      }).join('')}</div>`;
     }
     if (html !== this.ctxHtml) {
       this.ctxHtml = html;

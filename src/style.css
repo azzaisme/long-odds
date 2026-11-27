@@ -98,3 +98,13 @@ button.danger:hover { background: #963a2c; }
 #wipe.in { transform: translateX(0); transition: transform 0.9s cubic-bezier(0.6, 0, 0.4, 1); pointer-events: auto; }
 #wipe.out { transform: translateX(101%); transition: transform 0.9s cubic-bezier(0.6, 0, 0.4, 1); }
 #ruinbar .btns { display: flex; gap: 8px; flex-shrink: 0; }
+#panel .custom { padding: 8px 0; border-top: 1px solid var(--line); }
+#panel .custom b { color: var(--gold); display: block; }
+#panel .custom .opts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 5px; }
+#panel .custom button { padding: 4px 9px; font-size: 14px; }
+#context .plist { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+#context .plist button { text-align: left; padding: 5px 8px; font-size: 13px; }
+#context .plist b { color: var(--gold); }
+#context .plist small { color: var(--dim); display: block; }
+#context .plist span { display: block; font-size: 12px; }
+#context:has(.plist) { width: min(900px, 96vw); }

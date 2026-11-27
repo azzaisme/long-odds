@@ -10,6 +10,11 @@ const teach = (st) => {
   const pupils = st.households.filter((h) => !h.knows).slice(0, 2).map((h) => h.id);
   return t && pupils.length ? demonstrate(st, t.id, pupils, t.name).ok : false;
 };
+const show = (st, id) => {
+  const lacking = st.households.filter((h) => !h.skills[id]);
+  if (st.households.length - lacking.length >= 3 || !lacking.length) return false;
+  return demonstrate(st, lacking[0].id, lacking.slice(1, 3).map((h) => h.id), lacking[0].name, id).ok;
+};
 const build = (st, elev) => {
   const p = freePlot(st, elev);
   return p ? buildPlot(st, p.id, 'player').ok : false;
@@ -28,6 +33,10 @@ export const STRATEGIES = {
   'lowland + teaching': (st) => [(s) => knowers(s) < 3 && teach(s), (s) => fix(s, 'low'), (s) => build(s, 'low'), (s) => build(s, 'low'), (s) => build(s, 'low')],
   'ridge only + teaching': (st) => [(s) => knowers(s) < 3 && teach(s), (s) => fix(s, 'ridge'), (s) => build(s, 'ridge'), (s) => build(s, 'ridge'), (s) => build(s, 'ridge')],
   'mixed, no ridge store': (st) => [(s) => knowers(s) < 3 && teach(s), (s) => build(s, 'low'), (s) => build(s, 'ridge'), fix, (s) => build(s, 'low'), (s) => build(s, 'ridge')],
+  'mixed + store + practices': (st, visit) =>
+    visit === 0
+      ? [(s) => build(s, 'low'), (s) => build(s, 'ridge'), store]
+      : [(s) => knowers(s) < 3 && teach(s), store, carry, ...['marks', 'dry', 'terrace', 'stone', 'watch'].map((id) => (s) => show(s, id)), (s) => build(s, 'ridge'), fix],
   'mixed + ridge seed store': (st, visit) =>
     visit === 0
       ? [(s) => build(s, 'low'), (s) => build(s, 'ridge'), store]

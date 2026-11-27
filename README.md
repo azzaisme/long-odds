@@ -52,13 +52,38 @@ playback itself is still exactly thirty seconds.
 | `A` / `D` or `←` / `→` | | Walk |
 | `E` | | Inspect the nearest field site, store, house or building |
 | `1` | gold button in the inspect panel | Do the work shown there (build, repair, carry seed) |
-| `T` | "Demonstrate seed saving" | Teach the two nearest untrained villagers within reach |
+| `T`, then `1`–`6` | practice list | Demonstrate a practice to the villager you act through and the two nearest onlookers |
+| `2` | "Crop" in the inspect panel | Change what a field is sown with |
+| `C` | "Customs" | Set the village's customs |
 | `Q` | "Switch to …" | Switch to the other villager; the one you leave goes back to their routine |
 | `J` | "Plan the jump" | Condition report, then `1`–`4` to pick 1 / 10 / 100 / 1,000 years |
 | `Enter` / `Esc` | Commit / Back | Confirm or cancel the jump; `Enter` also continues after arrival |
 
-Walking, inspecting and switching are free. Building, repairing, carrying seed and demonstrating
-each cost one of the visit's three work actions. A run is five visits; each visit ends in a jump.
+There is no limit on how much you do in a visit, and no last visit: you keep coming back until
+nobody is left. Work is paid for in food from the stores (clear a field 1.5, repair 1, build the
+ridge store 3, demonstrate a practice 1; carrying seed is free), so everything you build comes
+out of the reserve the village has to live on. Customs and crops cost nothing to change.
+
+## Decisions
+
+Every decision is a row in [`src/sim/decisions.js`](src/sim/decisions.js), and the simulation
+reads those tables. Adding a row adds a decision.
+
+- **Practices (6)** — seed saving, drying food, terracing, flood marks, watching the mountain,
+  building in stone. You know them all; press `T`, pick one, and the villager you are acting
+  through learns it along with the two nearest onlookers. Each practice then spreads to
+  neighbours, is inherited by new households, and can die with the last household that keeps
+  it. Its effect scales with the share of households that hold it.
+- **Customs (8, 27 settings)** — village-wide rules, set with `C`: ridge seed reserve, seed and
+  food carried uphill, where new fields go, pace of clearing, where newcomers build, planting
+  order, and whether seed is eaten in a hungry winter. Each drifts back one step toward the
+  village default with a 0.3% chance a year.
+- **Crops (3 per field, 16 fields)** — grain, roots or millet, chosen with `2` while inspecting
+  a field. Villages sow new fields with whatever their neighbours grow.
+- **Building** — 16 field sites and the ridge store, as before.
+
+That is a few hundred individual settings today, not thousands. The space of combinations is
+large (3¹⁶ crop layouts alone), and the tables are where more get added.
 
 ## How a run goes
 
@@ -72,7 +97,7 @@ each cost one of the visit's three work actions. A run is five visits; each visi
 4. **Arrival.** Turning points of the jump, and any recoveries traced back to your ridge store or
    your demonstration. If the village is alive, the next visit begins. If not, you walk the ruins
    and score the year the last household left.
-5. After the fifth jump a surviving settlement scores its destination year: **Still standing**.
+5. There is no final visit. The score is the year the last household leaves.
 
 ### The settlement's growth
 
@@ -129,6 +154,7 @@ All balance values are in [`src/sim/balance.js`](src/sim/balance.js).
 
 ```
 src/sim/balance.js     every tuning value
+src/sim/decisions.js   practices, customs and crops as data
 src/sim/sim.js         state, seasonal tick, player actions, fingerprint
 src/sim/risks.js       plain-language risks; odds from cloned simulations
 src/sim/playback.js    30-second clock -> due ticks
