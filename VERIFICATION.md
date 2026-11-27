@@ -117,6 +117,13 @@ Real key presses throughout, no console errors in any run.
   characters, all field states and trees, the houses, stores, civic buildings and three
   bridges, the city and Hold with their ruins, both volcanoes, the funnel and the slide, and
   the three backdrop layers composited.
+- **The river rising.** Stepped through a flood in eight captures with the water's own numbers
+  logged: at rest the river spans its channel (x 106–244) at height 8; it then tops the banks
+  and the sheet's edges move outward from the river (to x -52…410, then -273…631, then the full
+  reach -410…828) while its depth grows from 18 to 31; on the way down it thins to a shallow
+  layer that pulls back toward the river (-162…520) and ends as the plain river again. Looked
+  at four of those frames: the advancing foam front reaches the nearest field before the houses.
+  Raised by hand in a visit, not seen arriving in a real jump.
 - **The flood on screen.** Raised the water by hand to each of the three flood heights over a
   planted lowland village: muddy water lying above the banks with the houses and grain visible
   through it, a foam crest along the surface, drifting wreckage (two pieces at high water, more

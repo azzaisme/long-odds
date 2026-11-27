@@ -499,11 +499,24 @@ export class View {
     // Water.
     const w = this.water;
     w.level += (w.target - w.level) * (1 - Math.exp(-dt * (opts.waterRate || 1.2)));
-    const edge = waterEdge(w.level);
-    const wl = waterLeft(w.level);
     const normal = WORLD.waterLevels[0];
-    // The river itself never rises above its banks; what rises is flood water laid over it.
-    const riverTop = Math.min(w.level, normal);
+    const bank = WORLD.lowGround;
+    // A flood is the river growing. First it swells inside its channel, widening up the banks
+    // and turning muddy; when it tops them it spreads outward over the land from both banks,
+    // shallow at first and deepening as it goes. It falls back the same way.
+    const over = Math.max(0, w.level - bank);
+    const fullLeft = waterLeft(w.level);
+    const fullRight = waterEdge(w.level);
+    const reach = over > 0 ? Math.max(fullRight - WORLD.bridge.x1, WORLD.bridge.x0 - fullLeft) : 0;
+    const rate = (opts.spreadRate || 170) * dt;
+    const cur = w.spread || 0;
+    w.spread = cur < reach ? Math.min(reach, cur + rate) : Math.max(reach, cur - rate * 1.4);
+    const frac = reach > 0 ? Math.min(1, w.spread / reach) : 0;
+    const spilled = w.spread > 0.5;
+    const swell = w.level > normal + 0.5 ? Math.sin(this.time * 1.7) * 0.5 + Math.sin(this.time * 0.9 + 1) * 0.3 : 0;
+    // The river in its channel: up to the top of the banks.
+    // (Stopping just under the lowest turf keeps the river inside its channel.)
+    const riverTop = Math.min(w.level, bank - 1.5) + (spilled ? 0 : swell * Math.min(1, Math.max(0, w.level - normal) / 3));
     const rEdge = waterEdge(riverTop);
     const rLeft = waterLeft(riverTop);
     const frame = Math.floor(this.time * 2.5) % 2;
@@ -520,37 +533,47 @@ export class View {
       tile(m, rEdge - rLeft);
       m.update();
     }
-    const rise = w.level - normal; // how far over the banks
-    const murk = Math.max(0, Math.min(1, rise / 7));
+    // The muddy water: over the channel as soon as the river rises, over the land once it spills.
+    // While it drains back, the sheet on the land stays a thin layer until it has all returned.
+    const hExt = Math.max(w.level, bank + 1.5);
+    const left = spilled ? Math.max(waterLeft(hExt), WORLD.bridge.x0 - w.spread) : rLeft;
+    const right = spilled ? Math.min(waterEdge(hExt), WORLD.bridge.x1 + w.spread) : rEdge;
+    const top = spilled ? bank + Math.max(1.5, over * Math.pow(frac, 0.7)) + swell : riverTop;
+    const murk = Math.max(0, Math.min(1, (w.level - normal) / 5));
     const flooding = murk > 0.02;
-    const swell = flooding ? Math.sin(this.time * 1.7) * 0.6 + Math.sin(this.time * 0.9 + 1) * 0.4 : 0;
-    const top = w.level + swell;
-    this.surface0 = { top, left: wl, right: edge, flooding };
+    const edge = right;
+    const wl = left;
+    this.surface0 = { top, left, right, flooding };
     this.floodEnt.enabled = flooding;
     this.foamEnt.enabled = flooding;
     if (flooding) {
-      const width = edge - wl;
+      const width = right - left;
       this.setTex(this.floodEnt, frame ? 'flood0' : 'flood1');
-      // Only the water above the banks: below that is the river, and the ground.
+      // From the river's ordinary level up: below that is clear river, and the ground.
       this.floodEnt.setLocalScale(width, 1, top - normal);
-      this.floodEnt.setLocalPosition((edge + wl) / 2, normal + (top - normal) / 2, Z.water + 0.2);
+      this.floodEnt.setLocalPosition((right + left) / 2, normal + (top - normal) / 2, Z.water + 0.2);
       for (const m of [this.mats.flood0, this.mats.flood1]) {
         tile(m, width, this.time * 0.05); // the whole sheet slides downstream
-        m.opacity = 0.68 * murk; // murky, but the drowned village shows through
+        m.opacity = 0.7 * murk; // murky, but what it drowns shows through
         m.update();
       }
       this.foamEnt.setLocalScale(width, 1, 3);
-      this.foamEnt.setLocalPosition((edge + wl) / 2, top + 0.5, Z.water + 0.4);
+      this.foamEnt.setLocalPosition((right + left) / 2, top + 0.5, Z.water + 0.4);
       tile(this.mats.foam, width, this.time * 0.11);
       this.mats.foam.opacity = 0.95 * murk;
       this.mats.foam.update();
-      // Foam breaks where the water meets the land, and rain pocks the surface.
-      if (vrand() < 0.5) this.emit('splash', edge - 1 - vrand() * 4, top);
+      // Foam breaks at both advancing edges, and rain pocks the surface.
+      const moving = spilled && frac < 1 ? 3 : 1;
+      for (let i = 0; i < moving; i++) {
+        if (vrand() < 0.5) this.emit('splash', right - 1 - vrand() * 4, top);
+        if (vrand() < 0.5) this.emit('splash', left + 1 + vrand() * 4, top);
+      }
       if (this.weather === 'rain' && this.viewRect) for (let i = 0; i < this.rainPower; i++) {
-        const x = Math.max(wl, this.viewRect.x0) + vrand() * (Math.min(edge, this.viewRect.x1) - Math.max(wl, this.viewRect.x0));
-        if (x > wl && x < edge) this.emit('splash', x, top);
+        const x = Math.max(left, this.viewRect.x0) + vrand() * (Math.min(right, this.viewRect.x1) - Math.max(left, this.viewRect.x0));
+        if (x > left && x < right) this.emit('splash', x, top);
       }
     }
+    const rise = spilled ? top - normal : 0;
     // Wreckage: more of it the higher the water.
     const want = rise > 40 ? 6 : rise > 18 ? 4 : rise > 8 ? 2 : 0;
     this.drift.forEach((d, i) => {

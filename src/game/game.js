@@ -1111,7 +1111,8 @@ export class Game {
       const level = st.river.level;
       view.water.target = WORLD.waterLevels[level] + (j.years === 1 && upcoming === 1 ? 3 : 0);
       view.rainPower = level >= 3 ? 3 : level >= 2 ? 2 : 1;
-      opts.waterRate = { 1: 0.9, 10: 5, 100: 14, 1000: 22 }[j.years];
+      opts.waterRate = { 1: 0.7, 10: 5, 100: 14, 1000: 22 }[j.years];
+      opts.spreadRate = { 1: 120, 10: 900, 100: 5000, 1000: 9000 }[j.years];
       opts.cloudSpeed = { 1: 6, 10: 30, 100: 90, 1000: 200 }[j.years];
       const sky = st.sky;
       if (sky.ash > 0) (view.setTint(0.2, 0.17, 0.17, j.years <= 10 ? 0.42 : 0.3), (view.weather = 'ash'));
