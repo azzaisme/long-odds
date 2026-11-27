@@ -175,12 +175,20 @@ stands behind the valley in the backdrop; it smokes while it is waking and shows
 
 ## Publishing to itch.io
 
-`.github/workflows/itch.yml` runs the tests, builds, and pushes `dist/` to itch.io with butler
-on every push to `main` (and on demand from the Actions tab). It expects an Actions secret
-`BUTLER_API_KEY`, and `ITCH_USER` and `ITCH_GAME` as secrets or variables. If the secrets you
-added have other names, change the three `env` lines in the deploy job. Pull requests run the
-tests and build only. On itch.io, set the project to "HTML" and the `html5` channel to be
-played in the browser.
+Branch rule: every branch is merged into `testing`, only `testing` is merged into `main`, and
+every merge into `main` publishes to itch.io.
+
+`.github/workflows/itch.yml` enforces and carries that out:
+
+- Pull requests into `testing` or `main` run the tests and the build.
+- A pull request into `main` from any branch other than `testing` fails a check named
+  "only-testing-into-main". To make that binding, protect `main` in the repository settings and
+  mark that check and "build" as required.
+- Every push to `main` runs the tests, builds, and pushes `dist/` to itch.io with butler.
+
+It expects an Actions secret `BUTLER_API_KEY`, and `ITCH_USER` and `ITCH_GAME` as secrets or
+variables. If the secrets have other names, change the three `env` lines in the deploy job. On
+itch.io, set the project to "HTML" and the `html5` channel to be played in the browser.
 
 ## How the simulation works
 

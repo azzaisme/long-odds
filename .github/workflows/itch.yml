@@ -1,4 +1,5 @@
-# Tests, builds and pushes the web build to itch.io with butler.
+# Tests and builds on every pull request; publishes the web build to itch.io with butler on
+# every push to main.
 #
 # Expects these in the repository's Actions settings:
 #   secret   BUTLER_API_KEY   an itch.io API key (itch.io > Settings > API keys)
@@ -7,13 +8,30 @@
 # If your secrets have other names, change the three env lines in the deploy job.
 name: Build and publish to itch.io
 
+# Branch rule: every branch merges into `testing`; only `testing` merges into `main`;
+# every merge into `main` publishes to itch.io.
 on:
   push:
     branches: [main]
   pull_request:
+    branches: [testing, main]
   workflow_dispatch:
 
 jobs:
+  only-testing-into-main:
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull requests into main must come from testing
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+        run: |
+          if [ "$HEAD_REF" != "testing" ] || [ "$HEAD_REPO" != "$GITHUB_REPOSITORY" ]; then
+            echo "::error::Only the testing branch may be merged into main. Merge '$HEAD_REF' into testing first."
+            exit 1
+          fi
+
   build:
     runs-on: ubuntu-latest
     steps:
@@ -32,7 +50,7 @@ jobs:
 
   deploy:
     needs: build
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     env:
       BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
