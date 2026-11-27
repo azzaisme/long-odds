@@ -123,6 +123,8 @@ export function peopleYear(st, B, year, say, rand, shortage, found, cold = 0) {
     if (rand() < base * (1 + P.death.hunger * shortage + cold)) dead.add(p.id);
   }
   if (dead.size) {
+    st.stats.deaths += dead.size;
+    if (st.stats.firstDeath === null) st.stats.firstDeath = year;
     // What dies with them: an idea nobody else alive holds.
     const lost = {};
     for (const p of st.people) if (dead.has(p.id)) for (const id in p.ideas) lost[id] = p;

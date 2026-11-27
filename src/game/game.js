@@ -8,6 +8,7 @@ import { summary, assessRisks, estimateSurvival } from '../sim/risks.js';
 import { Playback } from '../sim/playback.js';
 import { IDEAS, IDEA, PRACTICES, CUSTOMS, CROPS, CROP, BRIDGES, BRIDGE, holds, holders, possibleIdeas } from '../sim/decisions.js';
 import { canBetroth } from '../sim/people.js';
+import { murmur, linesReport } from './murmurs.js';
 import { WORK_TOUCH } from '../sim/decisions.js';
 
 // What a decision touches, as small tags: "harvest ▲", "forest ▼". No numbers, no verdict.
@@ -64,6 +65,9 @@ export class Game {
     this.say = null;
     $('speech').hidden = true;
     this.view.clearActors();
+    this.view.dayT = 0.12;
+    this.murmuring = null;
+    $('murmur').hidden = true;
     this.view.sync(this.sim);
     this.view.syncActors(this.sim, true);
     this.view.water.target = WORLD.waterLevels[0];
@@ -226,6 +230,9 @@ export class Game {
       if (d < t.reach && (!best || d + t.bias < best.d)) best = { ...t, d: d + t.bias };
     };
     for (const s of PLOT_SITES) consider(Math.abs(a.x - s.x), { kind: 'plot', id: s.id, x: s.x, top: 14, reach: 25, bias: 0 });
+    if (this.view.graves[0].enabled) consider(Math.abs(a.x - 866), { kind: 'graves', id: 0, x: 866, top: 16, reach: 66, bias: 30 });
+    if (this.view.floodStone.enabled) consider(Math.abs(a.x - 280), { kind: 'floodstone', id: 0, x: 280, top: 20, reach: 9, bias: -10 });
+    if (this.view.shrine.enabled) consider(Math.abs(a.x - 950), { kind: 'shrine', id: 0, x: 950, top: 20, reach: 12, bias: -4 });
     consider(Math.abs(a.x - 268), { kind: 'bridge', id: 0, x: 262, top: 22, reach: 16, bias: -8 });
     consider(Math.abs(a.x - WORLD.granaryX), { kind: 'granary', id: 0, x: WORLD.granaryX, top: 36, reach: 20, bias: -6 });
     consider(Math.abs(a.x - WORLD.ridgeStoreX), { kind: 'store', id: 0, x: WORLD.ridgeStoreX, top: 24, reach: 18, bias: -6 });
@@ -269,6 +276,19 @@ export class Game {
       if (p.state === 'damaged') return { title: `Flood-damaged ${place.toLowerCase()} field`, text: `Buried in silt since year ${p.since}. Seed-saving households can restore it in spring; nobody else knows how.${by}`, action: 'Dig out and repair this field', kind: 'repair' };
       if (p.state === 'eroded') return { title: 'Lost to the river', text: `The river cut this bank away in year ${p.since}.` };
       return { title: `${place} field`, text: `${trait}${by}${cropLine}` };
+    }
+    if (t.kind === 'graves') {
+      const n = st.stats.deaths;
+      return { title: 'The burying ground', text: `${n0(n)} ${n === 1 ? 'person lies' : 'people lie'} on this hill. The first was buried in year ${st.stats.firstDeath}${Sim.isAlive(st) ? '' : '; nobody is left to tend the stones'}.` };
+    }
+    if (t.kind === 'floodstone') {
+      const marks = st.river.floods.filter((f) => f.level >= 1);
+      const big = marks.filter((f) => f.level >= 2).map((f) => f.year);
+      return { title: 'The flood stone', text: `A standing stone by the bank, with a notch cut for each time the river came over. ${marks.length ? `${marks.length === 1 ? '1 notch' : `${marks.length} notches`} in living memory${big.length ? `; the deep ones are for year ${big.join(', ')}` : ''}.` : `The last notch is for year ${st.river.lastFlood.year}, older than anyone here.`}` };
+    }
+    if (t.kind === 'shrine') {
+      const tended = Sim.isAlive(st) && st.year0.shortage <= 0.001;
+      return { title: 'Shrine to the blue one', text: tended ? 'A stone with your likeness cut into it, a candle, flowers, and a bowl of this year\'s grain. They remember you.' : Sim.isAlive(st) ? 'A stone with your likeness cut into it. The bowl is empty this year, and the candle has burned out.' : 'A stone with a figure cut into it, worn almost smooth. Nobody is left to say who it was.' };
     }
     if (t.kind === 'bridge') {
       const br = st.bridge;
@@ -785,7 +805,9 @@ export class Game {
     const events = turning.length
       ? `<ul>${turning.map((e) => `<li class="ev" data-y="Year ${n0(e.year)}">${esc(e.text)}</li>`).join('')}</ul>${skipped ? `<p class="note">…and ${skipped} more floods, departures and recoveries along the way.</p>` : ''}`
       : '<p class="note">Nothing turned the village’s course. The seasons simply went round.</p>';
-    const trace = this.traceHtml(j);
+    const lr = linesReport(st);
+    const lineNote = lr.living.length || lr.ended.length ? `<p class="note">Family lines living: ${esc(lr.living.join(' · ') || 'none')}.${lr.ended.length ? ` Ended: ${esc(lr.ended.join(', '))}.` : ''}</p>` : '';
+    const trace = this.traceHtml(j) + lineNote;
     const grid = `<div class="grid">${cell('Households', b.households, a.households)}${cell('Know seed saving', b.knowers, a.knowers)}${cell('Fields', b.fieldsLow + b.fieldsRidge, a.fieldsLow + a.fieldsRidge)}${cell('Ridge fields', b.fieldsRidge, a.fieldsRidge)}${cell('Seed', n0(b.seedLow + b.seedRidge), n0(a.seedLow + a.seedRidge))}</div>`;
     const span = `Year ${n0(j.from)} → year ${n0(j.to)}`;
     let html;
@@ -911,6 +933,38 @@ export class Game {
       wipe.className = 'out';
       this.wiping = false;
     }, 1900);
+  }
+  // Now and then a villager near the god says what is on their mind.
+  updateMurmur(dt, god) {
+    const el = $('murmur');
+    const m = this.murmuring;
+    if (m) {
+      m.t -= dt;
+      const a = this.view.actors.get(m.id);
+      if (m.t <= 0 || !a || !god) {
+        this.murmuring = null;
+        el.hidden = true;
+      } else {
+        const [sx, sy] = this.view.toScreen(a.x, this.view.surface(a.x) + a.e._h + 8);
+        el.style.left = `${sx}px`;
+        el.style.top = `${sy}px`;
+      }
+      return;
+    }
+    if (!god) return (el.hidden = true);
+    this.murmurT = (this.murmurT === undefined ? 4 : this.murmurT) - dt;
+    if (this.murmurT > 0) return;
+    this.murmurT = 6 + Math.random() * 6;
+    const near = [...this.view.actors.entries()].filter(([id, a]) => id >= 0 && !a.leaving && Math.abs(a.x - god.x) < 130);
+    if (!near.length) return;
+    const [id] = near[Math.floor(Math.random() * near.length)];
+    const h = this.hh(id);
+    if (!h) return;
+    const text = murmur(this.sim, h, this.visit);
+    if (!text) return;
+    this.murmuring = { id, t: 4.2 + text.length * 0.04 };
+    el.textContent = text;
+    el.hidden = false;
   }
   speechAt(actor, text) {
     const el = $('speech');
@@ -1066,10 +1120,18 @@ export class Game {
         cam.tx = a.x;
         cam.ty = groundHeight(a.x) + 26;
       }
-      view.updateActors(dt, st, { gather: s === S.VISIT && a ? a.x : undefined });
+      const godX = s !== S.RUINS && a ? a.x : undefined;
+      view.updateActors(dt, st, { gather: s === S.VISIT && a ? a.x : undefined, god: godX });
+      if ((this.kidT = (this.kidT || 0) - dt) <= 0) (view.syncChildren(st), (this.kidT = 1));
+      view.updateChildren(dt, { god: godX });
+      opts.ambient = s !== S.RUINS;
+      this.updateMurmur(dt, s === S.VISIT && !this.picking ? a : null);
+      this.sound.ambient(dt, view.night, s !== S.RUINS);
       view.setMarkers(s === S.VISIT ? a : null, null);
       this.updateContext();
     } else if (s === S.PLANNING) {
+      this.updateMurmur(dt, null);
+      view.updateChildren(dt, {});
       view.updateActors(dt, st, {});
       view.setMarkers(this.me(), null);
       this.pumpOdds();
@@ -1091,6 +1153,10 @@ export class Game {
       view.sync(st);
       const fast = j.years >= 100;
       view.syncActors(st, fast);
+      if (fast) view.clearChildren();
+      else if ((this.kidT = (this.kidT || 0) - dt) <= 0) (view.syncChildren(st), (this.kidT = 0.5));
+      view.updateChildren(dt, {});
+      this.updateMurmur(dt, null);
       view.updateActors(dt, st, { speed: { 1: 34, 10: 70, 100: 130, 1000: 170 }[j.years] });
       view.setMarkers(null, null);
       view.carry.enabled = false;

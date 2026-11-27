@@ -52,7 +52,7 @@ export function createSim(seed, B = BALANCE) {
     chronicle: [], // turning points (priority 3)
     recoveries: [], // recoveries traceable to stored ridge seed or taught practice
     actions: [], // player interventions
-    stats: { felled: 0, hunted: 0, births: 0, weddings: 0, rains: 0, slides: 0, tornadoes: 0, eruptions: 0, peakStage: 0, floods: 0, greatFloods: 0, droughts: 0, peakHouseholds: B.start.households, left: 0, settled: 0 },
+    stats: { deaths: 0, firstDeath: null, felled: 0, hunted: 0, births: 0, weddings: 0, rains: 0, slides: 0, tornadoes: 0, eruptions: 0, peakStage: 0, floods: 0, greatFloods: 0, droughts: 0, peakHouseholds: B.start.households, left: 0, settled: 0 },
   };
   const rand = () => rngNext(st.rng);
   for (let i = 0; i < B.start.households; i++) {

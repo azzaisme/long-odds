@@ -63,6 +63,30 @@ export class Sound {
     s.start(t, Math.random());
     s.stop(t + dur + 0.05);
   }
+  // Background life: birdsong by day, crickets at night, and a slow tune that never quite repeats.
+  ambient(dt, night, on) {
+    if (!this.ctx || !on) return;
+    this.chirpT = (this.chirpT === undefined ? 2 : this.chirpT) - dt;
+    this.tuneT = (this.tuneT === undefined ? 4 : this.tuneT) - dt;
+    if (this.chirpT <= 0) {
+      if (night > 0.5) {
+        for (let i = 0; i < 4; i++) this.tone(4200, 0.03, 'sine', 0.012, i * 0.06);
+        this.chirpT = 0.5 + Math.random() * 0.9;
+      } else {
+        const f = 2200 + Math.random() * 1400;
+        const n = 2 + Math.floor(Math.random() * 3);
+        for (let i = 0; i < n; i++) this.tone(f + i * 180 * (Math.random() < 0.5 ? 1 : -1), 0.07, 'sine', 0.022, i * 0.09, 300);
+        this.chirpT = 1.5 + Math.random() * 5;
+      }
+    }
+    if (this.tuneT <= 0) {
+      const scale = night > 0.5 ? [196, 220, 261.6, 293.7, 349.2] : [261.6, 293.7, 329.6, 392, 440, 523.3];
+      const i = Math.floor(Math.random() * scale.length);
+      this.tone(scale[i], 1.6, 'triangle', 0.035);
+      if (Math.random() < 0.45) this.tone(scale[(i + 2) % scale.length] * (Math.random() < 0.3 ? 0.5 : 1), 1.8, 'sine', 0.025, 0.4);
+      this.tuneT = 2.6 + Math.random() * 3.4;
+    }
+  }
   step() { this.noise(0.05, 900, 0.035, 'bandpass'); }
   click() { this.tone(660, 0.06, 'square', 0.05); }
   deny() { this.tone(160, 0.14, 'square', 0.06, 0, -40); }

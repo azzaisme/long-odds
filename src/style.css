@@ -187,3 +187,6 @@ button.danger:hover { background: #963a2c; }
 .touch b.dn { color: #7cc4ff !important; }
 #context .card .acts > div { display: flex; flex-direction: column; gap: 3px; }
 #context .card .acts { gap: 8px; }
+
+#murmur { position: absolute; transform: translate(-50%, -100%); background: #f6efdc; color: #2a2118; border: 2px solid #2a2118; padding: 4px 9px; font-size: 13px; max-width: 250px; text-align: center; line-height: 1.25; box-shadow: 0 3px 0 #0006; pointer-events: none; }
+#murmur::after { content: ''; position: absolute; left: 50%; bottom: -8px; margin-left: -5px; border: 5px solid transparent; border-bottom: 0; border-top-color: #2a2118; }

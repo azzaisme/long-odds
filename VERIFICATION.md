@@ -134,11 +134,25 @@ Real key presses throughout, no console errors in any run.
   as it rises), heavier rain at each level, and the river clear again once it fell. No console
   errors. A first version painted the water solid over the ground below the surface; that was
   fixed and re-checked.) Not seen: a flood arriving during a real jump, and the screen shake.
+- **A lived-in valley.** In one run with no console errors: a villager near the god said "Not
+  from downriver, that one."; five children were out; ten distinct true lines came up at year 0
+  from 400 draws (the unplanted fields, the granary going down, a named new baby, keeping seed
+  back); at night the night factor read 1.00 with six lit windows and 46 stars; with the state
+  set forty years on, the burying ground, shrine and flood stone each showed and their cards
+  read correctly; a fish jump and a flock of birds both triggered. Looked at: the night village
+  and the burying ground on the hill.
 - **Bridges.** Planned a footbridge at the crossing; walking stopped at the bank with no
   bridge; after a 1-year jump the footbridge stood; walked across on the deck and cleared a
   far-bank field.
 
 ## Not covered
+
+- For the lived-in valley: the later state (graves, shrine, flood stone) was set by hand, not
+  reached by playing. The dusk and plain-day frames, the shrine and flood stone up close, the
+  children following, the birds and the fish were captured or triggered but not each looked at.
+  Lines that depend on later events (floods, the mountain, bridges, forests) were not seen in
+  play. The birdsong, crickets and tune were never heard. Fireflies were made smaller after the
+  night screenshot and "notchs" corrected to "notches"; both only build-tested.
 
 - Painted sprites not looked at in the running game: the ridge view with the store and house
   states, the city stage, the west forest, the ruins after a collapse, the tornado funnel and

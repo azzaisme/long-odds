@@ -76,6 +76,23 @@ ridge store 3, teach an idea 1, move a household 2; carrying seed is free), so e
 you build comes out of the reserve the village has to live on. Matches, callings, customs,
 crops and bridge plans cost nothing to set.
 
+## A lived-in valley
+
+- **Villagers notice you.** They stop and turn when the god comes close. Children play near
+  their houses and trail after him.
+- **They talk.** Now and then a villager nearby says what is on their mind. Every line is
+  chosen from what is true in the simulation at that moment: the bare granary, the flood their
+  grandmother saw, the smoking mountain, the longer walk for firewood, a new baby, a match.
+- **The land remembers.** A burying ground on the hill gains stones as people die. A flood
+  stone by the bank carries a notch for each flood in living memory. A shrine to "the blue one"
+  appears after your first visit: tended with grain and a candle in a fed year, bare in a
+  hungry one, worn smooth if nobody is left.
+- **The day turns.** While you are in the valley dusk comes, then night with lamplit windows,
+  stars and fireflies, then dawn. Birds cross the sky by day and fish jump in the river.
+- **Sound.** Birdsong by day, crickets at night, and a slow tune of single notes.
+- **Who is left.** Each arrival report lists which family lines still have living descendants
+  and which have ended.
+
 ## Planning: the city, the houses, the people
 
 Every decision is a row in [`src/sim/decisions.js`](src/sim/decisions.js), and the simulation

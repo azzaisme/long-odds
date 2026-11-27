@@ -4,7 +4,7 @@ import { SHIRTS } from './sprites.js';
 import { WORLD, PLOT_SITES, HOUSE_SLOTS, FOREST_STANDS, groundHeight, waterEdge, waterLeft } from '../sim/world.js';
 import { yearOf } from '../sim/sim.js';
 
-const Z = { volcano: -52, civic: -17, sky: -60, far: -50, cloud: -45, mid: -40, tree: -22, terrain: -20, house: -14, store: -12, plot: -8, growth: -7, actor: -4, badge: -3, water: 2, fx: 4, tint: 8 };
+const Z = { volcano: -52, civic: -17, sky: -60, far: -50, cloud: -45, mid: -40, tree: -22, terrain: -20, house: -14, store: -12, plot: -8, growth: -7, actor: -4, badge: -3, water: 2, tint: 3.4, light: 3.7, fx: 4 };
 const vrand = Math.random; // visual-only randomness
 
 export class View {
@@ -35,9 +35,9 @@ export class View {
       m.opacityMap = tex;
       m.opacityMapChannel = 'a';
       m.cull = pc.CULLFACE_NONE;
-      if (name === 'beam' || name === 'aura' || name === 'foam' || name.startsWith('water') || name === 'smoke' || name === 'floodline' || name === 'cloud') {
+      if (name === 'beam' || name === 'aura' || name === 'foam' || name === 'glow' || name.startsWith('water') || name === 'smoke' || name === 'floodline' || name === 'cloud') {
         m.blendType = pc.BLEND_NORMAL;
-        m.opacity = name === 'beam' ? 0.85 : name === 'aura' ? 0.55 : name.startsWith('water') ? 0.72 : name === 'cloud' ? 0.8 : 0.6;
+        m.opacity = name === 'glow' ? 0 : name === 'beam' ? 0.85 : name === 'aura' ? 0.55 : name.startsWith('water') ? 0.72 : name === 'cloud' ? 0.8 : 0.6;
         m.depthWrite = false;
       } else m.alphaTest = 0.5;
       m.update();
@@ -45,7 +45,7 @@ export class View {
       this.sizes[name] = [c.width, c.height];
     }
     this.tintMat = new pc.StandardMaterial();
-    Object.assign(this.tintMat, { useLighting: false, useSkybox: false, useFog: false, blendType: pc.BLEND_NORMAL, depthWrite: false, depthTest: false, opacity: 0 });
+    Object.assign(this.tintMat, { useLighting: false, useSkybox: false, useFog: false, blendType: pc.BLEND_NORMAL, depthWrite: false, depthTest: true, opacity: 0 });
     this.tintMat.diffuse = new pc.Color(0, 0, 0);
     this.tintMat.emissive = new pc.Color(1, 1, 1);
     this.tintMat.update();
@@ -128,6 +128,45 @@ export class View {
       });
       return { f, trees, key: '' };
     });
+    // What the valley remembers: graves on the hill, a stone notched for each flood, a shrine.
+    this.graves = [];
+    for (let i = 0; i < 16; i++) {
+      const x = 804 + i * 8 + ((i * 5) % 3);
+      const e = this.sprite(i % 3 === 1 ? 'grave_post' : 'grave_stone', x, groundHeight(x) - 1, Z.plot - 2 + (i % 2) * 0.1);
+      e.enabled = false;
+      this.graves.push(e);
+    }
+    this.floodStone = this.sprite('flood_stone', 280, groundHeight(280) - 1, Z.store);
+    this.floodStone.enabled = false;
+    this.shrine = this.sprite('shrine', 950, groundHeight(950) - 1, Z.store);
+    this.shrine.enabled = false;
+    // Lamplight in the windows after dark, drawn over the night.
+    this.glows = HOUSE_SLOTS.map((h) => {
+      const e = this.sprite('glow', h.x + 5, groundHeight(h.x) + 5, Z.light);
+      e.enabled = false;
+      return e;
+    });
+    this.stars = [];
+    for (let i = 0; i < 46; i++) {
+      const e = this.sprite('white', 0, 0, -58);
+      e.setLocalScale(1, 1, 1);
+      e.enabled = false;
+      this.stars.push({ e, u: (i * 0.6180339) % 1, v: ((i * 0.3819) % 1) * 0.62 });
+    }
+    this.birds = [];
+    for (let i = 0; i < 5; i++) {
+      const e = this.sprite('bird0', 0, 0, -44);
+      e.enabled = false;
+      this.birds.push({ e, dx: -i * 13 - (i % 2) * 6, dy: (i % 3) * 7 - 6, phase: i * 0.7 });
+    }
+    this.flock = null;
+    this.flockT = 6;
+    this.fishEnt = this.sprite('fish', 0, 0, Z.water - 0.5);
+    this.fishEnt.enabled = false;
+    this.fishT = 5;
+    this.kids = new Map();
+    this.dayT = 0.12; // time of day, 0..1; starts in the morning
+    this.night = 0;
     this.deer = [];
     for (let i = 0; i < 10; i++) {
       const e = this.sprite('deer0', 0, 0, Z.actor - 2);
@@ -268,6 +307,13 @@ export class View {
         this.place(e, e._x, groundHeight(e._x) - 1);
       });
     }
+    const nobody = st.households.length === 0;
+    const nGraves = Math.min(16, Math.floor(2.2 * Math.log2(1 + st.stats.deaths / 2)));
+    this.graves.forEach((e, i) => (e.enabled = i < nGraves));
+    this.floodStone.enabled = !!st.river.lastFlood;
+    this.shrine.enabled = year > 0;
+    if (year > 0) this.setTex(this.shrine, !nobody && st.year0.shortage <= 0.001 ? 'shrine' : 'shrine_bare');
+    this.homes = st.houses.map((h) => h.state === 'home');
     this.gameCount = { west: Math.round(st.forest.game.west / 8), east: Math.round(st.forest.game.east / 8) };
     const br = st.bridge;
     const bx = (WORLD.bridge.x0 + WORLD.bridge.x1) / 2;
@@ -328,6 +374,56 @@ export class View {
   homeX(h) {
     return h.house >= 0 ? HOUSE_SLOTS[h.house].x : 1060 + ((h.id * 37) % 360);
   }
+  // One child out of doors for each house that has children, up to a dozen.
+  syncChildren(st) {
+    const year = yearOf(st);
+    const want = new Map();
+    for (const p of st.people) {
+      const age = year - p.born;
+      if (age < 3 || age >= 14 || want.has(p.hid) || want.size >= 12) continue;
+      const h = st.households.find((x) => x.id === p.hid);
+      if (h) want.set(p.hid, this.homeX(h));
+    }
+    for (const [hid, k] of this.kids) {
+      if (want.has(hid)) continue;
+      k.e.destroy();
+      this.kids.delete(hid);
+    }
+    for (const [hid, home] of want) {
+      let k = this.kids.get(hid);
+      if (!k) {
+        const x = home + vrand() * 24 - 12;
+        k = { e: this.sprite(`child${hid % 4}_idle`, x, groundHeight(x), Z.actor - 0.5), skin: `child${hid % 4}`, x, target: null, wait: vrand() * 3, dir: 1, phase: vrand() * 9 };
+        this.kids.set(hid, k);
+      }
+      k.home = home;
+    }
+  }
+  updateChildren(dt, opts) {
+    for (const k of this.kids.values()) {
+      if (k.target === null) {
+        if ((k.wait -= dt) <= 0) {
+          // Children stay near home, unless the god is close: then they trail after him.
+          const near = opts.god !== undefined && Math.abs(opts.god - k.x) < 150;
+          k.target = near && vrand() < 0.7 ? opts.god + (vrand() < 0.5 ? -1 : 1) * (10 + vrand() * 14) : k.home + vrand() * 70 - 35;
+          k.target = Math.max(this.deck ? 8 : WORLD.walkMin, Math.min(1462, k.target));
+        }
+      } else {
+        const d = k.target - k.x;
+        k.dir = Math.sign(d) || k.dir;
+        k.x += Math.sign(d) * Math.min(Math.abs(d), 52 * dt);
+        if (Math.abs(d) < 1) (k.target = null), (k.wait = 0.4 + vrand() * 2.5);
+      }
+      k.phase += dt * 11;
+      const frame = k.target !== null ? (Math.floor(k.phase) % 2 ? 'walk1' : 'walk2') : 'idle';
+      this.setTex(k.e, `${k.skin}_${frame}`, k.dir < 0);
+      this.place(k.e, Math.round(k.x), Math.round(this.surface(k.x)));
+    }
+  }
+  clearChildren() {
+    for (const k of this.kids.values()) k.e.destroy();
+    this.kids.clear();
+  }
   addActor(id, skin, x) {
     const e = this.sprite(`${skin}_idle`, x, groundHeight(x), Z.actor - (id % 7) * 0.1);
     const badge = this.sprite('seed', x, groundHeight(x) + 14, Z.badge);
@@ -344,6 +440,7 @@ export class View {
     this.actors.delete(id);
   }
   clearActors() {
+    this.clearChildren();
     for (const id of [...this.actors.keys()]) this.removeActor(id);
   }
 
@@ -355,6 +452,12 @@ export class View {
       if (a.leaving) {
         a.leaving += dt;
         if (a.x > 1470 + WORLD.east) a.e.enabled = false;
+      }
+      if (!a.controlled && a.id >= 0 && !a.leaving && opts.god !== undefined && Math.abs(opts.god - a.x) < 34) {
+        // The god is close: they stop what they are doing and turn to him.
+        if (a.target !== null && !a.carrying) (a.target = null), (a.wait = 1.2 + vrand() * 1.5);
+        a.dir = Math.sign(opts.god - a.x) || a.dir;
+        a.moving = false;
       }
       if (!a.controlled) {
         if (a.target === null) {
@@ -412,6 +515,7 @@ export class View {
       const f = { e, kind, x, y, vx: 0, vy: 0, life: 1, age: 0 };
       if (kind === 'snow') Object.assign(f, { vx: -6 + vrand() * 12, vy: -18 - vrand() * 14, life: 6, tex: 'white' });
       else if (kind === 'rain') Object.assign(f, { vx: -30, vy: -190, life: 1.6, tex: 'rain' });
+      else if (kind === 'firefly') Object.assign(f, { vx: vrand() * 10 - 5, vy: vrand() * 6 - 2, life: 2.4 + vrand() * 2, tex: 'ember' });
       else if (kind === 'splash') Object.assign(f, { vx: vrand() * 16 - 8, vy: 14 + vrand() * 14, life: 0.28, tex: 'white', g: -90 });
       else if (kind === 'ash') Object.assign(f, { vx: -10 + vrand() * 8, vy: -26 - vrand() * 16, life: 7, tex: 'ashflake' });
       else if (kind === 'plume') Object.assign(f, { x: x + vrand() * 14 - 7, vx: 5 + vrand() * 6, vy: 10 + vrand() * 8, life: 6, tex: vrand() < 0.5 ? 'ashflake' : 'smoke' });
@@ -632,6 +736,63 @@ export class View {
     this.tintMat.update();
     this.tintEnt.setLocalScale(vw + 4, 1, vh + 4);
     this.tintEnt.setLocalPosition(cx, cy, Z.tint);
+
+    // The day turns while the god is in the valley: dusk, night with lamps and stars, dawn.
+    if (opts.ambient) {
+      this.dayT = (this.dayT + dt / 170) % 1;
+      const t = this.dayT;
+      const ramp = (a, b) => Math.max(0, Math.min(1, (t - a) / (b - a)));
+      const dusk = ramp(0.46, 0.56) * (1 - ramp(0.58, 0.66));
+      const night = ramp(0.56, 0.66) * (1 - ramp(0.9, 0.98));
+      const dawn = ramp(0.9, 0.96) * (1 - ramp(0.97, 1));
+      this.night = night;
+      const a = Math.max(dusk * 0.2, night * 0.5, dawn * 0.16);
+      const mix = night > 0.05 ? [0.06 + 0.5 * (1 - night), 0.09 + 0.3 * (1 - night), 0.24] : dawn > dusk ? [1, 0.6, 0.6] : [1, 0.55, 0.25];
+      this.setTint(mix[0], mix[1], mix[2], a);
+    } else this.night = 0;
+    const lamp = this.night;
+    this.mats.glow.opacity = 0.85 * lamp;
+    this.mats.glow.update();
+    this.glows.forEach((e, i) => (e.enabled = lamp > 0.05 && !!(this.homes && this.homes[i])));
+    for (const sStar of this.stars) {
+      sStar.e.enabled = lamp > 0.35;
+      if (lamp > 0.35) sStar.e.setLocalPosition(Math.round(this.viewRect.x0 + sStar.u * vw), Math.round(this.viewRect.y1 - sStar.v * vh), -58);
+    }
+    if (lamp > 0.5 && vrand() < 0.2) this.emit('firefly', this.viewRect.x0 + vrand() * vw, groundHeight(Math.max(WORLD.x0, Math.min(WORLD.x1 - 1, this.viewRect.x0 + vw / 2))) + 4 + vrand() * 26);
+    // Birds cross the sky by day.
+    this.flockT -= dt;
+    if (!this.flock && this.flockT <= 0 && lamp < 0.2 && opts.ambient) {
+      const dir = vrand() < 0.5 ? 1 : -1;
+      this.flock = { x: dir > 0 ? this.viewRect.x0 - 20 : this.viewRect.x1 + 80, y: cy + vh * (0.12 + vrand() * 0.2), dir, n: 2 + Math.floor(vrand() * 4) };
+    }
+    if (this.flock) {
+      const f = this.flock;
+      f.x += f.dir * 46 * dt;
+      this.birds.forEach((b, i) => {
+        b.e.enabled = i < f.n;
+        if (i >= f.n) return;
+        this.setTex(b.e, Math.floor(this.time * 5 + b.phase) % 2 ? 'bird0' : 'bird1');
+        b.e.setLocalPosition(Math.round(f.x + b.dx * f.dir), Math.round(f.y + b.dy + Math.sin(this.time * 2 + b.phase) * 2), -44);
+      });
+      if (f.x < this.viewRect.x0 - 120 || f.x > this.viewRect.x1 + 120) (this.flock = null), (this.flockT = 14 + vrand() * 30), this.birds.forEach((b) => (b.e.enabled = false));
+    } else this.birds.forEach((b) => (b.e.enabled = false));
+    // Now and then a fish jumps in the river.
+    this.fishT -= dt;
+    const s0 = this.surface0;
+    if (!this.fishJump && this.fishT <= 0 && s0 && !s0.flooding && opts.ambient) {
+      const x = s0.left + 14 + vrand() * Math.max(1, s0.right - s0.left - 28);
+      this.fishJump = { x, t: 0, dir: vrand() < 0.5 ? 1 : -1 };
+      this.emit('splash', x, s0.top, 4);
+    }
+    this.fishEnt.enabled = !!this.fishJump;
+    if (this.fishJump) {
+      const j = this.fishJump;
+      j.t += dt;
+      const u = j.t / 0.8;
+      this.fishEnt.setLocalScale(j.dir * this.fishEnt._w, 1, this.fishEnt._h);
+      this.fishEnt.setLocalPosition(Math.round(j.x + j.dir * u * 12), Math.round(s0.top + Math.sin(u * Math.PI) * 9), Z.water - 0.5);
+      if (u >= 1) (this.emit('splash', j.x + j.dir * 12, s0.top, 4), (this.fishJump = null), (this.fishT = 7 + vrand() * 14));
+    }
 
     // Deer browse in whichever forest still has game.
     const seen = { west: 0, east: 0 };
