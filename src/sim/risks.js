@@ -2,7 +2,7 @@
 import { BALANCE } from './balance.js';
 import { hashSeed } from './rng.js';
 import { BRIDGE } from './decisions.js';
-import { cloneSim, runYears, knowers, builtPlots, yearOf, isAlive, stageBlock } from './sim.js';
+import { cloneSim, runYears, knowers, builtPlots, yearOf, isAlive, stageBlock, forestCover } from './sim.js';
 
 export function summary(st) {
   const built = builtPlots(st);
@@ -12,6 +12,10 @@ export function summary(st) {
     stageName: BALANCE.stages.names[st.civ.stage],
     households: st.households.length,
     people: st.people.length,
+    wood: st.forest.wood,
+    coverWest: forestCover(st, 'west'),
+    coverEast: forestCover(st, 'east'),
+    game: st.forest.game.west + st.forest.game.east,
     knowers: knowers(st),
     food: st.stores.low.food + st.stores.ridge.food,
     foodRidge: st.stores.ridge.food,
@@ -57,6 +61,18 @@ export function assessRisks(st, B = BALANCE) {
 
   if (s.damaged > 0) add('warn', `${plural(s.damaged, 'field')} lie under flood silt${s.knowers ? '' : ', and nobody knows how to restore them'}.`);
   if (fields > 0 && yearsOfFood < 1) add('warn', `Food in store covers ${fmtYears(yearsOfFood)}.`);
+  const pct = (v) => `${Math.round(v * 100)}%`;
+  const fuel = st.people.length * B.forest.fuel;
+  if (s.coverEast === 0 && s.coverWest === 0) add('danger', 'Both forests are gone. There is no timber, no firewood and no game, and nothing left to seed new trees.');
+  else {
+    if (s.coverEast < 0.35) add(s.coverEast === 0 ? 'danger' : 'warn', s.coverEast === 0 ? 'The east forest is gone. The bare ridge slides more easily.' : `Only ${pct(s.coverEast)} of the east forest still stands.`);
+    if (s.coverWest < 0.35) add(s.coverWest === 0 ? 'danger' : 'warn', s.coverWest === 0 ? 'The west forest is gone. Without it the river floods more often.' : `Only ${pct(s.coverWest)} of the west forest still stands.`);
+  }
+  if (st.forest.cold > 0.2) add('warn', 'Last winter there was not enough firewood. Cold winters kill.');
+  else if (s.wood < fuel) add('warn', 'The woodpile will not last the winter.');
+  if (st.forest.game.east < 1 && st.forest.game.west < 1) add('warn', 'There is no game left in either forest.');
+  else if (st.forest.game.east < 6 && st.forest.game.east > 0) add('warn', 'Game is scarce in the east forest. Hunt it harder and it will be gone.');
+  if (s.coverEast > 0.7 && s.coverWest > 0.7 && s.game > 30) add('good', 'Both forests stand, and there is game in them.');
   const br = st.bridge;
   const farFields = built.filter((p) => p.far).length;
   if (br.built === 'rope') add('warn', `The far bank hangs on a footbridge. Any high water may take it${farFields ? `, and ${farFields} field${farFields === 1 ? '' : 's'} with it` : ''}.`);

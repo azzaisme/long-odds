@@ -1,7 +1,7 @@
 // PlayCanvas world view. Reads simulation state; never writes it.
 import * as pc from 'playcanvas';
 import { buildSprites, SHIRTS } from './sprites.js';
-import { WORLD, PLOT_SITES, HOUSE_SLOTS, groundHeight, waterEdge, waterLeft } from '../sim/world.js';
+import { WORLD, PLOT_SITES, HOUSE_SLOTS, FOREST_STANDS, groundHeight, waterEdge, waterLeft } from '../sim/world.js';
 import { yearOf } from '../sim/sim.js';
 
 const Z = { volcano: -52, civic: -17, sky: -60, far: -50, cloud: -45, mid: -40, tree: -22, terrain: -20, house: -14, store: -12, plot: -8, growth: -7, actor: -4, badge: -3, water: 2, fx: 4, tint: 8 };
@@ -111,11 +111,31 @@ export class View {
       c._y = 150 + (i % 3) * 38;
       return c;
     });
-    this.terrain = this.sprite('terrain', WORLD.width / 2, -100, Z.terrain);
+    this.terrain = this.sprite('terrain', (WORLD.x0 + WORLD.x1) / 2, -100, Z.terrain);
 
     // Standing trees: landmarks that stay put however the settlement changes.
-    const trees = [[786, 'pine'], [812, 'tree2'], [846, 'pine'], [880, 'tree'], [905, 'pine'], [928, 'tree2'], [972, 'tree'], [1466, 'pine'], [1452, 'tree2'], [276, 'reeds'], [268, 'reeds'], [758, 'tree2']];
+    const trees = [[786, 'pine'], [812, 'tree2'], [846, 'pine'], [880, 'tree'], [905, 'pine'], [928, 'tree2'], [972, 'tree'], [1466 + WORLD.east, 'pine'], [1452 + WORLD.east, 'tree2'], [276, 'reeds'], [268, 'reeds'], [758, 'tree2']];
     for (const [x, t] of trees) this.sprite(t, x, groundHeight(x) - 1, Z.tree);
+
+    // The two forests: three trees to a stand, which thin out and turn to stumps as it is cut.
+    const kinds = ['oak', 'fir', 'oak2'];
+    this.stands = FOREST_STANDS.map((f) => {
+      const trees = [-13, 0, 13].map((dx, i) => {
+        const x = f.x + dx + ((f.id * 7 + i * 3) % 5) - 2;
+        const e = this.sprite(kinds[(f.id + i) % 3], x, groundHeight(x) - 1, Z.tree + 1 + ((f.id + i) % 3) * 0.2);
+        e._x = x;
+        e._kind = kinds[(f.id + i) % 3];
+        return e;
+      });
+      return { f, trees, key: '' };
+    });
+    this.deer = [];
+    for (let i = 0; i < 10; i++) {
+      const e = this.sprite('deer0', 0, 0, Z.actor - 2);
+      e.enabled = false;
+      this.deer.push({ e, side: i < 5 ? 'west' : 'east', x: 0, target: null, wait: vrand() * 4, dir: 1, placed: false });
+    }
+    this.gameCount = { west: 0, east: 0 };
 
     this.plots = PLOT_SITES.map((s) => {
       const y = groundHeight(s.x);
@@ -217,6 +237,22 @@ export class View {
         }
       }
     }
+    for (const v of this.stands) {
+      const f = st.forest.stands[v.f.id];
+      const n = f.cleared ? -1 : f.wood >= 7.5 ? 3 : f.wood >= 4.5 ? 2 : f.wood >= 2 ? 1 : 0;
+      const key = `${n}|${f.wood > 0 && f.wood < 2 ? 's' : ''}`;
+      if (key === v.key) continue;
+      v.key = key;
+      v.trees.forEach((e, i) => {
+        e.enabled = n >= 0;
+        if (n < 0) return;
+        // Trees go from the outside in; a stand that is growing back shows saplings among the stumps.
+        const standing = i === 1 ? n >= 1 : i === 0 ? n >= 2 : n >= 3;
+        this.setTex(e, standing ? e._kind : f.wood > 0 && i === 1 ? 'sapling' : 'stump');
+        this.place(e, e._x, groundHeight(e._x) - 1);
+      });
+    }
+    this.gameCount = { west: Math.round(st.forest.game.west / 8), east: Math.round(st.forest.game.east / 8) };
     const br = st.bridge;
     const bx = (WORLD.bridge.x0 + WORLD.bridge.x1) / 2;
     const bkey = `${br.built}|${br.plan}|${br.progress > 0}|${br.lostYear}`;
@@ -261,7 +297,7 @@ export class View {
       if (instant || a.leaving > 6) this.removeActor(id);
       else if (!a.leaving) {
         a.leaving = 0.01;
-        a.target = 1560; // out through the split in the cliff
+        a.target = 1560 + WORLD.east; // out through the split in the cliff
         a.wait = 0;
         a.badge.enabled = false;
       }
@@ -302,7 +338,7 @@ export class View {
     for (const a of this.actors.values()) {
       if (a.leaving) {
         a.leaving += dt;
-        if (a.x > 1470) a.e.enabled = false;
+        if (a.x > 1470 + WORLD.east) a.e.enabled = false;
       }
       if (!a.controlled) {
         if (a.target === null) {
@@ -316,7 +352,7 @@ export class View {
             else if (r < 0.88) a.target = WORLD.granaryX + (vrand() * 30 - 15);
             else a.target = a.home + (vrand() * 40 - 20);
             if (opts.gather !== undefined && vrand() < 0.3) a.target = opts.gather + (vrand() * 200 - 100);
-            a.target = Math.max(this.deck ? WORLD.farWalkMin : WORLD.walkMin, Math.min(a.leaving ? 1600 : WORLD.walkMax, a.target));
+            a.target = Math.max(this.deck ? 8 : WORLD.walkMin, Math.min(a.leaving ? WORLD.x1 : 1462, a.target));
           }
         } else {
           const d = a.target - a.x;
@@ -386,7 +422,7 @@ export class View {
       if (f.g) f.vy += f.g * dt;
       f.x += f.vx * dt;
       f.y += f.vy * dt;
-      const ground = groundHeight(Math.max(0, Math.min(1599, f.x)));
+      const ground = groundHeight(Math.max(WORLD.x0, Math.min(WORLD.x1 - 1, f.x)));
       if (f.age > f.life || ((f.kind === 'snow' || f.kind === 'rain' || f.kind === 'ash') && f.y < Math.max(ground, this.water.level))) {
         f.e.enabled = false;
         this.fx.splice(i, 1);
@@ -407,8 +443,8 @@ export class View {
     c.y += (c.ty - c.y) * k;
     const vw = cw / c.zoom;
     const vh = ch / c.zoom;
-    let cx = Math.max(vw / 2, Math.min(WORLD.width - vw / 2, c.x));
-    if (vw >= WORLD.width) cx = WORLD.width / 2;
+    let cx = Math.max(WORLD.x0 + vw / 2, Math.min(WORLD.x1 - vw / 2, c.x));
+    if (vw >= WORLD.x1 - WORLD.x0) cx = (WORLD.x0 + WORLD.x1) / 2;
     const cy = Math.max(-64 + vh / 2, c.y);
     const snap = (v) => Math.round(v * c.zoom) / c.zoom;
     this.camera.camera.orthoHeight = vh / 2;
@@ -496,6 +532,29 @@ export class View {
     this.tintMat.update();
     this.tintEnt.setLocalScale(vw + 4, 1, vh + 4);
     this.tintEnt.setLocalPosition(cx, cy, Z.tint);
+
+    // Deer browse in whichever forest still has game.
+    const seen = { west: 0, east: 0 };
+    for (const d of this.deer) {
+      const show = seen[d.side]++ < this.gameCount[d.side];
+      d.e.enabled = show;
+      if (!show) {
+        d.placed = false;
+        continue;
+      }
+      const [lo, hi] = d.side === 'west' ? [-440, -30] : [1490, 1850];
+      if (!d.placed) (d.x = lo + vrand() * (hi - lo)), (d.placed = true);
+      if (d.target === null) {
+        if ((d.wait -= dt) <= 0) d.target = Math.max(lo, Math.min(hi, d.x + vrand() * 160 - 80));
+      } else {
+        const dx = d.target - d.x;
+        d.dir = Math.sign(dx) || d.dir;
+        d.x += Math.sign(dx) * Math.min(Math.abs(dx), 22 * dt);
+        if (Math.abs(dx) < 1) (d.target = null), (d.wait = 2 + vrand() * 7);
+      }
+      this.setTex(d.e, d.target !== null && Math.floor(this.time * 6) % 2 ? 'deer1' : 'deer0', d.dir < 0);
+      this.place(d.e, Math.round(d.x), groundHeight(d.x));
+    }
 
     // Hearth smoke from occupied houses.
     if (st && !opts.noSmoke)

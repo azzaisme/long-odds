@@ -4,7 +4,7 @@ Checked on Node 22 and headless Chromium (software WebGL, 1280×720, 16–27 fps
 describes the build as it stands: individual people and family lines, ideas, customs, crops,
 bridges, disasters, the god's exit and return, and settlement stages.
 
-## Automated: `npm test` — 25 of 25 pass (about 70 s)
+## Automated: `npm test` — 29 of 29 pass (about 100 s)
 
 | What | How | Result |
 | --- | --- | --- |
@@ -14,7 +14,7 @@ bridges, disasters, the god's exit and return, and settlement stages.
 | Frame rate and split jumps do not change the result | fingerprint after 111 years direct, as 1 + 10 + 100 played back, and as 100 + 10 + 1 | identical, 5 seeds |
 | Same seed + same decisions = same result | scripted five-visit run twice; and a run with practices and customs set, 60 seeds × 300 years, against a twin | identical fingerprints |
 | Odds estimates leave the live simulation untouched | fingerprint and RNG state before and after 40 trial futures, then 50 more years against a twin | identical |
-| Unfarmed village collapses early | 200 seeds, no actions | all collapse; half by year 6, 95% by year 10, the last by year 20 |
+| Unfarmed village collapses early | 200 seeds, no actions | all collapse; half by year 6, 95% by year 11, the last by year 15 (hunting carries them slightly longer than before) |
 | Collapse inside a 1,000-year jump | lowland-only village | one collapse event, year fixed, state reaches year 1,000 with fields overgrown and houses fallen |
 | Recovery traceable to the player | ridge store + demonstration + carried seed, 100 years | post-flood replanting recorded with the store's builder and year, worked by a household taught by the demonstration |
 | Mixed farms + ridge store beat lowland-only | 80 seeds per strategy to year 500 | passes by more than 10 points over lowland + teaching and 25 over lowland only |
@@ -29,6 +29,10 @@ bridges, disasters, the god's exit and return, and settlement stages.
 | Small bridges are lost more, and strand crops | each kind standing, well-fed, 40 seeds × 80 years | losses: footbridge > 2× timber > 2× stone; the footbridge strands the most far-bank crops |
 | A hungry village puts bridge work off | timber planned, 30 seeds, one year with 8 food vs 400 | no progress in any hungry year; progress in every fed one |
 | A stone bridge stalls without stone-builders | plan it with nobody knowing stone, then teach it | no progress and a stall notice; work starts once someone knows it |
+| Felling and clearing | fell, re-fell, clear; west forest with and without a bridge | timber and food accounted for; felled ground stays forest ground; cleared ground is a field; the west forest is refused without a bridge |
+| Regrowth and running out | one stand felled among neighbours vs the whole east forest felled, nobody cutting, 60 and 200 years | the single stand regrows past 8 of 10; the bare forest stays at 0, is reported gone once, and its game is 0; the west forest is untouched |
+| Forest customs change the outcome | default vs greedy (fell nearest, hunt everything, always clear) vs careful (hunt lightly, never clear), 40 seeds × 311 years | greedy leaves less east forest and hunts game out more often; careful leaves more game |
+| Timber and firewood matter | fed villages with and without any timber, 30 seeds × 25 years | no houses founded without timber, more than 20 with; deaths more than 20% higher without firewood |
 
 ## Headless balance run: `npm run sim -- 100`
 
@@ -37,22 +41,23 @@ actions a visit so the rows stay comparable; the game itself has no cap. About t
 
 | Strategy | Median years | ≥ 10 y | ≥ 100 y | ≥ 500 y | ≥ 1,211 y | Reached the Hold |
 | --- | --- | --- | --- | --- | --- | --- |
-| No farms | 6 | 5% | 0% | 0% | 0% | 0% |
-| Lowland only | 8 | 42% | 1% | 1% | 1% | 0% |
-| Lowland + teaching | 14 | 62% | 22% | 17% | 17% | 9% |
-| Ridge only + teaching | 124 | 93% | 51% | 44% | 44% | 18% |
-| Mixed, no ridge store | 48 | 87% | 40% | 34% | 34% | 11% |
-| Mixed + ridge seed store | 71 | 85% | 44% | 42% | 42% | 11% |
-| Mixed + store + the five other base ideas | 84 | 83% | 46% | 44% | 44% | 44% |
-| … + footbridge planned | 95 | 83% | 49% | 46% | 46% | 46% |
-| … + timber bridge planned | 89 | 83% | 46% | 44% | 44% | 44% |
-| … + timber, then stone bridge | 120 | 83% | 50% | 49% | 49% | 49% |
+| No farms | 6 | 13% | 0% | 0% | 0% | 0% |
+| Lowland only | 10 | 52% | 2% | 1% | 1% | 0% |
+| Lowland + teaching | 19 | 71% | 26% | 18% | 16% | 0% |
+| Ridge only + teaching | 410 | 99% | 64% | 48% | 38% | 0% |
+| Mixed, no ridge store | 83 | 85% | 44% | 32% | 32% | 0% |
+| Mixed + ridge seed store | 73 | 89% | 42% | 40% | 37% | 0% |
+| Mixed + store + the five other base ideas | 93 | 91% | 49% | 46% | 46% | 11% |
+| … + footbridge planned | 125 | 94% | 53% | 49% | 49% | 34% |
+| … + timber bridge planned | 1,211 | 94% | 57% | 52% | 52% | 24% |
+| … + timber, then stone bridge | 126 | 94% | 53% | 48% | 48% | 36% |
 
-With 100 seeds each figure carries several points of noise. What they show: mixed farming with
-ridge seed storage stands at year 500 in 42% of seeds against 1% for lowland-only; teaching the
-other base ideas is what gets a village to the Hold (44% against 11%); no bridge plan now
-costs early survival (83% reach year 10 with or without one), and a stone bridge is the best
-long-run plan by a few points, which is within the noise at 100 seeds.
+With 100 seeds each figure carries several points of noise. What they show now that forests are
+in: survival is about where it was (mixed farming with ridge seed storage stands at year 500 in
+40% of seeds against 1% for lowland-only), and early years are a little kinder because hunting
+adds food. The Hold is much rarer, because growth needs timber: nobody reaches it without
+teaching the other ideas, 11% do with them, and 24–36% do with a bridge, which opens the west
+forest. No scripted player changes the forest customs.
 
 An earlier version let the village pay for bridge work in years it could not feed itself; a
 full browser playthrough showed a village starving while it built. Bridge work now waits until
@@ -94,11 +99,21 @@ Real key presses throughout, no console errors in any run.
   the god was absent during playback and every action tried then was refused; the playback
   clock read 30.16 s; he reappeared at the destination and visit 2 began. Screens checked by
   eye: start, the site card, the teach list, the People and Step out tabs, and the return.
+- **Forests.** Walked to the east forest, felled a stand (10 timber, 0.5 food) and cleared the
+  next for a field; stumps and the new field drew correctly, with deer under the trees; the
+  god stopped at x 1862 before the cliff, stopped at the river with no bridge, and reached the
+  far edge of the west forest once a bridge stood; the Customs tab listed the three forest
+  customs; a 1,000-year jump ran with the whole valley in frame. No console errors.
 - **Bridges.** Planned a footbridge at the crossing; walking stopped at the bank with no
   bridge; after a 1-year jump the footbridge stood; walked across on the deck and cleared a
   far-bank field.
 
 ## Not covered
+
+- The top-row labels were shortened after the forest screenshots (two were being cut off) and
+  only build-tested. A forest being cut down by the village over a long jump was checked in
+  the simulation, not watched.
+- The bridge in the forest run was switched on directly rather than built.
 
 - The collapse verdict, the ruins and the Customs, Bridge and Controls tabs were not looked at
   again after the interface change; the first-visit checklist's key labels were fixed after

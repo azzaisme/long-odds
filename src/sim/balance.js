@@ -29,7 +29,7 @@ export const BALANCE = {
   people: {
     adultAge: 16,
     eat: { adult: 0.6, child: 0.25 }, // food per person per year
-    forage: 0.25, // food gathered per adult per year
+    forage: 0.12, // food gathered per adult per year (plants, fish); hunting comes on top
     plotsPerAdult: 1,
     death: { infant: 0.02, adult: 0.005, oldFrom: 50, old: 0.03, oldRise: 0.006, hunger: 2 }, // yearly chances
     marryFrom: 17, marryTo: 40, marryChance: 0.5,
@@ -52,6 +52,32 @@ export const BALANCE = {
     trade: 0.3, // share of a winter shortage made up by trading across the river
     hands: 2, // grown people a building year needs free
     reserve: 0.75, // share of a year's food that must be left in store after paying for the year's work
+  },
+
+  // Forests and wildlife.
+  forest: {
+    standWood: 10, // timber in an untouched stand
+    startWood: 6, // cut timber the village starts with
+    regrow: 0.35, // growth rate of a stand; fastest when it is half grown
+    seedling: 0.3, // timber in a bare stand the year a neighbour seeds it
+    seedFrom: 3, // a bare stand only regrows beside a neighbour with at least this much
+    thinFloor: 4, // thinning never takes a stand below this
+    thinTake: 2, // most timber thinning takes from one stand in a year
+    fuel: 0.03, // firewood per person per year
+    houseWood: 2, // timber to found a new house
+    bridgeWood: { rope: 1, timber: 2, stone: 1 }, // timber per year of bridge work
+    coldDeaths: 1.0, // deaths rise by this much in a winter with no firewood at all
+    fellCost: 0.5, // food for the god to fell one stand
+    clearCost: 2, // food to clear a stand into a field
+    returns: 60, // years before an abandoned forest field is forest again
+    gameCap: 40, // game a whole forest can carry, in food
+    gameGrowth: 0.3,
+    startGame: 0.8, // share of capacity at the start
+    huntPerAdult: 0.2, // most game each grown person brings home in a year
+    recolonise: 0.05, // yearly chance game crosses the bridge into an emptied forest
+    wander: 0.01, // yearly chance game wanders back into standing forest from beyond the valley
+    runoff: 0.4, // floods are this much likelier with the west forest gone
+    slides: 2, // landslides are this many times likelier again with the east forest gone
   },
 
   // Farms

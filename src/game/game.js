@@ -244,6 +244,21 @@ export class Game {
         ? `Rich river silt: about ${B.yield.low} food a year. Every flood reaches it.`
         : `Thin soil: about ${B.yield.ridge} food a year. Ordinary floods never climb this far; drought bites harder.`;
       const by = p.builtBy ? ` Cleared by ${p.builtBy === 'village' ? 'the village' : p.builtBy} in year ${p.builtYear}.` : '';
+      if (p.state === 'forest') {
+        const f = st.forest.stands[p.stand];
+        const side = f.side;
+        const game = st.forest.game[side];
+        const cover = Math.round(Sim.forestCover(st, side) * 100);
+        const how = f.wood >= 7.5 ? 'Old trees, never cut.' : f.wood >= 2 ? 'Thinned, and growing back.' : f.wood > 0 ? 'Seedlings among the stumps.' : 'Stumps. It will only grow back if a neighbouring stand still has trees to seed it.';
+        const cut = !p.far || st.bridge.built;
+        return {
+          kind: 'fell', forest: true, title: `Stand of the ${side} forest`,
+          text: `${how} ${Math.round(f.wood)} timber here; ${cover}% of the ${side} forest still stands. ${game < 1 ? 'There is no game left in it.' : game < 8 ? 'Game is scarce.' : 'There is game under the trees.'}`,
+          action: cut && f.wood >= 0.5 ? `Fell for timber (${Math.round(f.wood)})` : null,
+          action2: cut ? 'Clear the stand for a field' : null,
+          note: cut ? '' : 'There is no way across the river.',
+        };
+      }
       const cropLine = ` Sown with ${CROP[p.crop].name.toLowerCase()}: ${CROP[p.crop].does.toLowerCase()}`;
       if (p.state === 'wild') return { kind: 'build', title: `${place} site`, text: `Open ground. ${trait}`, action: 'Clear and build a field here' };
       if (p.state === 'overgrown') return { title: `Overgrown ${place.toLowerCase()} field`, text: `Abandoned ${ago(p.since)}; last worked in year ${Math.max(0, p.lastWorked)}.${by} ${trait}`, action: 'Clear and rebuild this field', kind: 'build' };
@@ -338,7 +353,9 @@ export class Game {
     const a = this.me();
     if (t.kind === 'house') return this.openHouse(st.houses[t.id].hid);
     if (t.kind === 'bridge') return this.openBridge();
-    if (t.kind === 'plot') {
+    if (t.kind === 'plot' && st.plots[t.id].state === 'forest') {
+      if (this.spend(Sim.fellStand(st, t.id, who), 'build')) this.view.emit('dust', t.x, groundHeight(t.x) + 6, 18);
+    } else if (t.kind === 'plot') {
       const p = st.plots[t.id];
       if (this.spend(p.state === 'damaged' ? Sim.repairPlot(st, t.id, who) : Sim.buildPlot(st, t.id, who), 'build')) this.view.emit('dust', t.x, groundHeight(t.x) + 2, 14);
     } else if (t.kind === 'store') {
@@ -381,6 +398,10 @@ export class Game {
     const t = this.nearest();
     if (this.state !== S.VISIT || !t || t.kind !== 'plot' || t.key !== this.inspect) return;
     const p = this.sim.plots[t.id];
+    if (p.state === 'forest') {
+      if (this.spend(Sim.clearStand(this.sim, t.id, 'you'), 'build')) this.view.emit('dust', t.x, groundHeight(t.x) + 6, 22);
+      return;
+    }
     if (p.state === 'eroded') return;
     const next = CROPS[(CROPS.findIndex((c) => c.id === p.crop) + 1) % CROPS.length];
     const r = Sim.setCrop(this.sim, t.id, next.id, this.myHouse().name);
@@ -555,7 +576,7 @@ export class Game {
     return `<div class="grid">
       ${cell('Settlement', esc(s.stageName))}${cell('People', s.people)}${cell('Households', s.households)}${cell('Know seed saving', s.knowers)}
       ${cell('Food in store', n0(s.food))}${cell('Seed: granary', n0(s.seedLow))}${cell('Seed: ridge', s.ridgeStore ? n0(s.seedRidge) : 'no store')}
-      ${cell('Floodplain fields', s.fieldsLow)}${cell('Ridge fields', s.fieldsRidge)}${s.damaged ? cell('Flood-damaged', s.damaged) : ''}
+      ${cell('Timber', n0(s.wood))}${cell('Forest standing', `${Math.round(s.coverWest * 100)}% W · ${Math.round(s.coverEast * 100)}% E`)}${cell('Game', n0(s.game))}${cell('Floodplain fields', s.fieldsLow)}${cell('Ridge fields', s.fieldsRidge)}${s.damaged ? cell('Flood-damaged', s.damaged) : ''}
     </div>
     <p class="note">Ideas kept (houses): ${IDEAS.filter((p) => holders(this.sim, p.id)).map((p) => `${esc(p.name)} ${holders(this.sim, p.id)}/${s.households}`).join(' · ') || 'none'}</p>
     <ul>${assessRisks(this.sim).map((r) => `<li class="${r.level}">${esc(r.text)}</li>`).join('')}</ul>`;
@@ -696,7 +717,7 @@ export class Game {
     this.floodSoundT -= dt;
     const gap = { 1: 0.25, 10: 0.6, 100: 0.85, 1000: 1.0 }[j.years];
     // Keep the queue short: turning points first, then summaries, then the rest.
-    const rank = (e) => (e.type === 'collapse' || e.type === 'stage' || e.type === 'eruption' || e.type === 'idea' ? 5 : e.type === 'tornado' || e.type === 'landslide' || e.type === 'rumble' || e.type === 'bridge' || e.type === 'bridge-lost' || e.type === 'stranded' ? 4 : e.type === 'recovery' || e.type === 'knowledge-lost' || e.type === 'store' ? 4 : e.p >= 3 ? 3 : e.sum ? 2 : e.p);
+    const rank = (e) => (e.type === 'collapse' || e.type === 'stage' || e.type === 'eruption' || e.type === 'idea' ? 5 : e.type === 'forest-gone' || e.type === 'game-gone' || e.type === 'cold' || e.type === 'tornado' || e.type === 'landslide' || e.type === 'rumble' || e.type === 'bridge' || e.type === 'bridge-lost' || e.type === 'stranded' ? 4 : e.type === 'recovery' || e.type === 'knowledge-lost' || e.type === 'store' ? 4 : e.p >= 3 ? 3 : e.sum ? 2 : e.p);
     if (this.queue.length > 4) {
       const keep = this.queue.map((e, i) => ({ e, i })).sort((a, b) => rank(b.e) - rank(a.e) || b.i - a.i).slice(0, 4).sort((a, b) => a.i - b.i);
       this.queue = keep.map((k) => k.e);
@@ -751,7 +772,7 @@ export class Game {
     let turning = j.turning;
     let skipped = 0;
     if (turning.length > 9) {
-      const must = turning.filter((e) => ['bridge', 'bridge-lost', 'stranded', 'idea', 'eruption', 'tornado', 'landslide', 'stage', 'stage-down', 'collapse', 'recovery', 'knowledge-lost', 'store', 'erode'].includes(e.type));
+      const must = turning.filter((e) => ['forest-gone', 'game-gone', 'bridge', 'bridge-lost', 'stranded', 'idea', 'eruption', 'tornado', 'landslide', 'stage', 'stage-down', 'collapse', 'recovery', 'knowledge-lost', 'store', 'erode'].includes(e.type));
       const stages = turning.filter((e) => e.type === 'idea' || e.type === 'stage' || e.type === 'collapse' || e.type === 'eruption');
       const pick = new Set([...turning.slice(0, 2), ...stages, ...must.slice(0, 2), ...must.slice(-2), ...turning.slice(-2)]);
       skipped = turning.length - pick.size;
@@ -919,11 +940,12 @@ export class Game {
     const known = IDEAS.filter((i) => holders(st, i.id)).length;
     const chip = (cls, value, label, tip) => `<div class="chip" title="${esc(tip)}"><i class="ico ${cls}"></i><b>${value}</b><small>${label}</small></div>`;
     $('stats').innerHTML =
-      chip('people', s.people, `people · ${s.households} houses`, `${s.people} people in ${s.households} houses, of ${st.lines.filter((l) => st.people.some((p) => p.lines.includes(l.id))).length} family lines`) +
+      chip('people', s.people, `in ${s.households} houses`, `${s.people} people in ${s.households} houses, of ${st.lines.filter((l) => st.people.some((p) => p.lines.includes(l.id))).length} family lines`) +
       chip('food', n0(s.food), 'food', `Food in store: ${n0(s.food - s.foodRidge)} in the granary, ${n0(s.foodRidge)} on the ridge. Work is paid for out of this.`) +
       chip('seed', `${n0(s.seedLow)}${s.ridgeStore ? ` + ${n0(s.seedRidge)}▲` : ''}`, 'seed', s.ridgeStore ? `${n0(s.seedLow)} seed in the lowland granary, ${n0(s.seedRidge)} in the ridge store` : `${n0(s.seedLow)} seed, all in the lowland granary. There is no ridge store.`) +
-      chip('fields', `${s.fieldsLow} + ${s.fieldsRidge}▲`, `fields${s.damaged ? ` · ${s.damaged} silted` : ''}`, `${s.fieldsLow} floodplain fields and ${s.fieldsRidge} ridge fields${s.damaged ? `; ${s.damaged} buried in flood silt` : ''}`) +
-      chip('ideas', `${known}/${IDEAS.length}`, `ideas · ${s.knowers} save seed`, `${known} of ${IDEAS.length} ideas are kept by someone. ${s.knowers} houses know how to save seed.`);
+      chip('fields', `${s.fieldsLow} + ${s.fieldsRidge}▲`, s.damaged ? `fields · ${s.damaged} silted` : 'fields', `${s.fieldsLow} floodplain fields and ${s.fieldsRidge} ridge fields${s.damaged ? `; ${s.damaged} buried in flood silt` : ''}`) +
+      chip('wood', n0(s.wood), `timber · forest ${Math.round((s.coverWest + s.coverEast) * 50)}%`, `${n0(s.wood)} cut timber. The west forest is ${Math.round(s.coverWest * 100)}% standing, the east ${Math.round(s.coverEast * 100)}%. Game: ${n0(st.forest.game.west)} west, ${n0(st.forest.game.east)} east.`) +
+      chip('ideas', `${known}/${IDEAS.length}`, 'ideas', `${known} of ${IDEAS.length} ideas are kept by someone. ${s.knowers} houses know how to save seed.`);
     // First-visit checklist: what to try before leaving.
     const did = (type) => st.actions.some((a) => a.type === type);
     const goals = [
@@ -946,8 +968,9 @@ export class Game {
     const st = this.sim;
     const visit = this.state === S.VISIT;
     this.inspect = t ? t.key : null;
-    const afford = (kind) => kind === 'open' || Sim.canAfford(st, kind);
-    const cost = (kind) => (kind === 'open' ? '' : B.workCost[kind] ? ` · ${B.workCost[kind]} food` : ' · free');
+    const price = (kind) => (kind === 'fell' ? B.forest.fellCost : kind === 'clear' ? B.forest.clearCost : B.workCost[kind] || 0);
+    const afford = (kind) => kind === 'open' || st.stores.low.food + st.stores.ridge.food >= price(kind);
+    const cost = (kind) => (kind === 'open' ? '' : price(kind) ? ` · ${price(kind)} food` : ' · free');
     let html = '';
     if (visit && a && this.picking) {
       prompt.hidden = true;
@@ -964,7 +987,8 @@ export class Game {
       if (prompt.dataset.k !== d.title) (prompt.dataset.k = d.title), (prompt.textContent = d.title);
       let acts = '';
       if (visit && d.action) acts += `<button class="primary" data-act="site" ${afford(d.kind) ? '' : 'disabled'}><kbd>E</kbd> ${esc(d.action)}${cost(d.kind)}</button>`;
-      if (visit && t.kind === 'plot' && st.plots[t.id].state !== 'eroded') acts += `<button data-act="crop"><kbd>2</kbd> Sown with ${esc(CROP[st.plots[t.id].crop].name.toLowerCase())}: change</button>`;
+      if (visit && d.forest && d.action2) acts += `<button data-act="crop" ${afford('clear') ? '' : 'disabled'}><kbd>2</kbd> ${esc(d.action2)}${cost('clear')}</button>`;
+      else if (visit && t.kind === 'plot' && st.plots[t.id].state !== 'eroded') acts += `<button data-act="crop"><kbd>2</kbd> Sown with ${esc(CROP[st.plots[t.id].crop].name.toLowerCase())}: change</button>`;
       if (visit && d.action && !afford(d.kind)) acts += '<span class="more">Not enough food in store for this.</span>';
       html = `<div class="card"><div class="txt"><h3>${esc(d.title)}</h3><p>${esc(d.text)}</p>${!acts && d.note && visit ? `<div class="more">${esc(d.note)}</div>` : ''}</div>${acts ? `<div class="acts">${acts}</div>` : ''}</div>`;
     } else prompt.hidden = true;
@@ -1069,8 +1093,8 @@ export class Game {
       const hasRidge = st.plots.some((p) => p.elev === 'ridge' && p.state !== 'wild') || st.stores.ridge.built;
       if (j.years === 1) (cam.tzoom = Math.min(base, cw / 520)), (cam.tx = 520), (cam.ty = 92);
       else if (j.years === 10) (cam.tzoom = Math.min(base, cw / (hasRidge ? 1000 : 640))), (cam.tx = hasRidge ? 780 : 540), (cam.ty = hasRidge ? 130 : 100);
-      else if (j.years === 100) (cam.tzoom = cw / 1240), (cam.tx = 880), (cam.ty = 0);
-      else (cam.tzoom = cw / 1420), (cam.tx = 890), (cam.ty = 0);
+      else if (j.years === 100) (cam.tzoom = cw / 1500), (cam.tx = 900), (cam.ty = 0);
+      else (cam.tzoom = cw / 2060), (cam.tx = 800), (cam.ty = 0); // the whole valley, forest to forest
       if (j.years >= 100) cam.ty = -100; // clamps so the valley floor sits at the bottom of the frame
 
       const level = st.river.level;

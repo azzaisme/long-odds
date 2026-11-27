@@ -155,25 +155,28 @@ function terrain(g, W, H, baseY) {
   // H rows; world y maps to row (H - 1) - (y - baseY).
   const rnd = makeRng(77);
   const row = (y) => H - 1 - (y - baseY);
-  for (let x = 0; x < W; x++) {
+  for (let px = 0; px < W; px++) {
+    const x = px + WORLD.x0;
     const top = Math.round(groundHeight(x));
-    const rocky = x >= 1466;
-    const bed = x < 262;
+    const rocky = x >= 1466 + WORLD.east;
+    const bed = x >= 100 && x < 262;
+    const woods = x < 0 || (x >= 1474 && x < 1466 + WORLD.east); // forest floor: leaf litter, not turf
     for (let y = baseY; y <= top; y++) {
       const d = top - y;
       let c;
       if (rocky) c = d < 2 ? PAL.rockLight : (x * 7 + y * 3) % 23 < 2 || (x + (y >> 3) * 5) % 17 === 0 ? PAL.rockDark : PAL.rock;
       else if (bed) c = d < 2 ? '#8f8368' : d < 12 ? PAL.dirtDark : PAL.dirtDeep;
+      else if (woods && d < 3) c = d === 0 ? ((x * 5) % 7 < 2 ? '#7a6a3a' : '#4f6a34') : (x + y) % 2 ? '#3f5a30' : '#5a4a2c';
       else if (d === 0) c = PAL.grassLight;
       else if (d < 3) c = PAL.grass;
       else if (d < 5) c = (x + y) % 3 ? PAL.grassDark : PAL.dirt;
       else if (d < 26) c = (x * 13 + y * 7) % 29 === 0 ? PAL.dirtDark : PAL.dirt;
       else if (d < 60) c = (x * 11 + y * 5) % 31 === 0 ? PAL.dirtDeep : PAL.dirtDark;
       else c = PAL.dirtDeep;
-      R(g, c, x, row(y));
+      R(g, c, px, row(y));
     }
-    if (rocky && rnd() < 0.2 && top > 150) R(g, PAL.grassDark, x, row(top) - 1, 1, 1);
-    if (x > 770 && x < 950 && x % 9 === 0) R(g, PAL.rock, x, row(top - 2), 2, 1); // scree on the slope
+    if (rocky && rnd() < 0.2 && top > 150) R(g, PAL.grassDark, px, row(top) - 1, 1, 1);
+    if (x > 770 && x < 950 && x % 9 === 0) R(g, PAL.rock, px, row(top - 2), 2, 1); // scree on the slope
   }
 }
 
@@ -279,6 +282,37 @@ export function buildSprites() {
   make('spark', 2, 2, (g) => R(g, '#bfeaff', 0, 0, 2, 2));
 
   for (const s of ['home', 'empty', 'ruin', 'rubble']) make(`house_${s}`, 26, 22, (g) => house(g, s, rnd));
+  make('plot_low_forest', 46, 12, () => {});
+  make('plot_ridge_forest', 46, 12, () => {});
+  // Old-growth trees of the two forests, stumps where they were felled, and the deer that live under them.
+  make('oak', 30, 46, (g) => tree(g, rnd, 30, 46, '#3f7038', '#2c5230'));
+  make('oak2', 26, 40, (g) => tree(g, rnd, 26, 40, '#4a7a3a', '#335a32'));
+  make('fir', 16, 40, (g) => {
+    R(g, PAL.wood, 7, 30, 2, 10);
+    for (let y = 0; y < 32; y++) {
+      const half = 1 + (((y % 8) * 0.8 + y * 0.12) | 0);
+      R(g, y % 2 ? '#274a3a' : '#31583f', 8 - half, y, half * 2, 1);
+    }
+  });
+  make('stump', 14, 6, (g) => {
+    R(g, '#6a4c2c', 1, 2, 4, 4);
+    R(g, '#c9a66a', 1, 2, 4, 1);
+    R(g, '#6a4c2c', 9, 3, 3, 3);
+    R(g, '#c9a66a', 9, 3, 3, 1);
+  });
+  for (const f of [0, 1])
+    make(`deer${f}`, 13, 11, (g) => {
+      R(g, '#9a6a3c', 2, 4, 8, 4);
+      R(g, '#b98a54', 3, 6, 6, 2);
+      R(g, '#9a6a3c', 9, 2, 3, 3);
+      R(g, '#3a2a1c', 11, 3, 1, 1);
+      R(g, '#d8c9a8', 10, 0, 1, 2);
+      R(g, '#d8c9a8', 12, 0, 1, 2);
+      R(g, '#e8dcc0', 1, 4, 1, 2);
+      R(g, '#6a4628', f ? 3 : 2, 8, 1, 3);
+      R(g, '#6a4628', f ? 8 : 9, 8, 1, 3);
+      R(g, '#6a4628', f ? 5 : 4, 8, 1, 3);
+    });
   for (const e of ['low', 'ridge'])
     for (const s of ['wild', 'fallow', 'sprout', 'ripe', 'damaged', 'overgrown', 'eroded']) make(`plot_${e}_${s}`, 46, 12, (g) => plot(g, s, rnd, e === 'low'));
 
@@ -542,6 +576,6 @@ export function buildSprites() {
       R(g, PAL.midDark, x + 1, y - 2, 1, 2);
     }
   });
-  make('terrain', WORLD.width, 320, (g, W, H) => terrain(g, W, H, -100));
+  make('terrain', WORLD.x1 - WORLD.x0, 320, (g, W, H) => terrain(g, W, H, -100));
   return canvases;
 }

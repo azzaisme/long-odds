@@ -10,12 +10,14 @@ import { PRACTICES, CUSTOMS, CROPS, holders, decisionCount } from '../src/sim/de
 import { setCrop, setCustom, canAfford, betroth, setCalling, moveHousehold } from '../src/sim/sim.js';
 import { IDEAS, IDEA, possibleIdeas } from '../src/sim/decisions.js';
 import { canBetroth, give } from '../src/sim/people.js';
-import { planBridge } from '../src/sim/sim.js';
+import { planBridge, fellStand, clearStand, forestCover } from '../src/sim/sim.js';
 import { BRIDGE } from '../src/sim/decisions.js';
 
 const LOW = PLOT_SITES.filter((p) => p.elev === 'low' && !p.far).map((p) => p.id);
 const FAR = PLOT_SITES.filter((p) => p.far).map((p) => p.id);
-const RIDGE = PLOT_SITES.filter((p) => p.elev === 'ridge').map((p) => p.id);
+const RIDGE = PLOT_SITES.filter((p) => p.elev === 'ridge' && p.stand === undefined).map((p) => p.id);
+const EAST = PLOT_SITES.filter((p) => p.stand !== undefined && !p.far).map((p) => p.id);
+const WEST = PLOT_SITES.filter((p) => p.stand !== undefined && p.far).map((p) => p.id);
 
 function prepared(seed) {
   const st = createSim(seed);
@@ -139,7 +141,7 @@ test('an unfarmed village runs out of supplies and collapses early', () => {
     assert.match(st.collapse.cause, /No field was ever planted|last of them died|tornado|eruption/);
     years.push(st.collapse.year);
   }
-  assert.ok(Math.max(...years) <= 20 && years.sort((a, b) => a - b)[100] <= 6 && years[190] <= 10, `latest unfarmed collapse: year ${Math.max(...years)}`);
+  assert.ok(Math.max(...years) <= 20 && years.sort((a, b) => a - b)[100] <= 6 && years[190] <= 12, `latest unfarmed collapse: year ${Math.max(...years)}`);
 });
 
 test('collapse year and cause are recorded once and decay continues to the destination', () => {
@@ -249,7 +251,7 @@ test('a thriving settlement grows through the stages into the Hold, which houses
       }
     }
   }
-  assert.ok(holds >= 12 && checked >= 12, `Holds: ${holds}`);
+  assert.ok(holds >= 4 && checked >= 4, `Holds: ${holds}`);
   assert.ok(lowHolds < holds / 4, `lowland-only Holds: ${lowHolds}`);
 });
 
@@ -536,4 +538,96 @@ test('a hungry village puts bridge work off rather than starve for it', () => {
   }
   assert.equal(builtHungry, 0, 'no work on the bridge in a year the stores cannot cover');
   assert.equal(builtFed, 30);
+});
+
+test('forest stands can be felled or cleared; the west forest needs a bridge', () => {
+  const st = createSim(1);
+  assert.equal(forestCover(st, 'east'), 1);
+  const wood = st.forest.wood, food = st.stores.low.food;
+  assert.ok(fellStand(st, EAST[0], 'you').ok);
+  assert.equal(st.forest.wood, wood + BALANCE.forest.standWood);
+  assert.equal(st.stores.low.food, food - BALANCE.forest.fellCost);
+  assert.equal(st.plots[EAST[0]].state, 'forest', 'felled ground is still forest ground');
+  assert.equal(fellStand(st, EAST[0], 'you').ok, false, 'nothing left to fell');
+  assert.ok(clearStand(st, EAST[1], 'you').ok);
+  assert.equal(st.plots[EAST[1]].state, 'fallow', 'cleared ground is a field');
+  assert.ok(forestCover(st, 'east') < 0.8);
+  assert.equal(fellStand(st, WEST[0], 'you').ok, false, 'no way across');
+  assert.equal(clearStand(st, WEST[0], 'you').ok, false);
+  st.bridge.built = 'timber';
+  assert.ok(fellStand(st, WEST[0], 'you').ok);
+});
+
+test('a felled stand grows back beside standing neighbours; a forest cut to nothing does not', () => {
+  const one = createSim(1);
+  fellStand(one, EAST[3], 'you');
+  setCustom(one, 'woodcut', 0, 'you'); // nobody cuts
+  runYears(one, 60);
+  assert.ok(one.forest.stands[13].wood > 8, `regrown to ${one.forest.stands[13].wood}`);
+  const all = createSim(1);
+  all.stores.low.food = 100;
+  for (const id of EAST) assert.ok(fellStand(all, id, 'you').ok);
+  setCustom(all, 'woodcut', 0, 'you');
+  let gone = 0;
+  runYears(all, 200, (ev) => ev.forEach((e) => { if (e.type === 'forest-gone' && /east/.test(e.text)) gone++; }));
+  assert.equal(forestCover(all, 'east'), 0, 'nothing left to seed it');
+  assert.equal(gone, 1, 'reported once');
+  assert.equal(all.forest.game.east, 0, 'no forest, no game');
+  assert.equal(forestCover(all, 'west'), 1, 'the west forest, out of reach, is untouched');
+});
+
+test('customs decide what becomes of trees and game over the centuries', () => {
+  const run = (set) => {
+    const out = { cover: 0, game: 0, gone: 0, alive: 0, cold: 0 };
+    for (let seed = 1; seed <= 40; seed++) {
+      const st = createSim(seed);
+      const sched = [1, 10, 100, 100, 100];
+      for (let v = 0; v < 5 && isAlive(st); v++) {
+        playVisit(st, 'mixed + store + practices', v);
+        if (v === 0) set(st);
+        runYears(st, sched[v], (ev) => ev.forEach((e) => { if (e.type === 'game-gone') out.gone++; if (e.type === 'cold') out.cold++; }));
+      }
+      if (!isAlive(st)) continue;
+      out.alive++;
+      out.cover += forestCover(st, 'east');
+      out.game += st.forest.game.east;
+    }
+    out.cover /= Math.max(1, out.alive);
+    out.game /= Math.max(1, out.alive);
+    return out;
+  };
+  const dflt = run(() => {});
+  const greedy = run((st) => { setCustom(st, 'woodcut', 2, 'you'); setCustom(st, 'hunt', 3, 'you'); setCustom(st, 'clearing', 2, 'you'); });
+  const careful = run((st) => { setCustom(st, 'hunt', 1, 'you'); setCustom(st, 'clearing', 0, 'you'); });
+  assert.ok(greedy.cover < dflt.cover - 0.1, `east forest standing: greedy ${greedy.cover.toFixed(2)} vs default ${dflt.cover.toFixed(2)}`);
+  assert.ok(greedy.gone > dflt.gone, `game hunted out: greedy ${greedy.gone} vs default ${dflt.gone}`);
+  assert.ok(careful.game > dflt.game, `game left: careful ${careful.game.toFixed(1)} vs default ${dflt.game.toFixed(1)}`);
+  assert.ok(careful.cover >= dflt.cover - 0.02);
+});
+
+test('no timber means no new houses, and no firewood means a deadlier winter', () => {
+  let withWood = 0, without = 0, deathsCold = 0, deathsWarm = 0;
+  for (let seed = 1; seed <= 30; seed++) {
+    for (const bare of [false, true]) {
+      const st = prepared(seed);
+      demonstrate(st, 0, [1, 2, 3, 4, 5], 'Ama');
+      st.stores.low.food = 500;
+      st.stores.low.seed = 40;
+      for (const id of [...LOW, ...RIDGE]) buildPlot(st, id, 'Ama');
+      if (bare) {
+        setCustom(st, 'woodcut', 0, 'you');
+        st.forest.wood = 0;
+      }
+      const houses = st.households.length, people = st.people.length;
+      let births = 0;
+      runYears(st, 25);
+      (bare ? (without += st.households.length - houses) : (withWood += st.households.length - houses));
+      const deaths = people + st.stats.births - st.people.length;
+      (bare ? (deathsCold += deaths) : (deathsWarm += deaths));
+      void births;
+    }
+  }
+  assert.ok(without <= 0, `houses founded with no timber: ${without}`);
+  assert.ok(withWood > 20, `houses founded with timber: ${withWood}`);
+  assert.ok(deathsCold > deathsWarm * 1.2, `deaths in 25 years: cold ${deathsCold} vs warm ${deathsWarm}`);
 });

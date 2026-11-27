@@ -109,7 +109,7 @@ const lineNames = (st, lines) => lines.map((l) => st.lines[l].name).join(' and '
 
 // One year of births, deaths, learning, marriages and ideas. `found(couple)` is asked to start
 // a new household for a newly married pair and returns it, or null if there is no room.
-export function peopleYear(st, B, year, say, rand, shortage, found) {
+export function peopleYear(st, B, year, say, rand, shortage, found, cold = 0) {
   const P = B.people;
   const hold = st.civ.stage >= 4;
   let byId = null;
@@ -120,7 +120,7 @@ export function peopleYear(st, B, year, say, rand, shortage, found) {
   for (const p of st.people) {
     const age = year - p.born;
     const base = age < 5 ? P.death.infant : age < P.death.oldFrom ? P.death.adult : P.death.old + P.death.oldRise * (age - P.death.oldFrom);
-    if (rand() < base * (1 + P.death.hunger * shortage)) dead.add(p.id);
+    if (rand() < base * (1 + P.death.hunger * shortage + cold)) dead.add(p.id);
   }
   if (dead.size) {
     // What dies with them: an idea nobody else alive holds.

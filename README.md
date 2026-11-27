@@ -48,7 +48,7 @@ playback itself is still exactly thirty seconds.
 
 ## The screen
 
-- **Top:** the year, and five readouts (people, food, seed, fields, ideas). Hover one for detail.
+- **Top:** the year, and six readouts (people, food, seed, fields, timber and forest, ideas). Hover one for detail.
 - **Middle:** a card appears for whatever you are standing at, with what `E` will do and what
   it costs. On the first visit a short checklist sits at the top left.
 - **Bottom:** the action row: Teach, People, Customs, Bridge, and Step out of the world.
@@ -60,8 +60,8 @@ playback itself is still exactly thirty seconds.
 | Key | Action |
 | --- | --- |
 | `A` / `D` or `←` / `→` | Walk |
-| `E` | Do the main thing on the card: clear or repair a field, build the ridge store, carry seed, meet a household, plan the bridge |
-| `2` | Change the crop of the field you are standing at |
+| `E` | Do the main thing on the card: clear or repair a field, fell a forest stand, build the ridge store, carry seed, meet a household, plan the bridge |
+| `2` | Change the crop of the field you are standing at, or clear a forest stand for a field |
 | `T`, then `1`–`6` | Teach an idea to everyone old enough in the houses of the three nearest villagers |
 | `P` | People: family lines, houses, ideas; from a house: matches, callings, moving |
 | `C` | Customs the village keeps while you are away |
@@ -129,13 +129,39 @@ unreached, and the far fields stay out of use until a bridge stands again. The o
 in use while a bigger one is built, and the village rebuilds whatever is planned. Work is put
 off in any year the stores could not cover three-quarters of the coming year's food.
 
+### Forests and wildlife
+
+The valley is about 2,500 wide. Beyond the far bank lies the **west forest** (ten stands, and
+only reachable over a bridge); along the ridge before the split cliff lies the **east forest**
+(nine stands). Each stand holds 10 timber and stands on ground that could be a field.
+
+Standing at a stand you can **fell it** (`E`, 0.5 food: all its timber goes to the woodpile, and
+it grows back only while it or a neighbour still has trees) or **clear it for a field** (`2`,
+2 food: no trees grow there while it is farmed).
+
+The village uses the forest on its own, under three customs:
+
+- **Cutting wood** — firewood (0.03 timber a person a year), 2 timber for every new house, and
+  timber for each year of bridge work. By default it thins, never taking the last trees of a
+  stand; it can be told to fell whatever is nearest, or to leave the forest alone.
+- **Hunting** — game lives in each forest (up to 40 food, in proportion to how much of the
+  forest stands) and feeds the village on top of foraging. Hunted harder than it breeds, it is
+  gone; it only comes back to standing forest, rarely, or over a bridge from the other forest.
+- **Forest into fields** — when open ground runs out, the village clears forest for fields in
+  a hungry year by default; never, or always, if you say so.
+
+What running out costs: with no timber no new houses are founded and bridge work stops; a
+winter without firewood raises deaths; a bare west bank makes floods up to 40% likelier; a bare
+east ridge makes landslides up to three times as likely; and a forest cut to nothing has
+nothing to seed it. An abandoned forest field returns to forest after 60 years.
+
 ### Customs and crops
 
-- **Customs (8, 27 settings)** — village-wide rules, set with `C`: ridge seed reserve, seed and
+- **Customs (11, 37 settings)** — village-wide rules, set with `C`: ridge seed reserve, seed and
   food carried uphill, where new fields go, pace of clearing, where newcomers build, planting
-  order, and whether seed is eaten in a hungry winter. Each drifts back one step toward the
+  order, whether seed is eaten in a hungry winter, and the three forest customs above. Each drifts back one step toward the
   village default with a 0.3% chance a year.
-- **Crops (3 per field, 18 fields)** — grain, roots or millet, chosen with `2` while inspecting
+- **Crops (3 per field, up to 37 fields)** — grain, roots or millet, chosen with `2` while inspecting
   a field. Villages sow new fields with whatever their neighbours grow.
 
 ## How a run goes

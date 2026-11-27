@@ -3,7 +3,7 @@
 // One call to step() advances one season. Jump length only decides how many times step() runs.
 import { BALANCE } from './balance.js';
 import { rngNext, hashSeed } from './rng.js';
-import { PLOT_SITES, HOUSE_SLOTS, householdName } from './world.js';
+import { PLOT_SITES, HOUSE_SLOTS, FOREST_STANDS, householdName } from './world.js';
 import { IDEA, PRACTICES, CUSTOMS, CROP, BRIDGE, defaultCustoms, customValue, mod } from './decisions.js';
 import { give, addFamily, addPerson, refreshHouseholds, removePeopleOf, peopleYear, teachEveryone, canBetroth, person, membersOf } from './people.js';
 
@@ -23,7 +23,7 @@ export function createSim(seed, B = BALANCE) {
     discovered: {}, // idea id -> who first worked it out
     discoveries: [],
     plots: PLOT_SITES.map((s) => ({
-      id: s.id, elev: s.elev, far: !!s.far, state: 'wild', stage: null, since: 0, lastWorked: -1,
+      id: s.id, elev: s.elev, far: !!s.far, stand: s.stand === undefined ? null : s.stand, state: s.stand === undefined ? 'wild' : 'forest', stage: null, since: 0, lastWorked: -1,
       worker: null, workerKnows: false, builtBy: null, builtYear: null, crop: 'grain',
     })),
     houses: HOUSE_SLOTS.map((h) => ({ id: h.id, elev: h.elev, state: 'gone', hid: null, since: 0 })),
@@ -34,6 +34,13 @@ export function createSim(seed, B = BALANCE) {
     river: { wet: 1, level: 0, drought: false, floods: [], lastFlood: null },
     floodMemory: 0,
     customs: defaultCustoms(),
+    forest: {
+      stands: FOREST_STANDS.map((f) => ({ id: f.id, side: f.side, wood: B.forest.standWood, cleared: false })),
+      game: { west: B.forest.gameCap * B.forest.startGame, east: B.forest.gameCap * B.forest.startGame },
+      wood: B.forest.startWood,
+      cold: 0, // share of last winter's firewood that was missing
+      bare: { west: false, east: false },
+    },
     bridge: { plan: null, progress: 0, built: null, builtYear: null, lostYear: null, lost: 0 },
     sky: { rain: false, tornado: null, slide: false, erupted: false, rumble: 0, ash: 0, fertile: 0, lastEruption: null, lastSlide: null, lastTornado: null },
     civ: { stage: 0, progress: 0, reached: [0, null, null, null, null] },
@@ -45,7 +52,7 @@ export function createSim(seed, B = BALANCE) {
     chronicle: [], // turning points (priority 3)
     recoveries: [], // recoveries traceable to stored ridge seed or taught practice
     actions: [], // player interventions
-    stats: { births: 0, weddings: 0, rains: 0, slides: 0, tornadoes: 0, eruptions: 0, peakStage: 0, floods: 0, greatFloods: 0, droughts: 0, peakHouseholds: B.start.households, left: 0, settled: 0 },
+    stats: { felled: 0, hunted: 0, births: 0, weddings: 0, rains: 0, slides: 0, tornadoes: 0, eruptions: 0, peakStage: 0, floods: 0, greatFloods: 0, droughts: 0, peakHouseholds: B.start.households, left: 0, settled: 0 },
   };
   const rand = () => rngNext(st.rng);
   for (let i = 0; i < B.start.households; i++) {
@@ -63,6 +70,13 @@ export const seasonOf = (st) => st.tick % 4;
 export const isAlive = (st) => st.households.length > 0;
 export const knowers = (st) => st.households.reduce((n, h) => n + (h.knows ? 1 : 0), 0);
 export const builtPlots = (st) => st.plots.filter((p) => p.state === 'fallow' || p.state === 'planted' || p.state === 'damaged');
+
+export const forestCover = (st, side, B = BALANCE) => {
+  let w = 0, n = 0;
+  for (const f of st.forest.stands) if (f.side === side) (w += f.wood), n++;
+  return w / (n * B.forest.standWood);
+};
+const forestReach = (st, side) => side === 'east' || !!st.bridge.built;
 
 export function hashState(st) {
   // Fingerprint of everything that affects the future or the score.
@@ -297,7 +311,7 @@ function summer(st, B, year, say, rand) {
     sky.rain = true;
     st.stats.rains++;
   }
-  const boost = rain ? Hz.rainFloodBoost : 1;
+  const boost = (rain ? Hz.rainFloodBoost : 1) * (1 + B.forest.runoff * (1 - forestCover(st, 'west', B))); // bare ground sheds water
   let level = 0;
   if (r < F.extremeChance * wet * boost) level = 3;
   else if (r < (F.extremeChance + F.majorChance) * wet * boost) level = 2;
@@ -341,7 +355,7 @@ function summer(st, B, year, say, rand) {
   }
 
   // Landslide off the slope onto the nearest ridge fields and the ridge store.
-  if (rSlide < Hz.slideChance * (rain ? Hz.slideRainBoost : 1) * (sky.erupted ? Hz.slideEruptBoost : 1)) {
+  if (rSlide < Hz.slideChance * (rain ? Hz.slideRainBoost : 1) * (sky.erupted ? Hz.slideEruptBoost : 1) * (1 + B.forest.slides * (1 - forestCover(st, 'east', B)))) {
     sky.slide = true;
     sky.lastSlide = { year };
     st.stats.slides++;
@@ -513,7 +527,8 @@ function winter(st, B, year, say, rand) {
       if (grown) adults++;
     }
     need = Math.max(need, 0.001);
-    let left = Math.max(0, need - adults * P.forage);
+    const hunted = hunt(st, B, year, say, adults);
+    let left = Math.max(0, need - adults * P.forage - hunted);
     const take = (store, key) => {
       const t = Math.min(store[key], left);
       store[key] -= t;
@@ -560,14 +575,17 @@ function winter(st, B, year, say, rand) {
         if (!roomy()) return null;
         // Neither old house may be left without an adult.
         for (const p of [a, b]) if ((st.households.find((x) => x.id === p.hid) || { adults: 0 }).adults < 2) return null;
+        if (st.forest.wood < B.forest.houseWood) return null; // no timber, no new house
         const h = addHousehold(st, uphill, B);
         if (!h) return null;
+        st.forest.wood -= B.forest.houseWood;
         h.name = a.name;
         h.line = a.lines[0];
         founded++;
         return h;
       };
-      peopleYear(st, B, year, say, rand, shortage, found);
+      const cold = woodYear(st, B, year, say);
+      peopleYear(st, B, year, say, rand, shortage, found, cold * B.forest.coldDeaths);
 
       // Houses with no adult left: children go to kin, the house stands empty.
       const grown = new Map();
@@ -642,6 +660,12 @@ function winter(st, B, year, say, rand) {
     } else if (p.state === 'damaged' && year - p.since >= B.damagedYearsToOvergrow) {
       p.state = 'overgrown';
       p.since = year;
+    } else if (p.state === 'overgrown' && p.stand !== null && year - p.since >= B.forest.returns) {
+      p.state = 'forest';
+      p.since = year;
+      const f = st.forest.stands[p.stand];
+      f.cleared = false;
+      f.wood = Math.max(f.wood, 1);
     } else if (p.state === 'eroded' && rand() < B.flood.siltChance) {
       p.state = 'wild';
       p.since = year;
@@ -654,9 +678,86 @@ function winter(st, B, year, say, rand) {
     else if (s.state === 'ruin' && age >= B.houseRuinToRubble) (s.state = 'rubble'), (s.since = year);
     else if (s.state === 'rubble' && age >= B.houseRubbleToGone) (s.state = 'gone'), (s.since = year);
   }
+  if (!isAlive(st)) {
+    // Nobody left: the forest and its game are on their own.
+    hunt(st, B, year, say, 0);
+    woodYear(st, B, year, say);
+  }
+  for (const side of ['west', 'east']) {
+    const bare = forestCover(st, side, B) === 0;
+    if (bare && !st.forest.bare[side]) say(3, 'forest-gone', `The last trees of the ${side} forest are gone. Nothing is left to seed it.`);
+    st.forest.bare[side] = bare;
+  }
   st.floodMemory *= B.flood.memoryDecay;
   const C = B.climate;
   st.river.wet = Math.max(C.min, Math.min(C.max, st.river.wet + (1 - st.river.wet) * C.revert + (rand() - 0.5) * C.drift));
+}
+
+// Hunting: game from every forest within reach. Returns the food brought home.
+function hunt(st, B, year, say, adults) {
+  const F = B.forest;
+  const rate = customValue(st, 'hunt');
+  let food = 0;
+  for (const side of ['west', 'east']) {
+    const g = st.forest.game[side];
+    const cap = F.gameCap * forestCover(st, side, B);
+    let take = 0;
+    if (adults > 0 && rate > 0 && forestReach(st, side)) take = Math.min(g * rate, adults * F.huntPerAdult - food, g);
+    take = Math.max(0, take);
+    let next = g - take;
+    next += cap > 0 ? F.gameGrowth * next * (1 - next / cap) : -next; // logistic; no forest, no game
+    if (next > cap) next -= (next - cap) * 0.5;
+    if (next < 0.5) next = 0;
+    // Game drifts back into standing forest: readily over a bridge from the other forest, rarely from beyond the valley.
+    if (g === 0 && next === 0 && cap >= F.gameCap * 0.5) {
+      const other = st.forest.game[side === 'west' ? 'east' : 'west'];
+      const r = rngNext(st.rng);
+      if (r < (other > 5 && st.bridge.built ? F.recolonise : F.wander)) (next = 2), say(2, 'game-back', `Game has come back to the ${side} forest.`);
+    }
+    if (g > 0 && next === 0) say(adults > 0 ? 3 : 2, 'game-gone', `The last game is gone from the ${side} forest${cap < 1 ? ', along with the trees' : ': hunted out'}.`);
+    st.forest.game[side] = next;
+    food += take;
+  }
+  st.stats.hunted += food;
+  return food;
+}
+
+// Firewood and timber: what the village burns, what it cuts, and how the forest grows back.
+// Returns the share of this winter's firewood that was missing.
+function woodYear(st, B, year, say) {
+  const F = B.forest;
+  const forest = st.forest;
+  const rule = customValue(st, 'woodcut');
+  const need = st.people.length * F.fuel;
+  // Cut toward two winters' fuel plus a house and a year of bridge work.
+  const want = need * 2 + F.houseWood + (st.bridge.plan && st.bridge.plan !== st.bridge.built ? F.bridgeWood[st.bridge.plan] : 0);
+  if (rule !== 'none') {
+    const reach = forest.stands.filter((f) => forestReach(st, f.side) && f.wood > 0).sort((a, b) => (a.side === b.side ? a.id - b.id : a.side === 'east' ? -1 : 1));
+    for (const f of reach) {
+      if (forest.wood >= want) break;
+      const take = rule === 'thin' ? Math.min(F.thinTake, f.wood - F.thinFloor) : f.wood;
+      if (take <= 0) continue;
+      const t = Math.min(take, want - forest.wood);
+      f.wood -= t;
+      forest.wood += t;
+      st.stats.felled += t;
+    }
+  }
+  const burned = Math.min(need, forest.wood);
+  forest.wood -= burned;
+  const cold = need > 0 ? 1 - burned / need : 0;
+  if (cold > 0.2 && forest.cold <= 0.2) say(cold > 0.6 ? 3 : 2, 'cold', forest.stands.some((f) => f.wood > 0 && forestReach(st, f.side)) ? 'A cold winter: not enough firewood was cut.' : 'A cold winter with nothing to burn: there are no trees left within reach.');
+  forest.cold = cold;
+  // Regrowth: a stand grows while it has trees, or a neighbour has enough to seed it.
+  const stands = forest.stands;
+  const grown = stands.map((f, i) => {
+    if (f.cleared || f.wood >= F.standWood) return f.wood;
+    const seeded = f.wood > 0 || [stands[i - 1], stands[i + 1]].some((n) => n && n.side === f.side && n.wood >= F.seedFrom);
+    // Fastest at half-grown; a bare stand starts from seedlings.
+    return seeded ? Math.min(F.standWood, Math.max(F.seedling, f.wood + F.regrow * f.wood * (1 - f.wood / F.standWood))) : 0;
+  });
+  stands.forEach((f, i) => (f.wood = grown[i]));
+  return cold;
 }
 
 // One winter's work on the planned bridge, and the slow rot of the one that stands.
@@ -679,7 +780,10 @@ function buildBridge(st, B, year, say, rand, shortage) {
   const knows = !kind.needs || st.households.some((h) => h.ideas[kind.needs]);
   // Nobody builds on an empty stomach: the stores must cover most of the coming year first.
   const size = st.households.reduce((n, h) => n + h.size, 0);
-  if (shortage > 0.001 || food - kind.food < size * B.people.eat.adult * B.bridge.reserve || adults < B.bridge.hands + 2 || !knows) {
+  const timber = B.forest.bridgeWood[kind.id];
+  if (st.forest.wood < timber && knows && !br.noWood) say(2, 'bridge-stalled', `Work on the ${kind.name.toLowerCase()} has stopped: there is no timber for it.`);
+  br.noWood = st.forest.wood < timber;
+  if (shortage > 0.001 || br.noWood || food - kind.food < size * B.people.eat.adult * B.bridge.reserve || adults < B.bridge.hands + 2 || !knows) {
     if (!knows && !br.stalled) say(2, 'bridge-stalled', `Work on the ${kind.name.toLowerCase()} has stopped: nobody left knows ${IDEA[kind.needs].name.toLowerCase()}.`);
     br.stalled = !knows;
     return;
@@ -688,6 +792,7 @@ function buildBridge(st, B, year, say, rand, shortage) {
   const a = Math.min(kind.food, st.stores.low.food);
   st.stores.low.food -= a;
   st.stores.ridge.food -= kind.food - a;
+  st.forest.wood -= timber;
   br.progress++;
   if (br.progress >= kind.years) {
     br.built = kind.id;
@@ -750,7 +855,12 @@ function adapt(st, B, year, say, rand) {
   const H = st.households.length;
   const seed = st.stores.low.seed + st.stores.ridge.seed;
   const food = st.stores.low.food + st.stores.ridge.food;
-  const free = (elev) => st.plots.find((p) => p.elev === elev && (!p.far || st.bridge.built) && (p.state === 'wild' || p.state === 'overgrown'));
+  const mayClear = customValue(st, 'clearing');
+  const open = (elev) => st.plots.find((p) => p.elev === elev && (!p.far || st.bridge.built) && (p.state === 'wild' || p.state === 'overgrown'));
+  // Forest is only cleared once no open ground is left anywhere within reach.
+  const pressed = mayClear === 'always' || (mayClear === 'hungry' && st.year0.shortage > 0.001);
+  const wooded = (elev) => (pressed && !open('low') && !open('ridge') ? st.plots.find((p) => p.elev === elev && (!p.far || st.bridge.built) && p.state === 'forest') : undefined);
+  const free = (elev) => open(elev) || wooded(elev);
   const hands = st.households.reduce((a, h) => a + h.adults, 0) * B.people.plotsPerAdult;
   const pace = customValue(st, 'pace');
   const ridgeShare = customValue(st, 'fields');
@@ -759,6 +869,14 @@ function adapt(st, B, year, say, rand) {
     const tally = {};
     for (const q of same) tally[q.crop] = (tally[q.crop] || 0) + 1;
     p.crop = Object.keys(tally).sort((a, b) => tally[b] - tally[a] || (a < b ? -1 : 1))[0] || 'grain'; // villages plant what their neighbours plant
+    if (p.state === 'forest') {
+      const f = st.forest.stands[p.stand];
+      st.forest.wood += f.wood;
+      st.stats.felled += f.wood;
+      f.wood = 0;
+      f.cleared = true;
+      say(2, 'forest-cleared', `With no open ground left, the village cleared a stand of the ${f.side} forest for a field.`);
+    }
     p.state = 'fallow';
     p.since = year;
     p.lastWorked = year;
@@ -933,6 +1051,40 @@ export function moveHousehold(st, hid, slotId, by, B = BALANCE) {
   h.house = slot.id;
   record(st, 'move-house', by, { hid, slot: slotId });
   return { ok: true, text: `${h.name}'s household moved to ${slot.elev === 'ridge' ? 'the ridge' : 'the riverside'}.` };
+}
+export function fellStand(st, plotId, by, B = BALANCE) {
+  const p = st.plots[plotId];
+  const f = p && p.stand !== null ? st.forest.stands[p.stand] : null;
+  if (!f || p.state !== 'forest' || f.wood < 0.5) return { ok: false, text: 'There is nothing here to fell.' };
+  if (p.far && !st.bridge.built) return { ok: false, text: 'There is no way across the river.' };
+  if (st.stores.low.food + st.stores.ridge.food < B.forest.fellCost) return HUNGRY;
+  const a = Math.min(B.forest.fellCost, st.stores.low.food);
+  st.stores.low.food -= a;
+  st.stores.ridge.food -= B.forest.fellCost - a;
+  const got = f.wood;
+  st.forest.wood += got;
+  st.stats.felled += got;
+  f.wood = 0;
+  record(st, 'fell', by, { stand: f.id, wood: got });
+  return { ok: true, text: `${by} felled the stand: ${Math.round(got)} timber. It will grow back only if its neighbours still stand.` };
+}
+export function clearStand(st, plotId, by, B = BALANCE) {
+  const p = st.plots[plotId];
+  const f = p && p.stand !== null ? st.forest.stands[p.stand] : null;
+  if (!f || p.state !== 'forest') return { ok: false, text: 'There is no forest here to clear.' };
+  if (p.far && !st.bridge.built) return { ok: false, text: 'There is no way across the river.' };
+  if (st.stores.low.food + st.stores.ridge.food < B.forest.clearCost) return HUNGRY;
+  const a = Math.min(B.forest.clearCost, st.stores.low.food);
+  st.stores.low.food -= a;
+  st.stores.ridge.food -= B.forest.clearCost - a;
+  const year = yearOf(st);
+  st.forest.wood += f.wood;
+  st.stats.felled += f.wood;
+  f.wood = 0;
+  f.cleared = true;
+  Object.assign(p, { state: 'fallow', since: year, lastWorked: year, builtBy: by, builtYear: year });
+  record(st, 'clear-forest', by, { stand: f.id, plot: plotId });
+  return { ok: true, text: `${by} cleared the stand for a field. No trees will grow here while it is farmed.` };
 }
 export function planBridge(st, type, by) {
   const br = st.bridge;

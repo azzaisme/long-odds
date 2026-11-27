@@ -54,6 +54,12 @@ export const CUSTOMS = [
     options: [{ label: 'Floodplain first', v: 'low' }, { label: 'Ridge first', v: 'ridge' }] },
   { id: 'hunger', name: 'Seed in a hungry winter', ask: 'When food runs out, is the seed eaten?', base: 0,
     options: [{ label: 'Only if nobody knows better', v: 'default' }, { label: 'Never touch the seed', v: 'never' }, { label: 'Eat seed before anyone leaves', v: 'eat' }] },
+  { id: 'woodcut', name: 'Cutting wood', ask: 'How does the village take its firewood and timber?', base: 1,
+    options: [{ label: 'Leave the forest alone', v: 'none' }, { label: 'Thin it: never the last trees of a stand', v: 'thin' }, { label: 'Fell whatever is nearest', v: 'clear' }] },
+  { id: 'hunt', name: 'Hunting', ask: 'How hard is the game in the forests hunted?', base: 2,
+    options: [{ label: 'Never', v: 0 }, { label: 'Lightly', v: 0.08 }, { label: 'As the pot needs', v: 0.2 }, { label: 'All that can be caught', v: 0.45 }] },
+  { id: 'clearing', name: 'Forest into fields', ask: 'When the open ground is all taken, does the village clear forest for fields?', base: 1,
+    options: [{ label: 'Never', v: 'never' }, { label: 'Only in a hungry year', v: 'hungry' }, { label: 'Whenever land runs out', v: 'always' }] },
 ];
 export const CUSTOM = Object.fromEntries(CUSTOMS.map((c) => [c.id, c]));
 
