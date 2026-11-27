@@ -110,11 +110,27 @@ Real key presses throughout, no console errors in any run.
   customs: arrows on one line, gold up and blue down, no numbers. The field-site card, the
   ridge-store card, the Bridge tab, the idea list and the teach list also carry them (37 tags
   counted on the teach view); those were captured but not each examined.
+- **Painted art.** All 90 sprites exported from the klad drawings load in the game with no
+  console errors. Looked at, in the running game: the lowland village with every field state,
+  the timber bridge with a ripe far-bank field, the east forest with thinned and felled stands
+  and deer, and the Hold with the volcano erupting behind it. Looked at on contact sheets: the
+  characters, all field states and trees, the houses, stores, civic buildings and three
+  bridges, the city and Hold with their ruins, both volcanoes, the funnel and the slide, and
+  the three backdrop layers composited.
 - **Bridges.** Planned a footbridge at the crossing; walking stopped at the bank with no
   bridge; after a 1-year jump the footbridge stood; walked across on the deck and cleared a
   far-bank field.
 
 ## Not covered
+
+- Painted sprites not looked at in the running game: the ridge view with the store and house
+  states, the city stage, the west forest, the ruins after a collapse, the tornado funnel and
+  landslide scar in motion, the levee, tower and hall in place, and anything during a jump.
+  They load, and were seen on contact sheets.
+- The walk cycles are three frames (stand and two steps), as before; they were not watched in
+  motion after the repaint.
+- The camera was lowered slightly after the last screenshots so the card does not cover the
+  god's feet; that was only build-tested.
 
 - The top-row labels were shortened after the forest screenshots (two were being cut off) and
   only build-tested. A forest being cut down by the village over a long jump was checked in
