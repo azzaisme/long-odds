@@ -775,7 +775,7 @@ export class Game {
       // No number: the god gets a feeling for the bet, not a score.
       const f = survived / done;
       const word = f < 0.05 ? 'Next to no chance' : f < 0.25 ? 'Long odds' : f < 0.45 ? 'Poor odds' : f < 0.6 ? 'Even odds' : f < 0.85 ? 'Good odds' : 'As sure as it gets';
-      el.innerHTML = done < Math.min(30, trials) ? 'Weighing the years ahead…' : `<b>${word}${done < trials ? '…' : ''}</b> that anyone is still here in year ${n0(Sim.yearOf(this.sim) + o.years)}.<br><span class="note">A feeling, not a promise. The real years have not been rolled.</span>`;
+      el.innerHTML = done < Math.min(30, trials) ? 'Weighing the years ahead…' : `<b>${word}${done < trials ? '…' : ''}</b> that anyone is still here in year ${n0(Sim.yearOf(this.sim) + o.years)}.<br><span class="note">Only a feeling: the real years have not been rolled.</span>`;
     }
   }
 
@@ -850,8 +850,8 @@ export class Game {
       if (c.left) bits.push(`${c.left} left`);
       const H = st.households.length;
       const tail = H ? `${plural(H, 'household')} now` : st.collapse ? `empty since year ${st.collapse.year}` : '';
-      if (bits.length || H) this.queue.push({ sum: true, year: j.periodStart, text: `Years ${n0(j.periodStart)}–${n0(year - 1)}: ${[...bits, tail].filter(Boolean).join(' · ')}` });
-      else if (year % (period * 2) === 0) this.queue.push({ sum: true, year: j.periodStart, text: `Years ${n0(j.periodStart)}–${n0(year - 1)}: nobody. ${this.decayLine(st)}` });
+      if (bits.length || H) this.queue.push({ sum: true, year: j.periodStart, text: `Years ${n0(j.periodStart)} to ${n0(year - 1)}: ${[...bits, tail].filter(Boolean).join(' · ')}` });
+      else if (year % (period * 2) === 0) this.queue.push({ sum: true, year: j.periodStart, text: `Years ${n0(j.periodStart)} to ${n0(year - 1)}: nobody. ${this.decayLine(st)}` });
       j.counts = this.zeroCounts();
       j.periodStart = year;
     }
@@ -1223,7 +1223,7 @@ export class Game {
         <span><kbd>A</kbd><kbd>D</kbd> or <kbd>←</kbd><kbd>→</kbd></span><span>Walk. A card appears for whatever you are standing at.</span>
         <span><kbd>E</kbd></span><span>Do the main thing on the card: clear a field, build, carry seed, meet a household, plan the bridge</span>
         <span><kbd>2</kbd></span><span>Change the crop of the field you are standing at</span>
-        <span><kbd>T</kbd> then <kbd>1</kbd>–<kbd>6</kbd></span><span>Teach an idea to the houses of the three nearest villagers</span>
+        <span><kbd>T</kbd> then <kbd>1</kbd> to <kbd>6</kbd></span><span>Teach an idea to the houses of the three nearest villagers</span>
         <span><kbd>P</kbd></span><span>People: family lines, houses, ideas, matches, teachers, moving house</span>
         <span><kbd>C</kbd></span><span>Customs the whole village keeps while you are away</span>
         <span><kbd>B</kbd></span><span>Plan a bridge; the village builds it over the years</span>
