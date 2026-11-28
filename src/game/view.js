@@ -25,7 +25,7 @@ export class View {
         width: c.width, height: c.height, format: pc.PIXELFORMAT_RGBA8, mipmaps: false,
         minFilter: /^(sky|soft_)/.test(name) ? pc.FILTER_LINEAR : pc.FILTER_NEAREST,
         magFilter: /^(sky|soft_)/.test(name) ? pc.FILTER_LINEAR : pc.FILTER_NEAREST,
-        addressU: name.startsWith('water') || name === 'foam' || name === 'fore' || name === 'soft_mist' ? pc.ADDRESS_REPEAT : pc.ADDRESS_CLAMP_TO_EDGE,
+        addressU: name.startsWith('water') || name === 'foam' || name === 'fore' || name === 'soft_mist' || name === 'ripple' ? pc.ADDRESS_REPEAT : pc.ADDRESS_CLAMP_TO_EDGE,
         addressV: pc.ADDRESS_CLAMP_TO_EDGE,
       });
       tex.setSource(c);
@@ -33,14 +33,14 @@ export class View {
       m.useLighting = false;
       m.useSkybox = false;
       // Distance haze at dusk falls on the world, not on light, sky or the god.
-      m.useFog = !/^(sky|sky_dusk|sun|fore|terrain|glow|beam|aura|white|ember|spark|rain|ashflake|smoke|marker|marker_dim|seed|foam|moon|soft_.*|god_.*)$/.test(name);
+      m.useFog = !/^(sky|sky_dusk|sun|fore|terrain|glow|beam|aura|white|ember|spark|rain|ashflake|smoke|marker|marker_dim|seed|foam|ripple|moon|soft_.*|god_.*)$/.test(name);
       m.diffuse = new pc.Color(0, 0, 0);
       m.emissive = new pc.Color(1, 1, 1);
       m.emissiveMap = tex;
       m.opacityMap = tex;
       m.opacityMapChannel = 'a';
       m.cull = pc.CULLFACE_NONE;
-      if (name === 'beam' || name === 'aura' || name === 'foam' || name === 'glow' || name === 'sky_dusk' || name === 'sun' || name === 'fore' || name.startsWith('water') || name === 'smoke' || name === 'floodline' || name === 'cloud') {
+      if (name === 'beam' || name === 'aura' || name === 'foam' || name === 'glow' || name === 'sky_dusk' || name === 'sun' || name === 'fore' || name.startsWith('water') || name === 'smoke' || name === 'floodline' || name === 'cloud' || name === 'ripple') {
         m.blendType = pc.BLEND_NORMAL;
         m.opacity = name === 'glow' || name === 'sky_dusk' || name === 'sun' || name === 'fore' ? 0 : name === 'beam' ? 0.85 : name === 'aura' ? 0.55 : name.startsWith('water') ? 0.72 : name === 'cloud' ? 0.8 : 0.6;
         m.depthWrite = false;
@@ -163,17 +163,33 @@ export class View {
     const trees = [[786, 'pine'], [812, 'tree2'], [846, 'pine'], [880, 'tree'], [905, 'pine'], [928, 'tree2'], [972, 'tree'], [1466 + WORLD.east, 'pine'], [1452 + WORLD.east, 'tree2'], [276, 'reeds'], [268, 'reeds'], [758, 'tree2']];
     for (const [x, t] of trees) this.sprite(t, x, groundHeight(x) - 1, Z.tree);
 
-    // The two forests: three trees to a stand, which thin out and turn to stumps as it is cut.
+    // The two forests, in depth. Behind each stand a wall of far canopy; then a far row of trees,
+    // pale with distance; then the stand's own trees; then one tree nearer than the people.
+    // Every tree has its turn in the stand's timber: as the stand is cut the last ones in go first,
+    // and as it grows back each comes up from sapling to young tree to full height.
     const kinds = ['oak', 'fir', 'oak2'];
+    const rows = [
+      { n: 4, dx: [-17, -6, 5, 16], suffix: '_far', z: Z.tree - 3, size: 0.9 },
+      { n: 3, dx: [-13, 0, 13], suffix: '', z: Z.tree + 1, size: 1 },
+      { n: 1, dx: [9], suffix: '_near', z: Z.actor + 0.6, size: 1, small: true },
+    ];
     this.stands = FOREST_STANDS.map((f) => {
-      const trees = [-13, 0, 13].map((dx, i) => {
-        const x = f.x + dx + ((f.id * 7 + i * 3) % 5) - 2;
-        const e = this.sprite(kinds[(f.id + i) % 3], x, groundHeight(x) - 1, Z.tree + 1 + ((f.id + i) % 3) * 0.2);
-        e._x = x;
-        e._kind = kinds[(f.id + i) % 3];
-        return e;
+      const canopy = this.sprite(`canopy${f.id % 3}`, f.x, groundHeight(f.x) - 1, Z.tree - 6 - (f.id % 2) * 0.3);
+      canopy._x = f.x;
+      const trees = [];
+      rows.forEach((row, r) => {
+        for (let i = 0; i < row.n; i++) {
+          const h = (f.id * 13 + r * 7 + i * 5) % 11;
+          const x = f.x + (r === 2 && f.id % 2 ? -row.dx[i] : row.dx[i]) + (h % 5) - 2;
+          const kind = kinds[(f.id + i + r) % 3];
+          const e = this.sprite(kind + row.suffix, x, groundHeight(x) - 1, row.z + (h % 4) * 0.15);
+          Object.assign(e, { _x: x, _kind: kind, _suffix: row.suffix, _size: row.size, _small: !!row.small, _flipped: h % 2 === 1 });
+          // The front tree is felled first and the stand's own middle tree last.
+          e._turn = r === 2 ? 7 : r === 1 ? [3, 0, 1][i] : [6, 2, 5, 4][i];
+          trees.push(e);
+        }
       });
-      return { f, trees, key: '' };
+      return { f, trees, canopy, key: '' };
     });
     // What the valley remembers: graves on the hill, a stone notched for each flood, a shrine.
     this.graves = [];
@@ -264,6 +280,8 @@ export class View {
     this.floodEnt.enabled = false;
     this.foamEnt = this.sprite('foam', 0, 0, Z.water + 0.4);
     this.foamEnt.enabled = false;
+    this.rippleEnt = this.sprite('ripple', 0, 0, 2.2);
+    this.buildMirror();
     this.drift = ['drift_log', 'drift_thatch', 'drift_barrel', 'drift_log', 'drift_thatch', 'drift_barrel'].map((t, i) => {
       const e = this.sprite(t, 0, 0, Z.water + 0.3);
       e.enabled = false;
@@ -353,18 +371,31 @@ export class View {
     }
     for (const v of this.stands) {
       const f = st.forest.stands[v.f.id];
-      const n = f.cleared ? -1 : f.wood >= 7.5 ? 3 : f.wood >= 4.5 ? 2 : f.wood >= 2 ? 1 : 0;
-      const key = `${n}|${f.wood > 0 && f.wood < 2 ? 's' : ''}`;
+      const key = f.cleared ? 'x' : String(Math.round(f.wood * 5));
       if (key === v.key) continue;
       v.key = key;
-      v.trees.forEach((e, i) => {
-        e.enabled = n >= 0;
-        if (n < 0) return;
-        // Trees go from the outside in; a stand that is growing back shows saplings among the stumps.
-        const standing = i === 1 ? n >= 1 : i === 0 ? n >= 2 : n >= 3;
-        this.setTex(e, standing ? e._kind : f.wood > 0 && i === 1 ? 'sapling' : 'stump');
+      const full = Math.min(1, f.wood / 10);
+      v.canopy.enabled = !f.cleared && f.wood >= 1.5;
+      if (v.canopy.enabled) {
+        // The far canopy stands as tall as the stand is grown.
+        v.canopy._sy = 0.35 + 0.95 * full;
+        v.canopy.setLocalScale(64, 1, v.canopy._h * v.canopy._sy);
+        this.place(v.canopy, v.canopy._x, groundHeight(v.canopy._x) - 1);
+      }
+      for (const e of v.trees) {
+        e.enabled = !f.cleared;
+        if (f.cleared) continue;
+        // How far along this tree is: nothing, sapling, young, grown.
+        const p = (f.wood - e._turn * 0.875) / 3;
+        const young = { oak: 'tree', fir: 'pine', oak2: 'tree2' }[e._kind];
+        const kind = p <= 0 ? 'stump' : p < 0.3 ? 'sapling' : p < 0.65 || e._small ? young : e._kind;
+        const size = kind === 'stump' || kind === 'sapling' ? 1 : p < 0.65 ? (p < 0.45 ? 0.8 : 1) : p < 0.85 ? 0.8 : p < 1 ? 0.9 : 1;
+        e._tex = null;
+        this.setTex(e, kind + e._suffix, e._flipped);
+        e._sy = size * e._size;
+        e.setLocalScale((e._flipped ? -1 : 1) * e._w * e._sy, 1, e._h * e._sy);
         this.place(e, e._x, groundHeight(e._x) - 1);
-      });
+      }
     }
     const nobody = st.households.length === 0;
     const nGraves = Math.min(16, Math.floor(2.2 * Math.log2(1 + st.stats.deaths / 2)));
@@ -1106,6 +1137,7 @@ export class View {
       this.sheen.setLocalScale(s0.right - s0.left, 1, depth);
       this.sheen.setLocalPosition((s0.left + s0.right) / 2, s0.top - depth / 2, 2.1);
     }
+    this.updateMirror(dt, calm, night, cx, cy, vw, vh);
     for (const gl of this.glints) {
       gl.t -= dt;
       if (gl.t <= 0) (gl.t = 0.25 + vrand() * 1.6), (gl.u = vrand()), (gl.v = vrand() * vrand()), (gl.on = vrand() < 0.6);
@@ -1114,6 +1146,97 @@ export class View {
         gl.e.setLocalScale(2 + Math.round(gl.u * 2), 1, 1);
         gl.e.setLocalPosition(Math.round(s0.left + 6 + gl.u * (s0.right - s0.left - 12)), Math.round(s0.top - 1 - gl.v * 9), 2.15);
       }
+    }
+  }
+
+  // The river mirrors what stands over it. A second camera draws the frame small into a texture;
+  // strips of water under the surface each show a row of that picture upside down, squeezed,
+  // slid sideways by the ripples, and fainter the deeper they lie.
+  buildMirror() {
+    const mc = new pc.Entity('mirror');
+    mc.addComponent('camera', { projection: pc.PROJECTION_ORTHOGRAPHIC, clearColor: new pc.Color(0.2, 0.27, 0.42), nearClip: 1, farClip: 400, priority: -1 });
+    mc.camera.gammaCorrection = pc.GAMMA_SRGB;
+    mc.camera.toneMapping = pc.TONEMAP_NONE;
+    this.camera.addChild(mc);
+    this.mirror = { cam: mc, strips: [], a: 0, w: 0, h: 0, tex: null };
+    for (let i = 0; i < 16; i++) {
+      const m = new pc.StandardMaterial();
+      Object.assign(m, { useLighting: false, useSkybox: false, useFog: false, blendType: pc.BLEND_NORMAL, depthWrite: false, opacity: 0, cull: pc.CULLFACE_NONE });
+      m.diffuse = new pc.Color(0, 0, 0);
+      m.emissive = new pc.Color(1, 1, 1);
+      this.mats[`mirror${i}`] = m;
+      this.sizes[`mirror${i}`] = [1, 1];
+      const e = this.sprite(`mirror${i}`, 0, 0, 2.04);
+      e.enabled = false;
+      this.mirror.strips.push({ e, m });
+    }
+    this.sizeMirror();
+  }
+  // Two pictures, used turn about: the strips show last frame's while this frame's is drawn,
+  // so the mirror camera never reads the picture it is drawing into.
+  sizeMirror() {
+    const gd = this.app.graphicsDevice;
+    const w = Math.max(16, Math.ceil(gd.width / 3));
+    const h = Math.max(16, Math.ceil(gd.height / 3));
+    const mr = this.mirror;
+    if (w === mr.w && h === mr.h) return;
+    for (const rt of mr.rts || []) {
+      rt.colorBuffer.destroy();
+      rt.destroy();
+    }
+    mr.w = w;
+    mr.h = h;
+    mr.rts = [0, 1].map(() => {
+      const tex = new pc.Texture(gd, { width: w, height: h, format: pc.PIXELFORMAT_RGBA8, mipmaps: false, minFilter: pc.FILTER_NEAREST, magFilter: pc.FILTER_NEAREST, addressU: pc.ADDRESS_CLAMP_TO_EDGE, addressV: pc.ADDRESS_CLAMP_TO_EDGE });
+      return new pc.RenderTarget({ colorBuffer: tex, depth: true });
+    });
+    mr.turn = 0;
+  }
+  updateMirror(dt, calm, night, cx, cy, vw, vh) {
+    const mr = this.mirror;
+    this.sizeMirror();
+    mr.turn = 1 - mr.turn;
+    mr.cam.camera.renderTarget = mr.rts[mr.turn];
+    const picture = mr.rts[1 - mr.turn].colorBuffer;
+    mr.cam.camera.orthoHeight = vh / 2;
+    mr.a += ((calm ? 1 : 0) - mr.a) * (1 - Math.exp(-dt * 1.5));
+    const s0 = this.surface0;
+    const on = !!s0 && mr.a > 0.02 && s0.top > cy - vh / 2;
+    mr.cam.enabled = on;
+    const left = on ? Math.max(s0.left, cx - vw / 2) : 0;
+    const right = on ? Math.min(s0.right, cx + vw / 2) : 0;
+    const H = 2; // each strip is two rows of water
+    const squeeze = 1.7; // and shows this many times as much of what is above
+    mr.strips.forEach((s, i) => {
+      s.e.enabled = on && right - left > 1;
+      if (!s.e.enabled) return;
+      const d = i * H;
+      const fade = 1 - i / mr.strips.length;
+      const slide = Math.sin(this.time * 1.9 + i * 1.3) * (0.4 + i * 0.16) + Math.sin(this.time * 0.8 + i * 0.5) * 0.5;
+      s.e.setLocalScale(right - left, 1, H);
+      s.e.setLocalPosition((left + right) / 2, s0.top - d - H / 2, 2.04 + i * 0.001);
+      const v1 = (s0.top + (d + H) * squeeze - (cy - vh / 2)) / vh;
+      s.m.emissiveMapTiling = new pc.Vec2((right - left) / vw, -(H * squeeze) / vh);
+      s.m.emissiveMapOffset = new pc.Vec2((left + Math.round(slide) - (cx - vw / 2)) / vw, Math.min(1, v1));
+      s.m.emissiveMap = picture;
+      s.m.opacity = mr.a * (0.62 - 0.2 * night) * Math.pow(fade, 1.25);
+      s.m.update();
+    });
+    // The line of the surface itself: broken light sliding downstream.
+    const rp = this.rippleEnt;
+    rp.enabled = !!s0 && !s0.spilled;
+    if (rp.enabled) {
+      const w = s0.right - s0.left;
+      rp.setLocalScale(w, 1, 4);
+      rp.setLocalPosition((s0.left + s0.right) / 2, s0.top - 2, 2.2);
+      const m = this.mats.ripple;
+      m.emissiveMapTiling = new pc.Vec2(w / 64, 1);
+      m.opacityMapTiling = m.emissiveMapTiling;
+      m.emissiveMapOffset = new pc.Vec2((s0.left / 64 + this.time * 0.045) % 1, 0);
+      m.opacityMapOffset = m.emissiveMapOffset;
+      m.emissive.set(this.duskT[0] * 0.6 + 0.4, this.duskT[1] * 0.6 + 0.3, this.duskT[2] * 0.6 + 0.3);
+      m.opacity = (0.75 - 0.45 * night) * (s0.flooding ? 0.4 : 1);
+      m.update();
     }
   }
 

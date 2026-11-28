@@ -6,9 +6,9 @@ You are a god with one small valley and six families in it.
 
 Each visit you can do three things:
 
-- **Build** – clear fields, raise a seed store, plan a bridge.
-- **Teach** – show people an idea. It lives only as long as someone remembers it.
-- **Set customs** – how they farm, store, hunt and cut wood while you are gone.
+- Build: clear fields, raise a seed store, plan a bridge.
+- Teach: show people an idea. It lives only as long as someone remembers it.
+- Set customs: how they farm, store, hunt and cut wood while you are gone.
 
 Then you step out of the world for **1, 10, 100 or 1,000 years**. Each jump plays out in thirty seconds and you cannot touch anything until it lands.
 
@@ -29,7 +29,7 @@ Disasters are rare. Over a thousand years, rare things happen.
 
 Keep the valley alive as long as you can. A village that lasts grows from hamlet to village, town and city, and finally into the Hold: one great house on the ridge for everyone.
 
-There is no winning move written down anywhere. You find out what works by losing.
+The game never tells you what works. You find out by losing.
 
 ## How it plays
 

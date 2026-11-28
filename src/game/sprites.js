@@ -422,7 +422,61 @@ export async function loadSprites() {
       out[name] = /^sky/.test(name) ? smoothSky(c) : c;
     }),
   );
+  forestDepth(out);
   return out;
+}
+
+// The forest in depth: every tree also exists further off (smaller in the frame, paler, bluer)
+// and nearer than the people (darker), and behind them all stands a wall of far canopy.
+const FOREST_KINDS = ['oak', 'fir', 'oak2', 'tree', 'tree2', 'pine', 'sapling', 'stump'];
+function forestDepth(out) {
+  const shade = (src, [r, g, b], k, mul = 1) => {
+    const c = document.createElement('canvas');
+    c.width = src.width;
+    c.height = src.height;
+    const x = c.getContext('2d');
+    x.drawImage(src, 0, 0);
+    const d = x.getImageData(0, 0, c.width, c.height);
+    for (let i = 0; i < d.data.length; i += 4) {
+      if (d.data[i + 3] < 128) continue;
+      d.data[i] = Math.round((d.data[i] * (1 - k) + r * k) * mul);
+      d.data[i + 1] = Math.round((d.data[i + 1] * (1 - k) + g * k) * mul);
+      d.data[i + 2] = Math.round((d.data[i + 2] * (1 - k) + b * k) * mul);
+    }
+    x.putImageData(d, 0, 0);
+    return c;
+  };
+  for (const n of FOREST_KINDS) {
+    if (!out[n]) continue;
+    out[`${n}_far`] = shade(out[n], [128, 158, 176], 0.46);
+    out[`${n}_near`] = shade(out[n], [24, 30, 40], 0.34, 0.86);
+  }
+  // Far canopy: a ragged mass of crowns, 64 wide so that neighbours join, three variants.
+  const rnd = makeRng(7719);
+  for (let v = 0; v < 3; v++) {
+    const c = document.createElement('canvas');
+    c.width = 64;
+    c.height = 44;
+    const g = c.getContext('2d');
+    const tones = ['#587f86', '#4d7480', '#668e90'];
+    for (let pass = 0; pass < 3; pass++) {
+      g.fillStyle = tones[pass === 0 ? 1 : pass === 1 ? 0 : 2];
+      for (let i = 0; i < 9; i++) {
+        const cx = 4 + i * 7 + Math.floor(rnd() * 5);
+        const edge = Math.min(cx, 63 - cx) / 14; // lower toward the sides, so stands have shoulders
+        const top = Math.round(6 + rnd() * 9 + (1 - Math.min(1, edge)) * 12) + pass * 5;
+        const w = 5 + Math.floor(rnd() * 4) - pass;
+        if (pass === 2 && rnd() < 0.45) continue;
+        // a crown: stepped, wider toward its foot
+        for (let y = top; y < 44; y++) {
+          const half = Math.min(w, 1 + Math.floor((y - top) * (pass === 2 ? 0.5 : 0.9)));
+          if (pass === 2 && y > top + 5) break;
+          g.fillRect(cx - half, y, half * 2 + 1, 1);
+        }
+      }
+    }
+    out[`canopy${v}`] = c;
+  }
 }
 
 export function buildSprites() {
@@ -704,14 +758,32 @@ export function buildSprites() {
     R(g, '#f1e6d2', 2, 8, 42, 3);
     R(g, '#d7cbb9', 6, 10, 34, 1);
   });
+  // The river: light where it is shallow under the surface, dark in the deep, with drifting streaks.
+  // One texture runs the whole depth of the water, so its rows are stretched; the top rows are the surface.
+  const WATER = ['#5f9bb0', '#4c87a3', '#3f7391', '#34637f', '#2c556f', '#254a63', '#1f3f57'];
+  const waterRow = [0, 0, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5];
   for (let f = 0; f < 2; f++)
     make(`water${f}`, 64, 64, (g) => {
-      g.fillStyle = PAL.water;
-      g.fillRect(0, 0, 64, 64);
-      R(g, PAL.waterLight, 0, 0, 64, 1);
+      for (let y = 0; y < 64; y++) {
+        const band = y < waterRow.length ? waterRow[y] : 6;
+        const next = y + 1 < waterRow.length ? waterRow[y + 1] : 6;
+        for (let x = 0; x < 64; x++) {
+          // where two bands meet, they are stitched together
+          const mix = next !== band && (x + y + f) % 2 === 0;
+          g.fillStyle = WATER[mix ? next : band];
+          g.fillRect(x, y, 1, 1);
+        }
+      }
+      R(g, '#cfe6ea', 0, 0, 64, 1);
       for (let x = f * 5; x < 64; x += 11) R(g, PAL.waterLight, x, 1, 5, 1);
-      for (let y = 5; y < 64; y += 6) for (let x = (y * 7 + f * 9) % 23; x < 64; x += 23) R(g, y < 20 ? '#5b8ea8' : PAL.waterDeep, x, y, 7, 1);
+      for (let y = 4; y < 64; y += 5) for (let x = (y * 7 + f * 9) % 23; x < 64; x += 23) R(g, WATER[Math.max(0, (y < waterRow.length ? waterRow[y] : 6) - 1)], x, y, y < 16 ? 5 : 8, 1);
     });
+  // Ripples on the surface: broken light lines that slide along it.
+  make('ripple', 64, 4, (g) => {
+    for (let x = 0; x < 64; x += 9) R(g, '#e6f3f2', x + ((x * 5) % 4), 0, 4, 1);
+    for (let x = 4; x < 64; x += 13) R(g, '#b9d9df', x, 1, 6, 1);
+    for (let x = 1; x < 64; x += 17) R(g, '#9cc6d1', x + 3, 3, 5, 1);
+  });
 
   // Backdrop layers.
   make('sky', 4, 128, (g) => {

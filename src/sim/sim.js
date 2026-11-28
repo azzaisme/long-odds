@@ -830,7 +830,7 @@ function grow(st, B, year, say, shortage) {
     if (!st.stores.ridge.built) Object.assign(st.stores.ridge, { built: true, builtBy: 'village', builtYear: year });
     teachEveryone(st, year, B);
     refreshHouseholds(st, year, B);
-    say(3, 'stage', `The Hold is finished: one great terraced house on the ridge, above every flood, with room for all ${H} households and a seed vault at its heart.`);
+    say(3, 'stage', `The Hold is finished: one great terraced house on the ridge, above every flood, with room for all ${H} households and its own seed vault.`);
   } else {
     const what = ['', `${H} households, a meeting hall and a shared threshing floor: the hamlet is a village.`, 'A levee along the bank and a market by the hall: the village is a town.', 'Stone blocks rise on the ridge and terraces climb behind them: the town is a city.'][civ.stage];
     say(3, 'stage', what);

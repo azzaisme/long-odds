@@ -4,8 +4,8 @@
 
 A 2D side-scrolling generational survival simulation, built on the PlayCanvas Engine with plain
 JavaScript modules and Vite. Keep a riverside settlement alive for as many simulated years as
-you can — and, if it lasts, watch it grow from a hamlet into **the Hold**, one great terraced
-structure on the ridge that houses every resident.
+you can. If it lasts, it grows from a hamlet into **the Hold**, one terraced structure on the
+ridge that houses every resident.
 
 ## Run it
 
@@ -28,7 +28,7 @@ Other commands:
 | --- | --- |
 | `npm run build` then `npm run preview` | Production build in `dist/`, served locally |
 | `npm test` | Headless simulation tests (determinism, playback timing, collapse, recovery, stages) |
-| `node tools/find.mjs eruption 40` | Lists seeds where an event type (eruption, tornado, landslide…) happens within N years, for watching in the browser |
+| `node tools/find.mjs eruption 40` | Lists seeds where an event type (eruption, tornado, landslide and so on) happens within N years, for watching in the browser |
 | `npm run sim` | Headless balance run over many seeds; `npm run sim -- 1000 1,10,100,100,1000` sets seed count and jump schedule |
 
 ## You are a god
@@ -48,11 +48,11 @@ playback itself is still exactly thirty seconds.
 
 ## The screen
 
-- **Top:** the year, and six readouts (people, food, seed, fields, timber and forest, ideas). Hover one for detail.
-- **Middle:** a card appears for whatever you are standing at, with what `E` will do and what
+- Top: the year, and six readouts (people, food, seed, fields, timber and forest, ideas). Hover one for detail.
+- Middle: a card appears for whatever you are standing at, with what `E` will do and what
   it costs. The first time you play, one hint at a time walks you through a first visit (see below).
-- **Bottom:** the action row: Teach, People, Customs, Bridge, and Step out of the world.
-- **Panels:** Step out, People, Customs, Bridge and Controls are tabs of one panel; their
+- Bottom: the action row: Teach, People, Customs, Bridge, and Step out of the world.
+- Panels: Step out, People, Customs, Bridge and Controls are tabs of one panel; their
   letter keys switch between them and `Esc` closes it.
 
 ## Controls
@@ -62,11 +62,11 @@ playback itself is still exactly thirty seconds.
 | `A` / `D` or `←` / `→` | Walk |
 | `E` | Do the main thing on the card: clear or repair a field, fell a forest stand, build the ridge store, carry seed, meet a household, plan the bridge |
 | `2` | Change the crop of the field you are standing at, or clear a forest stand for a field |
-| `T`, then `1`–`6` | Teach an idea to everyone old enough in the houses of the three nearest villagers |
+| `T`, then `1` to `6` | Teach an idea to everyone old enough in the houses of the three nearest villagers |
 | `P` | People: family lines, houses, ideas; from a house: matches, callings, moving |
 | `C` | Customs the village keeps while you are away |
 | `B` | Plan a bridge |
-| `J` | Review the settlement, then `1`–`4` to step out for 1 / 10 / 100 / 1,000 years |
+| `J` | Review the settlement, then `1` to `4` to step out for 1 / 10 / 100 / 1,000 years |
 | `H` | All controls |
 | `Enter` / `Esc` | Confirm / close or go back |
 
@@ -89,8 +89,25 @@ a soft glow and shafts of light that are strongest when it is low; dawn borrows 
 sunset's look. The moon crosses the night sky. Mist lies against the far range and in the
 valley and, at dawn and at night, on the river; it takes the colour of the hour. The river
 carries the sky's light and passing glints. Underground, the soil is banded and darkens with
-depth, with stones and tree roots in it. A soft vignette frames the screen. These are drawn
-smooth (not as pixel art), over the klad-painted sprites; the moon is a klad sprite.
+depth, with stones and tree roots in it. A soft vignette frames the screen. All of this is
+drawn smooth, over the klad-painted pixel sprites; the moon is a klad sprite.
+
+The river mirrors what is above it. A second camera draws the frame at a third of its size, and
+sixteen strips under the surface each show one row of that picture upside down, squeezed, pushed
+sideways by the ripples and fainter with depth. The water goes from pale at the surface to dark
+below, and a broken line of light slides along the surface. The mirror fades out while the river
+is in flood.
+
+The forests have depth. Behind each stand is a wall of far canopy; in front of that a far row of
+trees, paler and bluer; then the stand's own trees; then one dark tree nearer than the people,
+which the god and the villagers walk behind. Each of the eight trees in a stand has its turn in
+the stand's timber. As a stand is cut the trees turn to stumps one at a time, and as it grows back
+each comes up as a sapling, then a young tree, then a full-grown one, so a jump of a century shows
+a forest thinning or closing in again. The far canopy is as tall as the stand is grown.
+
+The scene wipe (after a collapse, and from the tutorial into a real run) covers the screen in
+square chunks that go from left to right, each a little early or late and each filling in three
+steps, and uncovers the new valley the same way.
 
 Type is Pixelify Sans for titles and buttons and IBM Plex Mono for text and every figure (both
 open-licensed, bundled through `@fontsource`). Panels are translucent.
@@ -112,9 +129,9 @@ out. It is cut down to the floodplain: the god cannot walk up the hill ("The hil
 there is no bridge to plan, the two customs about where fields go are left out, and the only
 jump offered is 100 years.
 
-It always ends in failure. The tutorial valley is *fated*: its river comes over the bank every
+It always ends in failure. The tutorial valley is fated: its river comes over the bank every
 year from year 12 to year 19, whatever was done (`tutorial` in `src/sim/balance.js`; the sim
-reads it as `st.fate`, which no other run has). The commit screen says so honestly ("Next to no
+reads it as `st.fate`, which no other run has). The commit screen says so ("Next to no
 chance"). The god comes back to ruins, says his line, and the report says why. The button
 there reads **Begin for real**: he says "Maybe I could…", the scene wipes, and a real valley
 with a random seed wipes in, with no limits and no hints.
@@ -132,7 +149,7 @@ is wise. ✕ stops them; they do not come back on later runs (remembered in the 
 
 ### Customs you can see
 
-What the village does by custom shows in the valley rather than only in the Customs panel:
+What the village does by custom shows in the valley as well as in the Customs panel:
 
 - sacks carried from the granary up to the ridge store, more often the more seed or food the
   customs send uphill, and not at all if they send none or there is no store;
@@ -147,7 +164,7 @@ put down what they were carrying).
 
 ### Why it went this way
 
-Every arrival report now opens with up to seven lines tying what happened to what you decided
+Every arrival report opens with up to seven lines tying what happened to what you decided
 or left alone: the flood that took the seed and whether anything was kept above it, seed saving
 dying out and whether you ever taught it, the forest or the game running out and under which
 custom, the bridge you planned, where the village cleared ground, what became of the fields you
@@ -157,7 +174,7 @@ left alone".
 
 ### Odds in words
 
-The commit screen no longer gives a percentage. The same trial futures run underneath, and the
+The commit screen gives the odds in words. Trial futures run underneath, and the
 god is told one of: next to no chance, long odds, poor odds, even odds, good odds, as sure as
 it gets.
 
@@ -173,24 +190,25 @@ deep (they are still in every panel).
 
 ## A lived-in valley
 
-- **Villagers notice you.** They stop and turn when the god comes close. Children play near
+- Villagers notice you. They stop and turn when the god comes close. Children play near
   their houses and trail after him.
-- **They talk.** Now and then a villager nearby says what is on their mind. Every line is
+- Now and then a villager nearby says what is on their mind. Every line is
   chosen from what is true in the simulation at that moment: the bare granary, the flood their
   grandmother saw, the smoking mountain, the longer walk for firewood, a new baby, a match.
-- **The land remembers.** A burying ground on the hill gains stones as people die. A flood
+- The land keeps a record. A burying ground on the hill gains stones as people die. A flood
   stone by the bank carries a notch for each flood in living memory. A shrine to "the blue one"
   appears after your first visit: tended with grain and a candle in a fed year, bare in a
   hungry one, worn smooth if nobody is left.
-- **The day turns.** While you are in the valley sunset comes, then night with lamplit windows,
+- While you are in the valley sunset comes, then night with lamplit windows,
   stars and fireflies, then dawn.
-- **Sunset.** The sky goes from deep maroon overhead through red and orange to a pale glow on
+- At sunset the sky goes from deep maroon overhead through red and orange to a pale glow on
   the horizon, with a low sun. Everything turns to silhouette by distance: the far mountains
   fade into dusty rose haze, nearer things darken, the land and a foreground of grass and
   markers go black, and windows light. The god is the one lit figure. The title screen and the
-  ruins of a village that did not last are always seen this way. Birds cross the sky by day and fish jump in the river.
-- **Sound.** Birdsong by day, crickets at night, and a slow tune of single notes.
-- **Who is left.** Each arrival report lists which family lines still have living descendants
+  ruins of a village that did not last are always seen this way.
+- Birds cross the sky by day and fish jump in the river.
+- The sound is birdsong by day, crickets at night, and a slow tune of single notes.
+- Each arrival report lists which family lines still have living descendants
   and which have ended.
 
 ## Planning: the city, the houses, the people
@@ -205,28 +223,28 @@ people of their own house, marries someone from another house, has children and 
 founding families start six **family lines**; a child belongs to every line either parent
 belongs to, and new lines arrive with families from downriver.
 
-**Ideas live in people.** There are 18:
+Ideas live in people. There are 18:
 
-- **Six you can teach** (`T`): seed saving, drying food, terracing, flood marks, watching
+- Six you can teach (`T`): seed saving, drying food, terracing, flood marks, watching
   the mountain, building in stone. Everyone old enough in the houses of the three nearest
   villagers learns it.
-- **Twelve that nobody can be taught.** Each grows from two others, and only a person who holds
+- Twelve that nobody can be taught. Each grows from two others, and only a person who holds
   both can work it out: seed jars (seed saving + drying), sealed granary (drying + stone), levee
   (flood marks + stone), irrigation (terracing + flood marks), and so on, up to canals, a seed
   vault, a school and a masons' guild, which each grow from two of those.
 
-So ideas are made by mixing families. If one house keeps drying and another keeps stone, the
+Ideas are made by mixing families. If one house keeps drying and another keeps stone, the
 child of a marriage between them can come up with the sealed granary. An idea held by one
 person dies with them.
 
 What you can plan, all free except the move (`P` for the whole village, or inspect a house):
 
-- **Matches** — promise two unmarried people from different houses to each other. The list
+- Matches: promise two unmarried people from different houses to each other. The list
   shows, for each candidate, which new ideas the pairing would bring within reach. The promise
   is kept when both are 17 and still free.
-- **Callings** — make someone a teacher: they pass what they know to other houses five times as
+- Callings: make someone a teacher, and they pass what they know to other houses five times as
   readily.
-- **Houses** — move a household between the riverside and the ridge (2 food).
+- Houses: move a household between the riverside and the ridge (2 food).
 
 ### Bridges
 
@@ -258,13 +276,13 @@ it grows back only while it or a neighbour still has trees) or **clear it for a 
 
 The village uses the forest on its own, under three customs:
 
-- **Cutting wood** — firewood (0.03 timber a person a year), 2 timber for every new house, and
+- Cutting wood: firewood (0.03 timber a person a year), 2 timber for every new house, and
   timber for each year of bridge work. By default it thins, never taking the last trees of a
   stand; it can be told to fell whatever is nearest, or to leave the forest alone.
-- **Hunting** — game lives in each forest (up to 40 food, in proportion to how much of the
+- Hunting: game lives in each forest (up to 40 food, in proportion to how much of the
   forest stands) and feeds the village on top of foraging. Hunted harder than it breeds, it is
   gone; it only comes back to standing forest, rarely, or over a bridge from the other forest.
-- **Forest into fields** — when open ground runs out, the village clears forest for fields in
+- Forest into fields: when open ground runs out, the village clears forest for fields in
   a hungry year by default; never, or always, if you say so.
 
 What running out costs: with no timber no new houses are founded and bridge work stops; a
@@ -276,30 +294,30 @@ nothing to seed it. An abandoned forest field returns to forest after 60 years.
 
 Every choice carries small tags saying what it pushes up ▲ or down ▼: "harvest ▲", "forest ▼",
 "flood losses ▲". They are on each custom setting, crop, bridge and idea, and under the buttons
-on the card for whatever you are standing at. They give no numbers and mark nothing as best;
-the arrows are gold and blue, not green and red, because up is not always good. Weighing them
-is the game.
+on the card for whatever you are standing at. They give no numbers and mark nothing as best.
+The arrows are gold and blue instead of green and red because up is not always good, and
+weighing them is left to you.
 
 ### Customs and crops
 
-- **Customs (11, 37 settings)** — village-wide rules, set with `C`: ridge seed reserve, seed and
+- Customs (11, 37 settings) are village-wide rules, set with `C`: ridge seed reserve, seed and
   food carried uphill, where new fields go, pace of clearing, where newcomers build, planting
-  order, whether seed is eaten in a hungry winter, and the three forest customs above. Each drifts back one step toward the
-  village default with a 0.3% chance a year.
-- **Crops (3 per field, up to 37 fields)** — grain, roots or millet, chosen with `2` while inspecting
-  a field. Villages sow new fields with whatever their neighbours grow.
+  order, whether seed is eaten in a hungry winter, and the three forest customs above. Each drifts back one step
+  toward the village default with a 0.3% chance a year.
+- Crops (3 per field, up to 37 fields) are grain, roots or millet, chosen with `2` while
+  inspecting a field. Villages sow new fields with whatever their neighbours grow.
 
 ## How a run goes
 
-1. **Visit.** Year 0: six families (about 25 people), 26 food, 6 seed, a lowland granary, no
+1. Visit. Year 0: six families (about 25 people), 26 food, 6 seed, a lowland granary, no
    farms. Only the two grown people of Ama's house know how to save seed (houses that keep it
    carry a gold seed mark).
-2. **Plan.** The jump panel states food, seed by location, households, fields and the risks in
-   plain language. Choosing a jump length also runs trial futures on *copies* of the village (shown as words, not a percentage) and
-   shows the share that still have households at the destination.
-3. **Playback.** Thirty real seconds, whatever the length. The simulation runs every seasonal
+2. Plan. The jump panel states food, seed by location, households, fields and the risks in
+   plain language. Choosing a jump length also runs trial futures on copies of the village and
+   shows, in words, the share that still have households at the destination.
+3. Playback. Thirty real seconds, whatever the length. The simulation runs every seasonal
    tick in order; captions come from real simulation events. Nothing can be changed.
-4. **Arrival.** Turning points of the jump, and any recoveries traced back to your ridge store or
+4. Arrival. Turning points of the jump, and any recoveries traced back to your ridge store or
    your demonstration. If the village is alive, the next visit begins. If not, you walk the ruins
    and score the year the last household left.
 5. There is no final visit. The score is the year the last household leaves.
@@ -328,7 +346,7 @@ All of these are rolled in the simulation each summer, with the same rules at ev
 | River flood | 26% high water, 6.5% flood, 0.7% great flood (scaled by wet or dry decades) | Spoils or buries floodplain fields and ruins lowland granary stock; a great flood reaches the ridge and can take the lowest bank |
 | Heavy rain | 6% | Flood chances × 1.5, landslide chance × 4, floodplain harvest × 0.85 |
 | Drought | 9% in years without a flood | Ridge harvest × 0.35, floodplain × 0.8 |
-| Landslide | 0.5% | Buries the two ridge fields nearest the slope; half the time it breaks into the ridge store and takes 30–70% of its stock |
+| Landslide | 0.5% | Buries the two ridge fields nearest the slope; half the time it breaks into the ridge store and takes 30 to 70% of its stock |
 | Tornado | 0.4% | Crosses either the floodplain or the ridge: each household there has a 25% chance of losing its house and leaving, 60% of crops in its path are stripped, the store there loses 30% of its food |
 | Volcano | 0.1% that it wakes | Smokes for three years as a warning, then erupts: harvests at 25% that year and 60% for two more, a mudflow flood, and likely landslides. Three eruptions in ten also send fire and mud into the valley: half the households are lost and every field is buried. Twelve years of richer soil follow |
 
@@ -345,18 +363,18 @@ stands behind the valley in the backdrop; it smokes while it is waking and shows
 The sprites are painted in [klad](https://github.com/klad-app/klad), a painting app with a
 command line an agent can paint through. Nothing of klad itself is in this repository.
 
-- `art/sprites/<name>.klad` — one pixel drawing per sprite (a folder of ordinary files). Open
+- `art/sprites/<name>.klad`: one pixel drawing per sprite (a folder of ordinary files). Open
   one in the klad editor to repaint it by hand.
-- `art/palette.gpl` — the shared palette. Every pixel is bound to a named colour in it.
-- `art/paint/<group>.sh` — the scripts that painted the drawings; running one recreates its
+- `art/palette.gpl`: the shared palette. Every pixel is bound to a named colour in it.
+- `art/paint/<group>.sh`: the scripts that painted the drawings; running one recreates its
   drawings from nothing.
-- `art/manifest/<group>.txt` — which drawing, frame and palette variant becomes which sprite in
+- `art/manifest/<group>.txt`: which drawing, frame and palette variant becomes which sprite in
   the game. The eight villager shirt colours are palette variants of one drawing.
-- `bash art/export.sh` — exports every listed sprite at real size to `src/assets/sprites/`,
+- `bash art/export.sh`: exports every listed sprite at real size to `src/assets/sprites/`,
   which is what the game loads. Run it after changing a drawing; it needs `klad` on the path.
-- `python3 art/sheet.py out.png 8 god villager:1 house_home` — a contact sheet for judging
+- `python3 art/sheet.py out.png 8 god villager:1 house_home`: a contact sheet for judging
   sprites side by side on the game's sky and grass colours.
-- `art/BRIEF.md` — the style and the rules sprites must keep (sizes, anchoring, palette).
+- `art/BRIEF.md`: the style and the rules sprites must keep (sizes, anchoring, palette).
 
 A sprite with a PNG in `src/assets/sprites/` replaces the code-drawn one of the same name in
 `src/game/sprites.js`. The terrain, flood line and two-pixel particles are still drawn in code:
@@ -367,7 +385,7 @@ the terrain has to follow the simulation's ground profile exactly.
 Branch rule: every branch is merged into `testing`, only `testing` is merged into `main`, and
 every merge into `main` publishes to itch.io.
 
-`.github/workflows/itch.yml` enforces and carries that out:
+`.github/workflows/itch.yml` enforces the rule and does the publishing:
 
 - Pull requests into `testing` or `main` run the tests and the build.
 - A pull request into `main` from any branch other than `testing` fails a check named
@@ -384,13 +402,13 @@ itch.io, set the project to "HTML" and the `html5` channel to be played in the b
 `src/sim/` is plain JavaScript with no browser or engine imports. State is one JSON-compatible
 object; `step(state)` advances one season:
 
-- **Spring** — trained households restore silted fields; households plant while seed and hands
+- Spring: trained households restore silted fields; households plant while seed and hands
   last. Lowland seed first; ridge seed is a reserve opened after a flood.
-- **Summer** — the river: high water, flood, or great flood (and drought in dry years). One flood
+- Summer, the river: high water, flood, or great flood (and drought in dry years). One flood
   hits every lowland field and the lowland granary together.
-- **Autumn** — harvest. Floodplain 3.0 food per field, ridge 1.7. Households that know seed
+- Autumn, the harvest: floodplain 3.0 food per field, ridge 1.7. Households that know seed
   saving keep 1.5 seed per field (others 0.3) and carry spare seed to a ridge store.
-- **Winter** — stores spoil and are eaten; hunger drives households away; then the people's
+- Winter: stores spoil and are eaten; hunger drives households away; then the people's
   year: deaths, children learning, marriages between houses, births, new ideas, new families
   arriving. A year of work goes into the planned bridge. Fed villages clear fields (uphill
   after repeated floods) and work toward the next stage; abandoned fields and houses decay.
