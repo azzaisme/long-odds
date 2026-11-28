@@ -216,13 +216,18 @@ One scripted desktop run (1280×720, seed 2, fresh browser storage), screenshots
   empty stand showed stumps only.
 - River, looked at by day and at dusk: the depth gradient, the surface line and the mirrored sky
   (blue by day, rose with the sun's glow at dusk) were seen.
+  At night the mirror showed the dark hills. The west forest was looked at with the same mix of
+  timber and drew the same way.
+- The humanizer skill was run over README.md, VERIFICATION.md, CLAUDE.md, art/BRIEF.md, the
+  itch/ texts, index.html and the player-visible strings in src/sim and src/game. Code comments
+  were not included. Tests and the build passed afterwards.
 
 ## Not covered
 
 - For the wipe, forest and river: the uncovering half of the wipe was not caught in a screenshot
   (it runs the same code as the cover). The forest was not watched changing during a playback,
-  only set by hand; the west forest was not looked at. The river mirror was not looked at with
-  houses or people standing over the water, on a bridge, in flood, or at night, and the cost of
+  only set by hand. The river mirror was not looked at with
+  houses or people standing over the water, on a bridge or in flood, and the cost of
   drawing the frame twice was not measured on a phone.
 
 - For the sunset: the title screen at sunset and the collapse verdict at sunset were not looked
