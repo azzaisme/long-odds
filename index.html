@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <title>Long Odds</title>
     <link rel="stylesheet" href="/src/style.css" />
   </head>
@@ -27,9 +27,10 @@
         <button data-act="people"><kbd>P</kbd> People</button>
         <button data-act="customs"><kbd>C</kbd> Customs</button>
         <button data-act="bridge"><kbd>B</kbd> Bridge</button>
-        <button data-act="plan" class="primary"><kbd>J</kbd> Step out of the world</button>
+        <button data-act="plan" class="primary"><kbd>J</kbd> Step out<span class="long"> of the world</span></button>
       </nav>
-      <div id="hint" hidden><kbd>A</kbd><kbd>D</kbd> walk · stand at something to read it</div>
+      <div id="pad" hidden><button data-walk="-1" aria-label="Walk left">◀</button><button data-walk="1" aria-label="Walk right">▶</button></div>
+      <div id="hint" hidden><span class="keysonly"><kbd>A</kbd><kbd>D</kbd> walk · </span>stand at something to read it</div>
 
       <section id="playback" hidden>
         <div class="box" id="pb-head">

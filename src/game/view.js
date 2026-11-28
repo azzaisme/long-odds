@@ -12,6 +12,8 @@ export class View {
     const app = (this.app = new pc.Application(canvas, { graphicsDeviceOptions: { antialias: false, alpha: false } }));
     app.setCanvasFillMode(pc.FILLMODE_FILL_WINDOW);
     app.setCanvasResolution(pc.RESOLUTION_AUTO);
+    // Draw at the screen's own pixels (up to 2x) so a phone's half-step zoom still lands on whole pixels.
+    app.graphicsDevice.maxPixelRatio = Math.min(2, window.devicePixelRatio || 1);
     window.addEventListener('resize', () => app.resizeCanvas());
     app.scene.ambientLight = new pc.Color(1, 1, 1);
 
@@ -922,7 +924,11 @@ export class View {
     return v ? [(x - v.x0) * v.zoom, (v.y1 - y) * v.zoom] : [0, 0];
   }
   baseZoom() {
-    const ch = this.app.graphicsDevice.canvas.clientHeight || 720;
-    return Math.max(2, Math.round(ch / 250));
+    const canvas = this.app.graphicsDevice.canvas;
+    const ch = canvas.clientHeight || 720;
+    const cw = canvas.clientWidth || 1280;
+    // Whole pixels on a desktop; on a phone, a half step so at least 260 units of valley fit across.
+    const raw = Math.min(ch / 250, cw / 260);
+    return raw >= 1.75 ? Math.max(2, Math.round(raw)) : 1.5;
   }
 }

@@ -76,6 +76,16 @@ ridge store 3, teach an idea 1, move a household 2; carrying seed is free), so e
 you build comes out of the reserve the village has to live on. Matches, callings, customs,
 crops and bridge plans cost nothing to set.
 
+### On a phone or tablet
+
+The game also plays by touch, sideways or upright. Hold ◀ or ▶ (bottom left), or hold the
+valley itself to either side of the god, to walk. Everything else is a button: the card for
+whatever you are standing at carries its actions, and Teach, People, Customs, Bridge and Step
+out sit along the bottom. Tapping a figure in the top row says what it counts. Key hints are
+hidden on a touch screen. On small screens the card moves to the top so it does not cover the
+god; with a phone held sideways the card drops the "what this touches" tags to stay one line
+deep (they are still in every panel).
+
 ## A lived-in valley
 
 - **Villagers notice you.** They stop and turn when the god comes close. Children play near

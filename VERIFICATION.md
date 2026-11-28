@@ -152,6 +152,14 @@ Real key presses throughout, no console errors in any run.
   bridge; after a 1-year jump the footbridge stood; walked across on the deck and cleared a
   far-bank field.
 
+### Phone layouts and touch (emulated)
+
+Headless Chromium emulating a touch phone at 844×390 (sideways) and 390×844 (upright), 2×
+pixel density: title, visit, a site card, teaching, People, Customs, Bridge, Step out, the
+commit screen, a 10-year playback and the collapse verdict were screenshotted and looked at in
+both. Holding ▶ for 1.5 s walked the god about 110 units and he stopped on release. No console
+errors. The desktop view at 1280×720 was re-checked and is unchanged.
+
 ## Not covered
 
 - For the sunset: the title screen at sunset and the collapse verdict at sunset were not looked
@@ -197,3 +205,7 @@ Real key presses throughout, no console errors in any run.
 - Ridge-only farming still survives about as well as mixed farming.
 - No scripted player sets customs, crops, matches or callings, so their balance is tested only
   for "changes outcomes", not for "is well tuned".
+- For phones: nothing was run on a real phone or in Safari; only Chromium's touch emulation.
+  Holding the valley itself to walk (as opposed to the ◀ ▶ buttons), tapping a top-row figure,
+  safe-area insets on notched phones, tablets, and the game inside itch.io's page on a phone
+  were not exercised.

@@ -190,3 +190,98 @@ button.danger:hover { background: #963a2c; }
 
 #murmur { position: absolute; transform: translate(-50%, -100%); background: #f6efdc; color: #2a2118; border: 2px solid #2a2118; padding: 4px 9px; font-size: 13px; max-width: 250px; text-align: center; line-height: 1.25; box-shadow: 0 3px 0 #0006; pointer-events: none; }
 #murmur::after { content: ''; position: absolute; left: 50%; bottom: -8px; margin-left: -5px; border: 5px solid transparent; border-bottom: 0; border-top-color: #2a2118; }
+
+/* ---- touch and small screens ------------------------------------------------------------- */
+html, body { overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
+canvas#game { touch-action: none; }
+#ui { -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+#panel, #context { touch-action: pan-y; overscroll-behavior: contain; }
+.chip { pointer-events: auto; }
+.touchonly, #pad { display: none; }
+#context .cancel { padding: 2px 8px; font-size: 13px; margin-left: 6px; }
+body.fingers .touchonly { display: block; }
+body.fingers .keysonly, body.fingers kbd { display: none; }
+body.fingers #pad { display: flex; gap: 8px; position: absolute; left: calc(10px + env(safe-area-inset-left)); bottom: calc(10px + env(safe-area-inset-bottom)); }
+body.fingers #pad[hidden] { display: none; }
+#pad button { width: 58px; height: 50px; font-size: 20px; padding: 0; background: #2f3854cc; touch-action: none; }
+#pad button:active { background: #7a5a1c; }
+body.fingers button { min-height: 36px; }
+body.fingers #panel .tabs button, body.fingers #tools button { min-height: 0; }
+body.fingers #bar { justify-content: flex-end; left: 140px; right: calc(8px + env(safe-area-inset-right)); bottom: calc(10px + env(safe-area-inset-bottom)); flex-wrap: wrap-reverse; gap: 6px; }
+body.fingers #bar button { padding: 8px 11px; font-size: 14px; min-height: 50px; }
+body.fingers #bar .primary { margin-left: 0; }
+body.fingers #hint { bottom: 70px; }
+
+/* A phone held sideways: little height, so everything is one line deep. */
+@media (max-height: 520px) {
+  #top { top: 6px; left: 6px; right: 6px; gap: 6px; }
+  #clock { min-width: 0; padding: 3px 9px; }
+  #clock b { font-size: 15px; }
+  #clock span { font-size: 11px; }
+  .chip { padding: 3px 8px; column-gap: 5px; }
+  .chip b { font-size: 14px; }
+  .chip small { display: none; }
+  #tools { padding: 3px 6px; }
+  #tools button { padding: 3px 9px; }
+  #toast { top: auto; bottom: 68px; font-size: 13px; padding: 4px 10px; }
+  #context, #context.raised { top: 48px; bottom: auto; padding: 5px 10px; width: min(760px, 96vw); }
+  #context.raised { top: 8px; }
+  #clock b { margin-right: 8px; }
+  #context .card { gap: 10px; }
+  #context .card h3 { font-size: 13px; margin: 0; }
+  #context .card p { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #context .card .acts { flex-direction: row; max-width: 72%; gap: 6px; }
+  #context .card .acts .touch, #context .card .more { display: none; }
+  #context .card .acts button { padding: 4px 9px; font-size: 13px; white-space: nowrap; }
+  #context:has(.plist) { bottom: 6px; top: 6px; max-height: none; overflow: auto; z-index: 5; width: 96vw; }
+  #panel { max-height: 96vh; padding: 12px 16px; }
+  #panel .tabs { margin: -12px -16px 10px; top: -12px; }
+  #panel h1 { font-size: 30px; }
+  #panel h2 { font-size: 18px; }
+  #ruinbar { bottom: calc(66px + env(safe-area-inset-bottom)); padding: 6px 10px; font-size: 13px; }
+  #pb-years b { font-size: 22px; }
+  #pb-era { top: 106px; font-size: 12px; }
+  #captions { top: 126px; }
+  #captions li { font-size: 13px; padding: 3px 9px; }
+  #captions li.p3 { font-size: 14px; }
+  #speech { font-size: 15px; padding: 6px 10px; }
+  .long { display: none; }
+}
+
+/* A phone held upright: little width, so things stack; the card sits under the figures, out of the valley. */
+@media (max-width: 620px) {
+  #top { top: 6px; left: 6px; right: 6px; gap: 6px; flex-wrap: wrap; }
+  #clock { flex: 1; min-width: 0; padding: 4px 10px; }
+  #clock b { font-size: 16px; display: inline; margin-right: 8px; }
+  #stats { order: 3; flex: 0 0 100%; flex-wrap: wrap; }
+  .chip { flex: 1 0 33%; padding: 4px 8px; }
+  .chip:nth-child(-n+3) { border-bottom: 1px solid var(--line); }
+  .chip b { font-size: 15px; }
+  .chip small { display: block; font-size: 10px; }
+  #context { top: 150px; bottom: auto; width: calc(100vw - 12px); padding: 7px 10px; max-height: calc(100vh - 290px); overflow: auto; }
+  #context.raised { top: 10px; bottom: auto; }
+  #context .card { flex-direction: column; align-items: stretch; gap: 6px; }
+  #context .card p { font-size: 12px; }
+  #context .card .acts { max-width: none; flex-direction: row; flex-wrap: wrap; gap: 6px; }
+  #context .card .acts > div { flex: 1 1 45%; }
+  #context .card .acts button { padding: 5px 8px; font-size: 13px; }
+  #context .plist { grid-template-columns: 1fr !important; }
+  #context:has(.plist) { top: 6px; bottom: 6px; max-height: none; z-index: 5; }
+  #toast { top: auto; bottom: 200px; max-width: 94vw; width: max-content; font-size: 13px; }
+  #panel { width: 97vw; max-height: 96vh; padding: 12px 12px; }
+  #panel .tabs { margin: -12px -12px 10px; top: -12px; overflow-x: auto; }
+  #panel .tabs .x { position: sticky; right: 0; background: #1d2233; color: var(--ink); }
+  #panel .tabs button { padding: 6px 8px; font-size: 13px; white-space: nowrap; }
+  #panel h1 { font-size: 30px; letter-spacing: 4px; }
+  #panel h2 { font-size: 18px; }
+  #panel .big { font-size: 26px; }
+  #ruinbar { flex-direction: column; align-items: stretch; bottom: calc(70px + env(safe-area-inset-bottom)); width: calc(100vw - 12px); font-size: 13px; gap: 6px; }
+  #ruinbar .btns { display: flex; flex-wrap: wrap; gap: 6px; }
+  #speech { font-size: 15px; padding: 6px 10px; max-width: 70vw; }
+  #pb-years b { font-size: 24px; }
+  #captions li { font-size: 14px; }
+  #captions li.p3 { font-size: 15px; }
+  .long { display: none; }
+  body.fingers #bar button { padding: 6px 9px; font-size: 13px; min-height: 44px; }
+}

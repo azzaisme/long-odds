@@ -84,6 +84,8 @@ export class Game {
     const visiting = s === S.VISIT || s === S.PLANNING;
     $('top').hidden = !visiting;
     $('bar').hidden = s !== S.VISIT;
+    $('pad').hidden = !(s === S.VISIT || s === S.RUINS || s === S.RESULTS);
+    this.touchDir = 0;
     $('goals').hidden = s !== S.VISIT;
     $('hint').hidden = !(s === S.RUINS || s === S.RESULTS);
     $('playback').hidden = s !== S.PLAYBACK;
@@ -119,7 +121,28 @@ export class Game {
       this.key(k);
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.key.length === 1 ? e.key.toLowerCase() : e.key));
-    window.addEventListener('blur', () => this.keys.clear());
+    window.addEventListener('blur', () => (this.keys.clear(), (this.touchDir = 0)));
+    // Touch: hold either arrow, or hold the valley itself to either side of the god, to walk.
+    const touchy = () => document.body.classList.add('fingers');
+    if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) touchy();
+    window.addEventListener('touchstart', touchy, { once: true, passive: true });
+    const stop = () => (this.touchDir = 0);
+    for (const b of document.querySelectorAll('[data-walk]')) {
+      b.addEventListener('pointerdown', (e) => (e.preventDefault(), this.sound.start(), (this.touchDir = Number(b.dataset.walk))));
+      for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) b.addEventListener(ev, stop);
+      b.addEventListener('contextmenu', (e) => e.preventDefault());
+    }
+    const canvas = $('game');
+    const toward = (e) => {
+      const a = this.me();
+      if (!a || e.pointerType === 'mouse') return;
+      const [sx] = this.view.toScreen(a.x, 0);
+      this.touchDir = Math.abs(e.clientX - sx) < 14 ? 0 : e.clientX > sx ? 1 : -1;
+    };
+    canvas.addEventListener('pointerdown', (e) => (this.sound.start(), (this.holding = e.pointerId), toward(e)));
+    canvas.addEventListener('pointermove', (e) => this.holding === e.pointerId && toward(e));
+    for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) canvas.addEventListener(ev, () => ((this.holding = null), stop()));
+    document.addEventListener('contextmenu', (e) => document.body.classList.contains('fingers') && e.preventDefault());
     $('btn-sound').onclick = () => {
       this.sound.setMuted(!this.sound.muted);
       $('btn-sound').style.opacity = this.sound.muted ? 0.4 : 1;
@@ -127,7 +150,10 @@ export class Game {
     // One delegated handler for every generated button.
     $('ui').addEventListener('click', (e) => {
       const b = e.target.closest('[data-act]');
-      if (b && !b.disabled) this.act(b.dataset.act, b.dataset.arg);
+      if (b && !b.disabled) return this.act(b.dataset.act, b.dataset.arg);
+      // No hover on a touch screen: tapping a figure in the top row says what it is.
+      const chip = e.target.closest('.chip');
+      if (chip && document.body.classList.contains('fingers')) this.toast(chip.title);
     });
   }
   key(k) {
@@ -207,7 +233,8 @@ export class Game {
       <p>Last long enough, fed and unflooded, and the hamlet grows: village, town, city, and finally <b>the Hold</b>, one great terraced house on the ridge with room for every resident and a seed vault of its own.</p>
       <p>The valley is not gentle. The river floods, heavy rains bring landslides, tornadoes cross the plain, and the volcano behind the hills smokes for a few years before it erupts.</p>
       <p class="note">Take as long as you like over each visit. Work is paid for in food from the stores; customs and crops cost nothing to change. Every jump plays out over thirty seconds and cannot be undone. There is no last visit: you come back until nobody is left.</p>
-      <p class="note"><kbd>A</kbd><kbd>D</kbd> walk · <kbd>E</kbd> act on what you are standing at · <kbd>T</kbd> teach · <kbd>P</kbd> people · <kbd>C</kbd> customs · <kbd>B</kbd> bridge · <kbd>J</kbd> step out · <kbd>H</kbd> all controls</p>
+      <p class="note touchonly">Hold ◀ ▶, or hold the valley to either side of you, to walk. Stand at something to read it and act on it; everything else is on the buttons along the bottom.</p>
+      <p class="note keysonly"><kbd>A</kbd><kbd>D</kbd> walk · <kbd>E</kbd> act on what you are standing at · <kbd>T</kbd> teach · <kbd>P</kbd> people · <kbd>C</kbd> customs · <kbd>B</kbd> bridge · <kbd>J</kbd> step out · <kbd>H</kbd> all controls</p>
       <div class="row"><label>Valley seed <input id="seed" value="${esc(q)}" placeholder="random" maxlength="12"></label>
       <button class="primary" data-act="begin">Begin <kbd>Enter</kbd></button></div>`, true);
     this.view.cam.tzoom = this.view.baseZoom();
@@ -1032,7 +1059,7 @@ export class Game {
     let html = '';
     if (visit && a && this.picking) {
       prompt.hidden = true;
-      html = `<h3>Teach an idea</h3><p>You know all six. Everyone old enough in the houses of the three nearest villagers learns it. Each lesson costs ${B.workCost.teach} food. <kbd>Esc</kbd> to cancel.</p><div class="plist">${PRACTICES.map((p, i) => {
+      html = `<h3>Teach an idea</h3><p>You know all six. Everyone old enough in the houses of the three nearest villagers learns it. Each lesson costs ${B.workCost.teach} food. <button data-act="teach" class="cancel">Cancel <kbd>Esc</kbd></button></p><div class="plist">${PRACTICES.map((p, i) => {
         const who = this.pupils(p.id);
         return `<button data-act="teach" data-arg="${p.id}" ${who.length && afford('teach') ? '' : 'disabled'}><kbd>${i + 1}</kbd> <b>${esc(p.name)}</b> <small>${holders(st, p.id)}/${st.households.length} houses keep it${who.length ? ` · would teach ${esc(who.map((h) => h.name).join(', '))}` : ' · nobody new in reach'}</small><span>${esc(p.does)}</span>${touch(p.t)}</button>`;
       }).join('')}</div>`;
@@ -1076,7 +1103,8 @@ export class Game {
     this.setState(S.PLANNING);
     this.modal(`${this.tabs('help')}
       <h2>Controls</h2>
-      <div class="keys">
+      <p class="touchonly">On a touch screen: hold ◀ ▶, or hold the valley to either side of you, to walk. A card appears for whatever you are standing at, with its actions on it. Teach, People, Customs, Bridge and Step out are the buttons along the bottom; tap a figure in the top row to read what it counts.</p>
+      <div class="keys keysonly">
         <span><kbd>A</kbd><kbd>D</kbd> or <kbd>←</kbd><kbd>→</kbd></span><span>Walk. A card appears for whatever you are standing at.</span>
         <span><kbd>E</kbd></span><span>Do the main thing on the card: clear a field, build, carry seed, meet a household, plan the bridge</span>
         <span><kbd>2</kbd></span><span>Change the crop of the field you are standing at</span>
@@ -1112,7 +1140,7 @@ export class Game {
           if (this.carrying === a) (this.carrying = null), view.emit('seed', a.x, groundHeight(a.x) + 12, 8);
           view.carry.enabled = false;
           a.controlled = true;
-          const dir = (this.keys.has('d') || this.keys.has('ArrowRight') ? 1 : 0) - (this.keys.has('a') || this.keys.has('ArrowLeft') ? 1 : 0);
+          const dir = Math.sign((this.keys.has('d') || this.keys.has('ArrowRight') ? 1 : 0) - (this.keys.has('a') || this.keys.has('ArrowLeft') ? 1 : 0) + (this.touchDir || 0));
           a.moving = dir !== 0;
           if (dir) {
             a.dir = dir;
