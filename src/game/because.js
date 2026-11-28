@@ -52,7 +52,7 @@ export function because(st, j) {
   }
   // What the village did with the land on its own.
   const cleared = (seen.expand ? seen.expand.n : 0) + (seen.uphill ? seen.uphill.n : 0);
-  if (cleared) note(`The village cleared new ground ${plural(cleared, 'time')} on its own${seen.uphill ? `, ${seen.uphill.n} of them on the ridge` : ''}, following ${custom('fields')}.`);
+  if (cleared && !st.fate) note(`The village cleared new ground ${plural(cleared, 'time')} on its own${seen.uphill ? `, ${seen.uphill.n} of them on the ridge` : ''}, following ${custom('fields')}.`);
   if (seen['forest-cleared']) note(`Forest was turned into fields ${plural(seen['forest-cleared'].n, 'time')}: ${custom('clearing')}.`);
   // The fields the god built by hand.
   const mine = [...new Set(acts.filter((a) => a.type === 'build-plot').map((a) => a.plot))];

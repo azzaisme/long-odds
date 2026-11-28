@@ -29,6 +29,10 @@ const SEASON_LINES = [
 const STAGE = B.stages.names;
 const ERA = { 1: 'One year', 10: 'Ten years', 100: 'A century', 1000: 'A millennium' };
 const WALK = 64;
+// The tutorial: one fixed valley, the floodplain only, and a century that cannot go well.
+const TUTORIAL = B.tutorial;
+const stored = (k) => { try { return localStorage.getItem(k) === '1'; } catch { return false; } };
+const store = (k) => { try { localStorage.setItem(k, '1'); } catch { /* private window */ } };
 // The god: the only character the player ever is. He knows every base idea.
 const GOD = { id: null, name: 'you', ideas: new Proxy({}, { get: () => true }) };
 const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
@@ -53,9 +57,15 @@ export class Game {
   }
 
   // ---- lifecycle ----------------------------------------------------------------------------
-  newRun(seed) {
+  newRun(seed, tutorial = false) {
     this.seed = seed >>> 0;
     this.sim = Sim.createSim(this.seed);
+    // The tutorial's valley is fated: whatever is done on the floodplain, the river comes over
+    // the bank eight years running, and the village ends. (tools/fate.mjs shows that it always does.)
+    this.tutorial = tutorial;
+    if (tutorial) (this.sim.fate = { ...TUTORIAL.fate }), (this.sim.customs.fields = 0);
+    document.body.classList.toggle('tutorial', tutorial);
+    this.walled = false;
     this.visit = 1;
     this.picking = false;
     this.jumps = [];
@@ -76,9 +86,7 @@ export class Game {
     this.view.weather = 'none';
     this.view.addActor(-1, 'god', 470);
     this.view.seedErrands(this.sim);
-    let seenGuide = false;
-    try { seenGuide = localStorage.getItem('long-odds-guided') === '1'; } catch { /* private window */ }
-    this.guide = seenGuide ? null : { step: 0 };
+    this.guide = this.tutorial || !stored('long-odds-guided') ? { step: 0 } : null;
     this.setState(S.VISIT);
     this.view.cam.tzoom = this.view.baseZoom();
     if (!this.guide) this.toast('Six families, a little food and seed, and no farms. Take as long as you like: work is paid for in food.');
@@ -171,10 +179,10 @@ export class Game {
   key(k) {
     this.sound.start();
     const s = this.state;
-    if (s === S.TITLE && k === 'Enter') return this.begin();
+    if (s === S.TITLE && k === 'Enter') return stored('long-odds-tutorial') ? this.begin() : this.beginTutorial();
     if (s === S.VISIT) {
       if (k === 'j') return this.openPlan();
-      if (k === 'b') return this.openBridge();
+      if (k === 'b' && !this.tutorial) return this.openBridge();
       if (k === 'h' || k === '?') return this.openHelp();
       if (k === 'e' && !this.picking) return this.act('site');
       if (k === 't') return this.act('teach');
@@ -193,12 +201,13 @@ export class Game {
         if (k === 'j') return this.openPlan();
         if (k === 'p') return this.openPeople();
         if (k === 'c') return this.openCustoms();
-        if (k === 'b') return this.openBridge();
+        if (k === 'b' && !this.tutorial) return this.openBridge();
         if (k === 'h') return this.openHelp();
         if (this.tab !== 'plan') return;
       }
       if (this.pending && k === 'Enter') return this.act('commit');
       const i = ['1', '2', '3', '4'].indexOf(k);
+      if (!this.pending && this.tutorial && k === '1') return this.act('choose', TUTORIAL.years);
       if (!this.pending && i >= 0) return this.act('choose', B.jumpChoices[i]);
     } else if (s === S.ARRIVAL && k === 'Enter') return this.verdict ? this.retry() : this.act('next');
   }
@@ -206,6 +215,7 @@ export class Game {
     this.sound.start();
     switch (name) {
       case 'begin': return this.begin();
+      case 'tutorial': return this.beginTutorial();
       case 'site': return this.siteAction();
       case 'teach': return this.teach(arg);
       case 'crop': return this.cycleCrop();
@@ -240,7 +250,7 @@ export class Game {
     this.ctxHtml = null;
     $('arrow').hidden = true;
     $('guide').hidden = true;
-    try { localStorage.setItem('long-odds-guided', '1'); } catch { /* private window */ }
+    store('long-odds-guided');
   }
   // The current step: what to say, and where in the valley to point (if anywhere).
   guideStep(t) {
@@ -267,7 +277,7 @@ export class Game {
       return { text: `They will farm it. What they know dies with them unless it is passed on: stand among them and teach.${key('T', 'Tap Teach.')}`, x: folk && Math.abs(folk.x - a.x) > 40 ? folk.x : null };
     }
     if (g.step === 3) return { text: `While you are gone they live by their customs. Change one, then watch what they do.${key('C', 'Tap Customs.')}` };
-    return { text: `That is all you can do: build, teach, set customs. Do as much as you like, then step out of the world.${key('J', 'Tap Step out.')}` };
+    return { text: `That is all you can do: build, teach, set customs. Do as much as you like, then step out of the world${this.tutorial ? ' for a century' : ''}.${key('J', 'Tap Step out.')}` };
   }
 
   // ---- title --------------------------------------------------------------------------------
@@ -280,7 +290,10 @@ export class Game {
       <div class="tag">Plant a field. Bet a century.</div>
       <p>You are a god with one small valley. Leave its people what you can, then step out of the world for <b>1, 10, 100 or 1,000 years</b> and see whether anyone is still here.</p>
       <div class="row"><label>Valley seed <input id="seed" value="${esc(q)}" placeholder="random" maxlength="12"></label>
-      <button class="primary" data-act="begin">Begin <kbd>Enter</kbd></button></div>`, true);
+      ${stored('long-odds-tutorial')
+        ? '<button class="primary" data-act="begin">Begin <kbd>Enter</kbd></button><button data-act="tutorial">Tutorial</button>'
+        : '<button class="primary" data-act="tutorial">Tutorial <kbd>Enter</kbd></button><button data-act="begin">Skip it</button>'}</div>
+      <p class="note">The tutorial is one short visit and one century. It does not end well.</p>`, true);
     this.view.cam.tzoom = this.view.baseZoom();
   }
   begin() {
@@ -290,6 +303,12 @@ export class Game {
     this.sound.start();
     this.sound.good();
     this.newRun(seed);
+  }
+  beginTutorial() {
+    if (this.state !== S.TITLE) return;
+    this.sound.start();
+    this.sound.good();
+    this.newRun(TUTORIAL.seed, true);
   }
 
   // ---- visit: inspecting and working --------------------------------------------------------
@@ -653,7 +672,7 @@ export class Game {
     this.modal(`${this.tabs('customs')}
       <h2>Customs of the village</h2>
       <p class="note">What the whole village does while you are away. Changing a custom costs nothing. Over the centuries each one slips back, a step at a time, toward what villages do unprompted (marked ·). The tags under each choice say what it pushes up ▲ or down ▼, not by how much.</p>
-      ${CUSTOMS.map((c) => `<div class="custom"><b>${esc(c.name)}</b><span class="note">${esc(c.ask)}</span><div class="opts cols">${c.options.map((o, i) => `<div><button data-act="custom" data-arg="${c.id}:${i}" class="${st.customs[c.id] === i ? 'primary' : ''}">${esc(o.label)}${i === c.base ? ' ·' : ''}</button>${touch(o.t)}</div>`).join('')}</div></div>`).join('')}
+      ${CUSTOMS.filter((c) => !this.tutorial || (c.id !== 'fields' && c.id !== 'plant')).map((c) => `<div class="custom"><b>${esc(c.name)}</b><span class="note">${esc(c.ask)}</span><div class="opts cols">${c.options.map((o, i) => `<div><button data-act="custom" data-arg="${c.id}:${i}" class="${st.customs[c.id] === i ? 'primary' : ''}">${esc(o.label)}${i === c.base ? ' ·' : ''}</button>${touch(o.t)}</div>`).join('')}</div></div>`).join('')}
 `);
   }
   setCustom(arg) {
@@ -687,12 +706,12 @@ export class Game {
     this.modal(`${this.tabs('plan')}
       <h2>Year ${n0(year)}: how the settlement stands</h2>
       ${this.conditionHtml()}${left}
-      <p>How far ahead will you skip? This is visit ${this.visit}.</p>
-      <div class="row jumps">${B.jumpChoices.map((y, i) => `<button data-act="choose" data-arg="${y}"><b>${n0(y)} year${y > 1 ? 's' : ''}</b><small>to year ${n0(year + y)} · <kbd>${i + 1}</kbd></small></button>`).join('')}</div>
+      <p>${this.tutorial ? 'In the tutorial you step out for a century.' : `How far ahead will you skip? This is visit ${this.visit}.`}</p>
+      <div class="row jumps">${B.jumpChoices.filter((y) => !this.tutorial || y === TUTORIAL.years).map((y, i) => `<button data-act="choose" data-arg="${y}"><b>${n0(y)} year${y > 1 ? 's' : ''}</b><small>to year ${n0(year + y)} · <kbd>${i + 1}</kbd></small></button>`).join('')}</div>
       <p class="note">Every jump takes thirty seconds to play out. You cannot act or turn back until it lands.</p>`);
   }
   choose(years) {
-    if (this.state !== S.PLANNING || !B.jumpChoices.includes(years)) return;
+    if (this.state !== S.PLANNING || !B.jumpChoices.includes(years) || (this.tutorial && years !== TUTORIAL.years)) return;
     this.pending = years;
     this.tab = null;
     this.sound.click();
@@ -869,6 +888,8 @@ export class Game {
     this.view.weather = 'none';
     this.view.water.target = WORLD.waterLevels[0];
     const alive = Sim.isAlive(st);
+    // Should the fated valley somehow live, the tutorial is simply over and the run goes on as a real one.
+    if (alive && this.tutorial) (this.tutorial = false), document.body.classList.remove('tutorial'), store('long-odds-tutorial');
     const a = summary(st);
     const b = j.before;
     const cell = (k, x, y) => `<div><small>${k}</small><b>${x} → ${y}</b></div>`;
@@ -900,7 +921,7 @@ export class Game {
         <p>${during ? `The last household left in <b>year ${n0(c.year)}</b>, ${n0(j.to - c.year)} years before you arrived.` : `The valley has been empty since year ${n0(c.year)}.`} ${esc(c.cause)}</p>
         <div class="big">${n0(c.year)} years survived</div>
         ${whyHtml}<h3>${span}</h3>${events}${trace}
-        <div class="row"><button class="primary" data-act="retry">Try again</button><button data-act="next">Walk the ruins</button></div>`;
+        <div class="row"><button class="primary" data-act="retry">${this.tutorial ? 'Begin for real' : 'Try again'}</button><button data-act="next">Walk the ruins</button></div>`;
     } else if (B.visitsPerRun && this.visit >= B.visitsPerRun) {
       html = `
         <h2>Still standing</h2>
@@ -985,7 +1006,7 @@ export class Game {
       if (!this.view.actors.get(-1)) this.view.addActor(-1, 'god', 560);
       this.setState(S.RUINS);
       this.view.setTint(1, 1, 1, 0);
-      $('ruinbar').innerHTML = `<span><b>Year ${n0(Sim.yearOf(st))}. ${n0(st.collapse.year)} years survived.</b> ${esc(st.collapse.cause)} Walk the ruins; <kbd>E</kbd> reads what is left.</span><button class="primary" data-act="retry">Try again</button>`;
+      $('ruinbar').innerHTML = `<span><b>Year ${n0(Sim.yearOf(st))}. ${n0(st.collapse.year)} years survived.</b> ${esc(st.collapse.cause)} Walk the ruins; <kbd>E</kbd> reads what is left.</span><button class="primary" data-act="retry">${this.tutorial ? 'Begin for real' : 'Try again'}</button>`;
     }
   }
 
@@ -1006,6 +1027,7 @@ export class Game {
       this.say = null;
       this.verdict = null;
       $('speech').hidden = true;
+      if (this.tutorial) store('long-odds-tutorial');
       this.newRun((Math.random() * 2 ** 31) >>> 0);
       this.view.update(0.001, this.sim, { camSnap: true });
       const a = this.me();
@@ -1075,7 +1097,7 @@ export class Game {
     const st = this.sim;
     const s = summary(st);
     $('year').textContent = `Year ${n0(s.year)}`;
-    $('visit').textContent = `${s.stageName} · visit ${this.visit}`;
+    $('visit').textContent = this.tutorial ? `Tutorial · ${s.stageName}` : `${s.stageName} · visit ${this.visit}`;
     const known = IDEAS.filter((i) => holders(st, i.id)).length;
     const chip = (cls, value, label, tip) => `<div class="chip" title="${esc(tip)}"><i class="ico ${cls}"></i><b>${value}</b><small>${label}</small></div>`;
     $('stats').innerHTML =
@@ -1206,7 +1228,9 @@ export class Game {
           a.moving = dir !== 0;
           if (dir) {
             a.dir = dir;
-            a.x = Math.max(st.bridge.built ? WORLD.farWalkMin : WORLD.walkMin, Math.min(WORLD.walkMax, a.x + dir * WALK * dt));
+            const far = this.tutorial && s === S.VISIT ? TUTORIAL.wall : WORLD.walkMax;
+            a.x = Math.max(st.bridge.built ? WORLD.farWalkMin : WORLD.walkMin, Math.min(far, a.x + dir * WALK * dt));
+            if (a.x >= far && far === TUTORIAL.wall && !this.walled) (this.walled = true), this.toast('The hill can wait. This valley is only the tutorial.');
             if ((this.stepT -= dt) <= 0) (this.sound.step(), (this.stepT = 0.26));
           }
         }
@@ -1310,7 +1334,7 @@ export class Game {
           v.said = true;
           this.sound.bad();
           $('ruinbar').hidden = false;
-          $('ruinbar').innerHTML = `<span><b>${n0(st.collapse.year)} years survived.</b> ${esc(st.collapse.cause)}</span><span class="btns"><button class="primary" data-act="retry">Try again <kbd>Enter</kbd></button><button data-act="details">What happened</button><button data-act="next">Walk the ruins</button></span>`;
+          $('ruinbar').innerHTML = `<span><b>${n0(st.collapse.year)} years survived.</b> ${esc(st.collapse.cause)}</span><span class="btns"><button class="primary" data-act="retry">${this.tutorial ? 'Begin for real' : 'Try again'} <kbd>Enter</kbd></button><button data-act="details">What happened</button><button data-act="next">Walk the ruins</button></span>`;
         }
         if (v.said && !this.say) this.speechAt(god, v.line);
       }

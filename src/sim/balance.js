@@ -171,4 +171,8 @@ export const BALANCE = {
   carryShare: 0.5, // share of lowland seed carried uphill in one work action
   teachRadius: 52, // world pixels
   teachWitnesses: 3, // nearest villagers whose houses one lesson reaches
+  // The tutorial's valley: one fixed seed, the floodplain only (the god cannot walk past `wall`),
+  // a single jump of `years`, and a river fated to come over the bank every year from `fate.from`
+  // to `fate.to`. tools/fate.mjs and a test show that every tutorial playthrough ends in collapse.
+  tutorial: { seed: 7, fate: { from: 12, to: 19 }, wall: 975, years: 100 },
 };

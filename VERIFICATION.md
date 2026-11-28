@@ -4,7 +4,7 @@ Checked on Node 22 and headless Chromium (software WebGL, 1280×720, 16–27 fps
 describes the build as it stands: individual people and family lines, ideas, customs, crops,
 bridges, disasters, the god's exit and return, and settlement stages.
 
-## Automated: `npm test` — 30 of 30 pass (about 100 s)
+## Automated: `npm test` — 31 of 31 pass (about 100 s)
 
 | What | How | Result |
 | --- | --- | --- |
@@ -178,6 +178,21 @@ One scripted desktop run (1280×720, seed 2, fresh browser storage), screenshots
   and one survival.
 - The phone layouts were re-shot with the hint as the first line of the card.
 
+### Tutorial
+
+- `node tools/fate.mjs`: of 354 tutorial visits (0–9 floodplain fields, each idea, every option
+  of every custom, and 300 random mixes), 80 survive the century with no fate, 2 with floods in
+  years 12–14, and none with floods in years 12–16 or longer. The tutorial uses years 12–19.
+  A test replays 43 of these visits and requires collapse within 100 years.
+- One scripted desktop run from a fresh browser, screenshots looked at: the title offered
+  Tutorial first; the god stopped at x 975 with the toast about the hill; the Bridge button was
+  gone and B did nothing; Customs listed nine customs (no field-placement ones); Step out
+  offered only 100 years and the key for 10 years was ignored; the commit screen read "Next to
+  no chance"; the village ended in year 16 and the report gave the flood of year 12 and the
+  missing ridge store as the reason; the button read "Begin for real"; after the wipe the run
+  was an ordinary one (no fate, no hints, no tutorial limits), and on reload the title offered
+  Begin first.
+
 ## Not covered
 
 - For the sunset: the title screen at sunset and the collapse verdict at sunset were not looked
@@ -233,3 +248,7 @@ One scripted desktop run (1280×720, seed 2, fresh browser storage), screenshots
   out, cold winters and seed saving dying out were never seen fire. Sack piles beside the
   stores and hunters actually carrying game back were not looked at in a normal run (game was
   seen only in a staged close-up).
+- For the tutorial: played once, on desktop, by keyboard; not on the phone layouts and not by
+  touch. The 30-second playback of the tutorial century was not watched (one frame was looked
+  at). "Walk the ruins" after the tutorial, and starting the tutorial a second time from the
+  title, were not tried.

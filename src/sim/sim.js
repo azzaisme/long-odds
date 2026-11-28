@@ -317,6 +317,8 @@ function summer(st, B, year, say, rand) {
   else if (r < (F.extremeChance + F.majorChance) * wet * boost) level = 2;
   else if (r < (F.extremeChance + F.majorChance + F.minorChance) * wet * boost) level = 1;
   if (lahar) level = Math.max(level, 2);
+  // A fated valley (the tutorial's): the river comes over the bank every year of a set span.
+  if (st.fate && year >= st.fate.from && year <= st.fate.to) level = 3;
   if (rain && level === 0 && isAlive(st)) say(1, 'rain', 'Weeks of heavy rain. The floodplain is waterlogged.');
 
   // The bridge. High water, floods and mudflows can carry it away.

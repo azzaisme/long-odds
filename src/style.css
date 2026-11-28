@@ -301,3 +301,5 @@ body.fingers .tap { display: inline; }
 @keyframes bob { from { margin-top: -8px; } to { margin-top: 0; } }
 @keyframes nudge { from { opacity: 0.5; } to { opacity: 1; } }
 @media (max-height: 520px), (max-width: 620px) { #context .guide { font-size: 12px; } }
+body.tutorial [data-act="bridge"] { display: none; }
+#modal:not([hidden]) ~ #ruinbar, #modal:not([hidden]) ~ #speech { display: none; }

@@ -648,3 +648,29 @@ test('every decision says what it touches, without numbers', () => {
   for (const c of CUSTOMS) c.options.forEach((o, i) => { if (i !== c.base) assert.ok(o.t.length > 0, `${c.id}: ${o.label}`); });
   for (const x of [...CROPS, ...BRIDGES, ...IDEAS]) assert.ok(x.t.length > 0, x.name);
 });
+
+test('the tutorial valley always ends in collapse within its century, whatever is done on the floodplain', () => {
+  const T = BALANCE.tutorial;
+  let s = 12345;
+  const rnd = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 2 ** 32);
+  const variants = [{ fields: [0], ideas: ['seed'], customs: [['hunt', 0]] }, { fields: [], ideas: [], customs: [] }, { fields: [0, 1, 2, 3, 4, 5, 6, 7, 8], ideas: PRACTICES.map((p) => p.id), customs: [] }];
+  for (let i = 0; i < 40; i++)
+    variants.push({
+      fields: [0, 1, 2, 3, 4, 5, 6, 7, 8].filter(() => rnd() < 0.6),
+      ideas: PRACTICES.filter(() => rnd() < 0.5).map((p) => p.id),
+      customs: CUSTOMS.filter((c) => c.id !== 'fields' && c.id !== 'plant' && rnd() < 0.4).map((c) => [c.id, Math.floor(rnd() * c.options.length)]),
+    });
+  for (const v of variants) {
+    const st = createSim(T.seed);
+    st.fate = { ...T.fate };
+    st.customs.fields = 0;
+    for (const id of v.fields) buildPlot(st, id, 'you');
+    for (const idea of v.ideas) demonstrate(st, null, st.households.map((h) => h.id), 'you', idea);
+    for (const [c, o] of v.customs) setCustom(st, c, o, 'you');
+    runYears(st, T.years);
+    assert.ok(!isAlive(st) && st.collapse.year <= T.years, `survived: ${JSON.stringify(v)}`);
+  }
+  // Without the fate the same valley is an ordinary one: the flag is what decides it.
+  const free = createSim(T.seed);
+  assert.equal(free.fate, undefined);
+});

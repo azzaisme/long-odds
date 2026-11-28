@@ -76,6 +76,27 @@ ridge store 3, teach an idea 1, move a household 2; carrying seed is free), so e
 you build comes out of the reserve the village has to live on. Matches, callings, customs,
 crops and bridge plans cost nothing to set.
 
+### The tutorial
+
+The title screen offers **Tutorial** first (Enter) and **Skip it**; once the tutorial has been
+played, it offers **Begin** first and Tutorial second.
+
+The tutorial is one visit and one century in a fixed valley (seed 7), walked through by the
+same one-at-a-time hints as a first visit: walk, clear a field, teach, change a custom, step
+out. It is cut down to the floodplain: the god cannot walk up the hill ("The hill can wait"),
+there is no bridge to plan, the two customs about where fields go are left out, and the only
+jump offered is 100 years.
+
+It always ends in failure. The tutorial valley is *fated*: its river comes over the bank every
+year from year 12 to year 19, whatever was done (`tutorial` in `src/sim/balance.js`; the sim
+reads it as `st.fate`, which no other run has). The commit screen says so honestly ("Next to no
+chance"). The god comes back to ruins, says his line, and the report says why. The button
+there reads **Begin for real**: he says "Maybe I could…", the scene wipes, and a real valley
+with a random seed wipes in, with no limits and no hints.
+
+`node tools/fate.mjs` plays 354 different tutorial visits against several lengths of fated
+flood and reports how many survive the century.
+
 ### The first visit
 
 The title screen is three lines. The first time the game is played, a single hint at a time
