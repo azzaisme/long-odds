@@ -12,6 +12,8 @@
     "sim": "node tools/headless.mjs"
   },
   "dependencies": {
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@fontsource/pixelify-sans": "^5.3.0",
     "playcanvas": "^2.24.3"
   },
   "devDependencies": {

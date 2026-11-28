@@ -155,6 +155,11 @@ function terrain(g, W, H, baseY) {
   // H rows; world y maps to row (H - 1) - (y - baseY).
   const rnd = makeRng(77);
   const row = (y) => H - 1 - (y - baseY);
+  // The earth in section: bands of soil that roll with the land above, darkening and cooling
+  // with depth until the bottom of the frame is nearly black.
+  const SOIL = ['#7a5633', '#6a4a2e', '#59402b', '#4a3628', '#3c2d26', '#2f2523', '#241d20', '#1a161b'];
+  const depthOf = [5, 14, 26, 40, 56, 74, 96];
+  const wob = (x, i) => Math.sin(x * 0.011 + i * 1.7) * 3 + Math.sin(x * 0.043 + i * 0.6) * 1.5 + Math.sin(x * 0.19 + i) * 0.6;
   for (let px = 0; px < W; px++) {
     const x = px + WORLD.x0;
     const top = Math.round(groundHeight(x));
@@ -164,20 +169,139 @@ function terrain(g, W, H, baseY) {
     for (let y = baseY; y <= top; y++) {
       const d = top - y;
       let c;
-      if (rocky) c = d < 2 ? PAL.rockLight : (x * 7 + y * 3) % 23 < 2 || (x + (y >> 3) * 5) % 17 === 0 ? PAL.rockDark : PAL.rock;
-      else if (bed) c = d < 2 ? '#8f8368' : d < 12 ? PAL.dirtDark : PAL.dirtDeep;
+      if (rocky) c = d < 2 ? PAL.rockLight : (x * 7 + y * 3) % 23 < 2 || (x + (y >> 3) * 5) % 17 === 0 ? PAL.rockDark : d > 60 ? '#4a4744' : PAL.rock;
+      else if (bed && d < 2) c = '#8f8368';
       else if (woods && d < 3) c = d === 0 ? ((x * 5) % 7 < 2 ? '#7a6a3a' : '#4f6a34') : (x + y) % 2 ? '#3f5a30' : '#5a4a2c';
-      else if (d === 0) c = PAL.grassLight;
-      else if (d < 3) c = PAL.grass;
-      else if (d < 5) c = (x + y) % 3 ? PAL.grassDark : PAL.dirt;
-      else if (d < 26) c = (x * 13 + y * 7) % 29 === 0 ? PAL.dirtDark : PAL.dirt;
-      else if (d < 60) c = (x * 11 + y * 5) % 31 === 0 ? PAL.dirtDeep : PAL.dirtDark;
-      else c = PAL.dirtDeep;
+      else if (d === 0 && !bed) c = (x * 7) % 11 < 2 ? '#8fba58' : PAL.grassLight;
+      else if (d < 3 && !bed) c = PAL.grass;
+      else if (d < 5 && !bed) c = (x + y) % 3 ? PAL.grassDark : SOIL[0];
+      else {
+        let band = bed ? 2 : 0;
+        while (band < depthOf.length && d + wob(x, band) > depthOf[band]) band++;
+        // a dithered edge between bands, and the odd darker fleck within one
+        const edge = band > 0 && d + wob(x, band - 1) - depthOf[band - 1] < 1.5 && (x + y) % 2 === 0;
+        c = SOIL[Math.min(SOIL.length - 1, edge ? band - 1 : (x * 13 + y * 7) % 37 === 0 ? band + 1 : band)];
+      }
       R(g, c, px, row(y));
     }
     if (rocky && rnd() < 0.2 && top > 150) R(g, PAL.grassDark, px, row(top) - 1, 1, 1);
     if (x > 770 && x < 950 && x % 9 === 0) R(g, PAL.rock, px, row(top - 2), 2, 1); // scree on the slope
   }
+  // Stones bedded in the soil, lit from above; more and larger further down.
+  const inSoil = (x) => x > WORLD.x0 + 6 && x < 1460 + WORLD.east && !(x > 86 && x < 274);
+  for (let i = 0; i < 230; i++) {
+    const x = Math.floor(WORLD.x0 + rnd() * (W - 12));
+    const d = 12 + Math.floor(rnd() * 96);
+    const w = 2 + Math.floor(rnd() * (d > 50 ? 5 : 2));
+    const h = Math.max(1, Math.round(w * 0.6));
+    if (!inSoil(x) || !inSoil(x + w)) continue;
+    const y = Math.round(groundHeight(x)) - d;
+    if (y - h < baseY) continue;
+    const deep = d > 50;
+    R(g, deep ? '#3d3836' : '#6b6055', x - WORLD.x0, row(y), w, h);
+    R(g, deep ? '#4b4541' : '#857a6b', x - WORLD.x0, row(y), w - 1, 1);
+    R(g, deep ? '#28231f' : '#4a4138', x - WORLD.x0 + 1, row(y) + h, w - 1, 1);
+  }
+  // Roots under the standing trees and the forests.
+  const rootAt = [786, 812, 846, 880, 905, 928, 972];
+  for (let i = 0; i < 10; i++) for (const dx of [-13, 0, 13]) rootAt.push(-44 - i * 42 + dx);
+  for (let i = 0; i < 9; i++) for (const dx of [-13, 0, 13]) rootAt.push(1502 + i * 42 + dx);
+  for (const x0 of rootAt) {
+    for (let k = 0; k < 3; k++) {
+      let x = x0 + (k - 1) * 2;
+      const len = 7 + Math.floor(rnd() * 12);
+      const lean = (k - 1) * 0.6 + (rnd() - 0.5) * 0.5;
+      for (let j = 3; j < len; j++) {
+        x += lean + (rnd() - 0.5) * 0.8;
+        const y = Math.round(groundHeight(x0)) - j;
+        if (inSoil(Math.round(x))) R(g, j < len * 0.6 ? '#3a2a1c' : '#4a3626', Math.round(x) - WORLD.x0, row(y));
+      }
+    }
+  }
+  // Tufts and a few flowers along the turf.
+  for (let x = 270; x < 1460 + WORLD.east; x++) {
+    const r = rnd();
+    const top = Math.round(groundHeight(x));
+    if (r < 0.1) R(g, r < 0.03 ? '#8fba58' : PAL.grass, x - WORLD.x0, row(top) - 1 - (r < 0.02 ? 1 : 0), 1, 1 + (r < 0.02 ? 1 : 0));
+    else if (r > 0.992) R(g, ['#f0e6a8', '#e8a0b0', '#ffffff'][Math.floor(rnd() * 3)], x - WORLD.x0, row(top) - 1);
+  }
+}
+
+// Smooth, soft-edged textures for light and air: these are not pixel art, and are drawn filtered.
+function softTextures() {
+  const soft = (name, w, h, draw) => {
+    const c = make(name, w, h, (g) => {
+      g.imageSmoothingEnabled = true;
+      draw(g, w, h);
+    });
+    return c;
+  };
+  // A round falloff: sun and moon halos, lamplight.
+  soft('soft_glow', 128, 128, (g) => {
+    const r = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    r.addColorStop(0, 'rgba(255,255,255,0.9)');
+    r.addColorStop(0.25, 'rgba(255,255,255,0.42)');
+    r.addColorStop(0.6, 'rgba(255,255,255,0.12)');
+    r.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = r;
+    g.fillRect(0, 0, 128, 128);
+  });
+  // A band of mist that tiles sideways: lumps of soft white, thin at top and bottom.
+  soft('soft_mist', 512, 64, (g, w, h) => {
+    const rnd = makeRng(41);
+    for (let i = 0; i < 46; i++) {
+      const x = rnd() * w;
+      const y = h * (0.35 + rnd() * 0.4);
+      const rx = 40 + rnd() * 90;
+      const a = 0.05 + rnd() * 0.09;
+      for (const ox of [-w, 0, w]) {
+        const r = g.createRadialGradient(x + ox, y, 0, x + ox, y, rx);
+        r.addColorStop(0, `rgba(255,255,255,${a})`);
+        r.addColorStop(1, 'rgba(255,255,255,0)');
+        g.fillStyle = r;
+        g.save();
+        g.translate(0, y);
+        g.scale(1, 0.22);
+        g.translate(0, -y);
+        g.fillRect(x + ox - rx, y - rx, rx * 2, rx * 2);
+        g.restore();
+      }
+    }
+    // fade out at the top and bottom edges
+    const d = g.getImageData(0, 0, w, h);
+    for (let y = 0; y < h; y++) {
+      const k = Math.min(1, y / 14, (h - 1 - y) / 8);
+      for (let x = 0; x < w; x++) d.data[(y * w + x) * 4 + 3] *= k;
+    }
+    g.putImageData(d, 0, 0);
+  });
+  // Shafts of light fanning down and to the left from a point at the top right.
+  soft('soft_rays', 256, 256, (g, w, h) => {
+    const rnd = makeRng(9);
+    for (let i = 0; i < 9; i++) {
+      const a0 = Math.PI * (0.56 + i * 0.045 + rnd() * 0.02);
+      const wd = 0.012 + rnd() * 0.022;
+      const grad = g.createRadialGradient(w, 0, 10, w, 0, w * 1.25);
+      const al = 0.1 + rnd() * 0.16;
+      grad.addColorStop(0, `rgba(255,255,255,${al})`);
+      grad.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = grad;
+      g.beginPath();
+      g.moveTo(w, 0);
+      g.lineTo(w + Math.cos(a0 - wd) * w * 1.5, Math.sin(a0 - wd) * w * 1.5);
+      g.lineTo(w + Math.cos(a0 + wd) * w * 1.5, Math.sin(a0 + wd) * w * 1.5);
+      g.closePath();
+      g.fill();
+    }
+  });
+  // Top-to-bottom fade, for laying shade or sky light over something.
+  soft('soft_fade', 4, 64, (g, w, h) => {
+    const r = g.createLinearGradient(0, 0, 0, h);
+    r.addColorStop(0, 'rgba(255,255,255,1)');
+    r.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = r;
+    g.fillRect(0, 0, w, h);
+  });
 }
 
 function skyline(g, W, H, rnd, color, dark, peaks, amp, base, split) {
@@ -618,5 +742,6 @@ export function buildSprites() {
     }
   });
   make('terrain', WORLD.x1 - WORLD.x0, 320, (g, W, H) => terrain(g, W, H, -100));
+  softTextures();
   return canvases;
 }

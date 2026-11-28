@@ -65,3 +65,25 @@ for y in range(18, 34):
 print('n = night\n')
 print('\n'.join(''.join(r) for r in g))
 PY
+
+# ---- the moon: a pale disc with seas, for the night sky ---------------------------------------
+new moon 13x13
+grid moon <<'GRID'
+a = fur-4
+b = cloud-1
+c = stone-3
+
+....aaaaa....
+..aaaaaaaaa..
+.aaaabbaaaaa.
+.aaabccbaaaa.
+aaaabcbaaaaaa
+aaaaabaaabbaa
+aaaaaaaabccba
+aaabaaaaabbaa
+aabcbaaaaaaaa
+.aabaaaaaaaa.
+.aaaaaaabaaa.
+..aaaaaaaaa..
+....aaaaa....
+GRID

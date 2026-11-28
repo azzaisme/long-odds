@@ -76,6 +76,31 @@ ridge store 3, teach an idea 1, move a household 2; carrying seed is free), so e
 you build comes out of the reserve the village has to live on. Matches, callings, customs,
 crops and bridge plans cost nothing to set.
 
+### Main menu
+
+The game opens on a menu over the valley at sunset: Tutorial (or Begin, once the tutorial has
+been played), the other of the two, How to play, Sound, Fullscreen, and a box for a valley
+seed. ↑ ↓ (or W S) choose and Enter takes it; everything is also a button.
+
+### Light and air
+
+The valley is lit by the hour. The sun rises on the left, arcs over and sets on the right, with
+a soft glow and shafts of light that are strongest when it is low; dawn borrows some of
+sunset's look. The moon crosses the night sky. Mist lies against the far range and in the
+valley and, at dawn and at night, on the river; it takes the colour of the hour. The river
+carries the sky's light and passing glints. Underground, the soil is banded and darkens with
+depth, with stones and tree roots in it. A soft vignette frames the screen. These are drawn
+smooth (not as pixel art), over the klad-painted sprites; the moon is a klad sprite.
+
+Type is Pixelify Sans for titles and buttons and IBM Plex Mono for text and every figure (both
+open-licensed, bundled through `@fontsource`). Panels are translucent.
+
+### itch.io page material
+
+`itch/` holds the cover (630×500 and double size), five page screenshots and the page
+description, all taken from the running game. They are set by hand on the itch.io edit page;
+the publish workflow uploads only the game.
+
 ### The tutorial
 
 The title screen offers **Tutorial** first (Enter) and **Skip it**; once the tutorial has been

@@ -23,9 +23,9 @@ export class View {
     for (const [name, c] of Object.entries(canvases)) {
       const tex = new pc.Texture(app.graphicsDevice, {
         width: c.width, height: c.height, format: pc.PIXELFORMAT_RGBA8, mipmaps: false,
-        minFilter: /^sky/.test(name) ? pc.FILTER_LINEAR : pc.FILTER_NEAREST,
-        magFilter: /^sky/.test(name) ? pc.FILTER_LINEAR : pc.FILTER_NEAREST,
-        addressU: name.startsWith('water') || name === 'foam' || name === 'fore' ? pc.ADDRESS_REPEAT : pc.ADDRESS_CLAMP_TO_EDGE,
+        minFilter: /^(sky|soft_)/.test(name) ? pc.FILTER_LINEAR : pc.FILTER_NEAREST,
+        magFilter: /^(sky|soft_)/.test(name) ? pc.FILTER_LINEAR : pc.FILTER_NEAREST,
+        addressU: name.startsWith('water') || name === 'foam' || name === 'fore' || name === 'soft_mist' ? pc.ADDRESS_REPEAT : pc.ADDRESS_CLAMP_TO_EDGE,
         addressV: pc.ADDRESS_CLAMP_TO_EDGE,
       });
       tex.setSource(c);
@@ -33,7 +33,7 @@ export class View {
       m.useLighting = false;
       m.useSkybox = false;
       // Distance haze at dusk falls on the world, not on light, sky or the god.
-      m.useFog = !/^(sky|sky_dusk|sun|fore|terrain|glow|beam|aura|white|ember|spark|rain|ashflake|smoke|marker|marker_dim|seed|foam|god_.*)$/.test(name);
+      m.useFog = !/^(sky|sky_dusk|sun|fore|terrain|glow|beam|aura|white|ember|spark|rain|ashflake|smoke|marker|marker_dim|seed|foam|moon|soft_.*|god_.*)$/.test(name);
       m.diffuse = new pc.Color(0, 0, 0);
       m.emissive = new pc.Color(1, 1, 1);
       m.emissiveMap = tex;
@@ -44,6 +44,11 @@ export class View {
         m.blendType = pc.BLEND_NORMAL;
         m.opacity = name === 'glow' || name === 'sky_dusk' || name === 'sun' || name === 'fore' ? 0 : name === 'beam' ? 0.85 : name === 'aura' ? 0.55 : name.startsWith('water') ? 0.72 : name === 'cloud' ? 0.8 : 0.6;
         m.depthWrite = false;
+      } else if (name.startsWith('soft_') || name === 'moon') {
+        // Light and air: smooth, see-through, and (for light) added to what is behind it.
+        m.blendType = name === 'soft_glow' || name === 'soft_rays' ? pc.BLEND_ADDITIVEALPHA : pc.BLEND_NORMAL;
+        m.depthWrite = false;
+        m.opacity = 0;
       } else m.alphaTest = 0.5;
       m.update();
       this.mats[name] = m;
@@ -105,6 +110,26 @@ export class View {
     this.sun = this.sprite('sun', 0, 0, -56);
     this.fore = this.sprite('fore', 0, 0, 7);
     this.skyDusk.enabled = this.sun.enabled = this.fore.enabled = false;
+    // Light and air. Each piece has its own copy of a soft texture's material so it can be tinted alone.
+    const own = (base, key) => ((this.mats[key] = this.mats[base].clone()), (this.sizes[key] = this.sizes[base]), key);
+    this.daySun = this.sprite(own('sun', 'sun_day'), 0, 0, -57);
+    this.sunGlow = this.sprite(own('soft_glow', 'glow_sun'), 0, 0, -57.5);
+    this.moon = this.sprite('moon', 0, 0, -57);
+    this.moonGlow = this.sprite(own('soft_glow', 'glow_moon'), 0, 0, -57.5);
+    this.rays = this.sprite('soft_rays', 0, 0, -39);
+    this.mists = [
+      { e: this.sprite(own('soft_mist', 'mist_far'), 0, 0, -47), y: 96, h: 70, par: 0.82, speed: 1.5, a: 0.5, stretch: 1.6 },
+      { e: this.sprite(own('soft_mist', 'mist_mid'), 0, 0, -37), y: 50, h: 56, par: 0.6, speed: 3, a: 0.55, stretch: 1.2 },
+      { e: this.sprite(own('soft_mist', 'mist_near'), 0, 0, 3), y: 30, h: 40, par: 0, speed: 5, a: 0.5, stretch: 1, river: true },
+    ];
+    this.sheen = this.sprite(own('soft_fade', 'sheen'), 0, 0, 2.1);
+    this.glints = [];
+    for (let i = 0; i < 10; i++) {
+      const e = this.sprite('white', 0, 0, 2.15);
+      e.enabled = false;
+      this.glints.push({ e, u: vrand(), v: vrand(), t: vrand() * 3 });
+    }
+    this.dawn = 0;
     const fog = this.app.scene.fog;
     fog.type = pc.FOG_LINEAR;
     fog.color = new pc.Color(0.72, 0.42, 0.44); // dusty rose: what far things fade into
@@ -641,6 +666,7 @@ export class View {
       } else if (kind === 'rise') Object.assign(f, { x: x + vrand() * 12 - 6, vx: 0, vy: 60 + vrand() * 120, life: 0.9, tex: 'spark' });
       else if (kind === 'smoke') Object.assign(f, { vx: 3 + vrand() * 3, vy: 8 + vrand() * 4, life: 2.6, tex: 'smoke' });
       else if (kind === 'dust') Object.assign(f, { x: x + vrand() * 30 - 15, vx: vrand() * 30 - 15, vy: 18 + vrand() * 25, life: 0.7, tex: 'smoke', g: -80 });
+      else if (kind === 'mote') Object.assign(f, { vx: 4 + vrand() * 6, vy: vrand() * 4 - 1, life: 5 + vrand() * 4, tex: 'white' });
       else if (kind === 'seed') Object.assign(f, { x: x + vrand() * 16 - 8, vx: vrand() * 40 - 20, vy: 30 + vrand() * 30, life: 1.1, tex: 'seed', g: -90 });
       this.setTex(e, f.tex);
       this.fx.push(f);
@@ -718,7 +744,8 @@ export class View {
       this.skyDusk.setLocalScale(vw + 4, 1, Math.max(8, skyTop - horizon));
       this.skyDusk.setLocalPosition(cx, (skyTop + horizon) / 2, Z.sky + 0.5);
       // Low over the far range, off to one side of the mountain.
-      this.sun.setLocalPosition(Math.round(cx + vw * 0.22), Math.round(Math.min(152, cy + vh * 0.34)), -56);
+      const sp = this.sunPos(opts, cx, cy, vw, vh);
+      this.sun.setLocalPosition(sp[0], sp[1], -56);
       const fh = 44;
       this.fore.setLocalScale(vw + 4, 1, fh);
       this.fore.setLocalPosition(cx, cy - vh / 2 + fh / 2 - 2, 7);
@@ -895,8 +922,9 @@ export class View {
       const ramp = (a, b) => Math.max(0, Math.min(1, (t - a) / (b - a)));
       const dusk = ramp(0.38, 0.47) * (1 - ramp(0.6, 0.68));
       const night = ramp(0.62, 0.7) * (1 - ramp(0.9, 0.98));
-      this.duskOfDay = dusk * 0.9;
       const dawn = ramp(0.9, 0.96) * (1 - ramp(0.97, 1));
+      this.dawn = dawn;
+      this.duskOfDay = Math.max(dusk * 0.9, dawn * 0.5); // dawn has some of sunset's look, from the other side
       this.night = night;
       const a = Math.max(night * 0.5, dawn * 0.16);
       const mix = night > 0.05 ? [0.06 + 0.5 * (1 - night), 0.09 + 0.3 * (1 - night), 0.24] : [1, 0.6, 0.6];
@@ -979,7 +1007,114 @@ export class View {
           this.emit('smoke', v.slot.x - 6, groundHeight(v.slot.x) + 20);
         }
       }
+    this.atmosphere(dt, opts, cx, cy, vw, vh);
     this.updateFx(dt, this.viewRect);
+  }
+
+  // Where the sun stands. Forced sunsets (title, ruins) hold it low on the right; otherwise it
+  // rises on the left at dawn, arcs over through the day and sets on the right.
+  sunPos(opts, cx, cy, vw, vh) {
+    const low = Math.min(152, cy + vh * 0.34);
+    if (opts.dusk !== undefined || !opts.ambient) return [Math.round(cx + vw * 0.22), Math.round(low)];
+    const t = this.dayT;
+    const s = t > 0.85 ? (t - 1) / 0.47 : Math.min(1, t / 0.47); // 0 at sunrise, 1 at sunset; below 0 before dawn
+    const high = cy + vh * 0.3;
+    const lift = s < 0 ? s * 3 : Math.pow(Math.sin(Math.PI * Math.max(0, Math.min(1, s))), 0.7);
+    const set = t > 0.6 && t < 0.85 ? (t - 0.6) / 0.08 : 0; // sinking behind the range after dusk
+    return [Math.round(cx + vw * (-0.3 + 0.52 * Math.max(-0.2, s))), Math.round(low + (high - low) * lift - Math.min(1, set) * 70)];
+  }
+
+  // Light and air over the valley: the day's sun and its glow, the moon, shafts of light when the
+  // sun is low, mist lying in the valley and on the river, and the sky's light on the water.
+  atmosphere(dt, opts, cx, cy, vw, vh) {
+    const d = this.dusk;
+    const night = this.night;
+    const live = !!opts.ambient || opts.dusk !== undefined;
+    const set = (key, r, g, b, a) => {
+      const m = this.mats[key];
+      if (m._a === a && m._r === r && m._g === g && m._b === b) return;
+      (m._a = a), (m._r = r), (m._g = g), (m._b = b);
+      m.emissive.set(r, g, b);
+      m.opacity = a;
+      m.update();
+    };
+    const q = (v) => Math.round(v * 50) / 50;
+    const [sx, sy] = this.sunPos(opts, cx, cy, vw, vh);
+    // The day's sun: the same disc as the sunset's, which takes over as the sky reddens.
+    const day = live ? Math.max(0, 1 - night * 1.4) : 0;
+    const sunA = q(day * (1 - d));
+    this.daySun.enabled = sunA > 0.02;
+    set('sun_day', 1, 1, 1, sunA);
+    this.daySun.setLocalPosition(sx, sy, -57);
+    const glowA = q(day * (0.55 + 0.35 * d));
+    this.sunGlow.enabled = glowA > 0.02;
+    set('glow_sun', 1, q(0.92 - 0.3 * d), q(0.7 - 0.4 * d), glowA);
+    const gs = 230 + 150 * d;
+    this.sunGlow.setLocalScale(gs, 1, gs);
+    this.sunGlow.setLocalPosition(sx, sy, -57.5);
+    // Shafts of light, strongest when the sun is low.
+    const lowness = live ? Math.max(d, this.dawn, 0.22 * day) : 0;
+    const rayA = q(Math.min(0.75, lowness * 0.8) * day);
+    this.rays.enabled = rayA > 0.02;
+    set('soft_rays', 1, q(0.9 - 0.25 * d), q(0.72 - 0.35 * d), rayA);
+    const rs = Math.max(vw, vh) * 0.95;
+    const leftSun = sx < cx;
+    this.rays.setLocalScale(leftSun ? -rs : rs, 1, rs);
+    this.rays.setLocalPosition(sx + (leftSun ? rs / 2 : -rs / 2), sy - rs / 2, -39);
+    // The moon crosses the night sky.
+    const moonA = q(live ? Math.max(0, (night - 0.25) / 0.6) : 0);
+    this.moon.enabled = this.moonGlow.enabled = moonA > 0.02;
+    if (moonA > 0.02) {
+      const m = Math.max(0, Math.min(1, (this.dayT - 0.62) / 0.36));
+      const mx = Math.round(cx + vw * (-0.32 + 0.64 * m));
+      const my = Math.round(cy + vh * (0.12 + 0.18 * Math.sin(Math.PI * m)));
+      set('moon', 1, 1, 1, Math.min(1, moonA));
+      this.moon.setLocalPosition(mx, my, -57);
+      set('glow_moon', 0.6, 0.72, 1, q(moonA * 0.5));
+      this.moonGlow.setLocalScale(150, 1, 150);
+      this.moonGlow.setLocalPosition(mx, my, -57.5);
+    }
+    // Mist: thickest at dawn, thin at noon; it takes the colour of the hour.
+    const thick = live ? 0.42 + 0.58 * Math.max(this.dawn, night * 0.75, d * 0.7) : 0.3;
+    const mr = q(0.96 - 0.02 * d - 0.6 * night);
+    const mg = q(0.97 - 0.36 * d - 0.5 * night);
+    const mb = q(1 - 0.42 * d - 0.28 * night);
+    for (const mist of this.mists) {
+      const key = mist.e._tex;
+      const a = q(mist.a * thick * (mist.river ? Math.max(0, thick - 0.5) * 2 : 1));
+      mist.e.enabled = a > 0.02;
+      if (!mist.e.enabled) continue;
+      set(key, mr, mg, mb, a);
+      const m = this.mats[key];
+      const width = mist.river ? 760 : vw + 4;
+      const x = mist.river ? 420 : cx;
+      mist.e.setLocalScale(width, 1, mist.h);
+      mist.e.setLocalPosition(x, mist.y, mist.e._z);
+      m.emissiveMapTiling = new pc.Vec2(width / (512 * mist.stretch), 1);
+      m.opacityMapTiling = m.emissiveMapTiling;
+      m.emissiveMapOffset = new pc.Vec2(((((x - width / 2) * (1 - mist.par) + this.time * mist.speed) / (512 * mist.stretch)) % 1 + 1) % 1, 0);
+      m.opacityMapOffset = m.emissiveMapOffset;
+      m.update();
+    }
+    // The sky's light lying on the river, and glints that come and go.
+    const s0 = this.surface0;
+    const calm = s0 && !s0.flooding;
+    this.sheen.enabled = !!calm;
+    if (calm) {
+      const depth = 16;
+      set('sheen', q(0.86 + 0.14 * d - 0.6 * night), q(0.93 - 0.3 * d - 0.5 * night), q(1 - 0.5 * d - 0.3 * night), q(0.42 + 0.2 * d));
+      this.sheen.setLocalScale(s0.right - s0.left, 1, depth);
+      this.sheen.setLocalPosition((s0.left + s0.right) / 2, s0.top - depth / 2, 2.1);
+    }
+    for (const gl of this.glints) {
+      gl.t -= dt;
+      if (gl.t <= 0) (gl.t = 0.25 + vrand() * 1.6), (gl.u = vrand()), (gl.v = vrand() * vrand()), (gl.on = vrand() < 0.6);
+      gl.e.enabled = !!calm && gl.on && night < 0.8;
+      if (gl.e.enabled) {
+        gl.e.setLocalScale(2 + Math.round(gl.u * 2), 1, 1);
+        gl.e.setLocalPosition(Math.round(s0.left + 6 + gl.u * (s0.right - s0.left - 12)), Math.round(s0.top - 1 - gl.v * 9), 2.15);
+      }
+    }
   }
 
   // The god's coming and going: a column of blue light, a burst of sparks, a wash over the frame.

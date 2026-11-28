@@ -96,6 +96,7 @@ export class Game {
     this.state = s;
     const visiting = s === S.VISIT || s === S.PLANNING;
     $('top').hidden = !visiting;
+    $('menu').hidden = s !== S.TITLE;
     $('bar').hidden = s !== S.VISIT;
     $('pad').hidden = !(s === S.VISIT || s === S.RUINS || s === S.RESULTS);
     this.touchDir = 0;
@@ -135,7 +136,7 @@ export class Game {
         return;
       }
       const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
-      if (['ArrowLeft', 'ArrowRight', 'Tab', ' '].includes(k)) e.preventDefault();
+      if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Tab', ' '].includes(k)) e.preventDefault();
       if (e.repeat) return;
       this.keys.add(k);
       this.key(k);
@@ -163,10 +164,7 @@ export class Game {
     canvas.addEventListener('pointermove', (e) => this.holding === e.pointerId && toward(e));
     for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) canvas.addEventListener(ev, () => ((this.holding = null), stop()));
     document.addEventListener('contextmenu', (e) => document.body.classList.contains('fingers') && e.preventDefault());
-    $('btn-sound').onclick = () => {
-      this.sound.setMuted(!this.sound.muted);
-      $('btn-sound').style.opacity = this.sound.muted ? 0.4 : 1;
-    };
+    $('btn-sound').onclick = () => this.toggleSound();
     // One delegated handler for every generated button.
     $('ui').addEventListener('click', (e) => {
       const b = e.target.closest('[data-act]');
@@ -176,10 +174,28 @@ export class Game {
       if (chip && document.body.classList.contains('fingers')) this.toast(chip.title);
     });
   }
+  toggleSound() {
+    this.sound.start();
+    this.sound.setMuted(!this.sound.muted);
+    $('btn-sound').style.opacity = this.sound.muted ? 0.4 : 1;
+    const b = document.querySelector('#menu [data-act="menu-sound"]');
+    if (b) b.textContent = `Sound: ${this.sound.muted ? 'off' : 'on'}`;
+  }
   key(k) {
     this.sound.start();
     const s = this.state;
-    if (s === S.TITLE && k === 'Enter') return stored('long-odds-tutorial') ? this.begin() : this.beginTutorial();
+    if (s === S.TITLE) {
+      // The menu: up and down choose, Enter takes it.
+      const items = [...document.querySelectorAll('#menu nav button')];
+      const i = Math.max(0, items.findIndex((b) => b.classList.contains('on')));
+      const move = k === 'ArrowDown' || k === 's' ? 1 : k === 'ArrowUp' || k === 'w' ? -1 : 0;
+      if (move && items.length) {
+        items[i].classList.remove('on');
+        items[(i + move + items.length) % items.length].classList.add('on');
+        this.sound.click();
+      } else if (k === 'Enter' && items[i]) this.act(items[i].dataset.act);
+      return;
+    }
     if (s === S.VISIT) {
       if (k === 'j') return this.openPlan();
       if (k === 'b' && !this.tutorial) return this.openBridge();
@@ -216,6 +232,9 @@ export class Game {
     switch (name) {
       case 'begin': return this.begin();
       case 'tutorial': return this.beginTutorial();
+      case 'menu-how': return this.state === S.TITLE && ((document.querySelector('#menu .how').hidden = !document.querySelector('#menu .how').hidden), this.sound.click());
+      case 'menu-sound': return this.toggleSound();
+      case 'menu-full': return document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen().catch(() => {});
       case 'site': return this.siteAction();
       case 'teach': return this.teach(arg);
       case 'crop': return this.cycleCrop();
@@ -285,15 +304,27 @@ export class Game {
     this.state = S.TITLE;
     this.setState(S.TITLE);
     const q = new URLSearchParams(location.search).get('seed') || '';
-    this.modal(`
-      <h1>LONG ODDS</h1>
+    $('modal').hidden = true;
+    const done = stored('long-odds-tutorial');
+    const first = done ? ['begin', 'Begin'] : ['tutorial', 'Tutorial'];
+    const second = done ? ['tutorial', 'Tutorial'] : ['begin', 'Skip the tutorial'];
+    $('menu').innerHTML = `
+      <div class="logo"><span>LONG</span><span>ODDS</span></div>
       <div class="tag">Plant a field. Bet a century.</div>
-      <p>You are a god with one small valley. Leave its people what you can, then step out of the world for <b>1, 10, 100 or 1,000 years</b> and see whether anyone is still here.</p>
-      <div class="row"><label>Valley seed <input id="seed" value="${esc(q)}" placeholder="random" maxlength="12"></label>
-      ${stored('long-odds-tutorial')
-        ? '<button class="primary" data-act="begin">Begin <kbd>Enter</kbd></button><button data-act="tutorial">Tutorial</button>'
-        : '<button class="primary" data-act="tutorial">Tutorial <kbd>Enter</kbd></button><button data-act="begin">Skip it</button>'}</div>
-      <p class="note">The tutorial is one short visit and one century. It does not end well.</p>`, true);
+      <nav>
+        <button data-act="${first[0]}" class="on">${first[1]}</button>
+        <button data-act="${second[0]}">${second[1]}</button>
+        <button data-act="menu-how">How to play</button>
+        <button data-act="menu-sound">Sound: ${this.sound.muted ? 'off' : 'on'}</button>
+        ${document.fullscreenEnabled ? '<button data-act="menu-full">Fullscreen</button>' : ''}
+      </nav>
+      <label class="seed">Valley seed <input id="seed" value="${esc(q)}" placeholder="random" maxlength="12"></label>
+      <div class="how" hidden>
+        <p>You are a god with one small valley. Build, teach and set customs for its people. Then step out of the world for 1, 10, 100 or 1,000 years and see whether anyone is still here.</p>
+        <p class="keysonly"><kbd>A</kbd><kbd>D</kbd> walk · <kbd>E</kbd> act · <kbd>T</kbd> teach · <kbd>P</kbd> people · <kbd>C</kbd> customs · <kbd>B</kbd> bridge · <kbd>J</kbd> step out · <kbd>H</kbd> controls</p>
+        <p class="touchonly">Hold ◀ ▶, or the valley to either side of you, to walk. Everything else is a button.</p>
+        <p>${done ? 'The tutorial is one short visit and one century.' : 'Start with the tutorial: one short visit and one century.'} It does not end well.</p>
+      </div>`;
     this.view.cam.tzoom = this.view.baseZoom();
   }
   begin() {
@@ -1338,7 +1369,7 @@ export class Game {
         }
         if (v.said && !this.say) this.speechAt(god, v.line);
       }
-      if (s === S.TITLE) (cam.tx = 560 + Math.sin(view.time * 0.08) * 160), (cam.ty = 48);
+      if (s === S.TITLE) (cam.tx = 620 + Math.sin(view.time * 0.05) * 260), (cam.ty = 48);
     }
     if (this.say) this.speechAt(this.say.actor, this.say.text);
     else if (!(s === S.ARRIVAL && this.verdict && this.verdict.said)) $('speech').hidden = true;

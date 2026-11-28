@@ -193,6 +193,17 @@ One scripted desktop run (1280×720, seed 2, fresh browser storage), screenshots
   was an ordinary one (no fate, no hints, no tutorial limits), and on reload the title offered
   Begin first.
 
+### Look, main menu, itch.io material
+
+- Desktop screenshots at 1280×720 looked at before and after: the menu, the village by day, the
+  river, the ridge, the forest, dusk, night and dawn. Sun, glow, shafts of light, moon, the
+  banded soil and the restyled panels were all seen; the phone layouts were re-shot with the new
+  type and menu.
+- Menu by keyboard, scripted: ↓ ↓ Enter opened How to play; ↓ Enter turned sound off; ↑ ↑ moved
+  back; a seed typed in the box and Enter began a run with that seed. The tutorial run was
+  repeated from the new menu and still ended in collapse and "Begin for real".
+- The cover was looked at at 630×500.
+
 ## Not covered
 
 - For the sunset: the title screen at sunset and the collapse verdict at sunset were not looked
@@ -252,3 +263,8 @@ One scripted desktop run (1280×720, seed 2, fresh browser storage), screenshots
   touch. The 30-second playback of the tutorial century was not watched (one frame was looked
   at). "Walk the ruins" after the tutorial, and starting the tutorial a second time from the
   title, were not tried.
+- For the look: mist on the river and the river's sheen and glints were not looked at closely;
+  the sun's whole arc and the moon's were seen only at the handful of hours screenshotted, not
+  watched moving. Fullscreen from the menu was not tried. The translucent panels use backdrop
+  blur, which the headless browser renders but older browsers may not (they fall back to plain
+  translucent panels). Frame rate with the added layers was not measured on a real phone.

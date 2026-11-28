@@ -314,27 +314,27 @@
       "name": "mid-3"
     },
     {
-      "color": "#2e3f66",
+      "color": "#345896",
       "name": "sky-1",
       "id": "p3"
     },
     {
-      "color": "#4a5f8c",
+      "color": "#5680bc",
       "name": "sky-2",
       "id": "p4"
     },
     {
-      "color": "#7d8fae",
+      "color": "#8eb0d6",
       "name": "sky-3",
       "id": "p5"
     },
     {
-      "color": "#b4b2b0",
+      "color": "#c6d2dc",
       "name": "sky-4",
       "id": "p6"
     },
     {
-      "color": "#e4c9a0",
+      "color": "#f0dab4",
       "name": "sky-5",
       "id": "p7"
     },
@@ -357,6 +357,42 @@
     {
       "color": "#8a8f9b",
       "name": "storm-3"
+    },
+    {
+      "color": "#4a1a2e",
+      "name": "dusk-1"
+    },
+    {
+      "color": "#702434",
+      "name": "dusk-2"
+    },
+    {
+      "color": "#a03434",
+      "name": "dusk-3"
+    },
+    {
+      "color": "#ce5c38",
+      "name": "dusk-4"
+    },
+    {
+      "color": "#ec964c",
+      "name": "dusk-5"
+    },
+    {
+      "color": "#fad088",
+      "name": "dusk-6"
+    },
+    {
+      "color": "#fff6de",
+      "name": "sun-1"
+    },
+    {
+      "color": "#fcd696",
+      "name": "sun-2"
+    },
+    {
+      "color": "#120a12",
+      "name": "night"
     }
   ],
   "layers": [

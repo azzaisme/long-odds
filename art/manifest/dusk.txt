@@ -1,3 +1,4 @@
 sky_dusk 0 - sky_dusk
 sun 0 - sun
 fore 0 - fore
+moon 0 - moon
