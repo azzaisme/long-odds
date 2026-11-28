@@ -9,6 +9,7 @@ import { Playback } from '../sim/playback.js';
 import { IDEAS, IDEA, PRACTICES, CUSTOMS, CROPS, CROP, BRIDGES, BRIDGE, holds, holders, possibleIdeas } from '../sim/decisions.js';
 import { canBetroth } from '../sim/people.js';
 import { murmur, linesReport } from './murmurs.js';
+import { because } from './because.js';
 import { WORK_TOUCH } from '../sim/decisions.js';
 
 // What a decision touches, as small tags: "harvest ▲", "forest ▼". No numbers, no verdict.
@@ -74,9 +75,13 @@ export class Game {
     this.view.setTint(1, 1, 1, 0);
     this.view.weather = 'none';
     this.view.addActor(-1, 'god', 470);
+    this.view.seedErrands(this.sim);
+    let seenGuide = false;
+    try { seenGuide = localStorage.getItem('long-odds-guided') === '1'; } catch { /* private window */ }
+    this.guide = seenGuide ? null : { step: 0 };
     this.setState(S.VISIT);
     this.view.cam.tzoom = this.view.baseZoom();
-    this.toast('Six families, a little food and seed, and no farms. Take as long as you like: work is paid for in food.');
+    if (!this.guide) this.toast('Six families, a little food and seed, and no farms. Take as long as you like: work is paid for in food.');
   }
 
   setState(s) {
@@ -86,7 +91,6 @@ export class Game {
     $('bar').hidden = s !== S.VISIT;
     $('pad').hidden = !(s === S.VISIT || s === S.RUINS || s === S.RESULTS);
     this.touchDir = 0;
-    $('goals').hidden = s !== S.VISIT;
     $('hint').hidden = !(s === S.RUINS || s === S.RESULTS);
     $('playback').hidden = s !== S.PLAYBACK;
     $('ruinbar').hidden = !(s === S.RUINS || s === S.RESULTS);
@@ -94,12 +98,20 @@ export class Game {
     if (s !== S.VISIT && s !== S.RUINS && s !== S.RESULTS) {
       $('context').hidden = true;
       $('prompt').hidden = true;
+      $('arrow').hidden = true;
+      $('guide').hidden = true;
     }
     if (s !== S.PLANNING) this.tab = null;
     if (s === S.VISIT || s === S.PLAYBACK || s === S.RUINS || s === S.RESULTS) $('modal').hidden = true;
     for (const a of this.view.actors.values()) a.controlled = false;
     this.keys.clear();
     this.ctxHtml = null;
+    // Back in the valley after changing customs: the villagers act on the change where it can be seen.
+    if (s === S.VISIT && this.changed) {
+      const god = this.me();
+      for (const id of this.changed) this.view.errandBurst(this.sim, id, god ? god.x : 500);
+      this.changed = null;
+    }
     if (visiting) this.refreshHud();
   }
 
@@ -217,8 +229,45 @@ export class Game {
       case 'look': return this.lookAround();
       case 'new': return this.retry();
       case 'retry': return this.retry();
+      case 'skip-guide': return this.endGuide();
       case 'details': return this.state === S.ARRIVAL && this.modal(this.arrivalHtml, true);
     }
+  }
+
+  // ---- first visit: one thing at a time, in the valley itself --------------------------------
+  endGuide() {
+    this.guide = null;
+    this.ctxHtml = null;
+    $('arrow').hidden = true;
+    $('guide').hidden = true;
+    try { localStorage.setItem('long-odds-guided', '1'); } catch { /* private window */ }
+  }
+  // The current step: what to say, and where in the valley to point (if anywhere).
+  guideStep(t) {
+    const g = this.guide;
+    if (!g || this.state !== S.VISIT) return null;
+    const st = this.sim;
+    const a = this.me();
+    const did = (type) => st.actions.some((x) => x.type === type);
+    const wild = (id) => st.plots[id] && st.plots[id].state === 'wild';
+    // The first step is a walk, so the site pointed at is never the one he starts on.
+    if (g.x0 === undefined) g.x0 = a.x;
+    const away = (x) => g.step > 0 || Math.abs(x - g.x0) > 40;
+    const site = () => PLOT_SITES.filter((p) => p.elev === 'low' && !p.far && p.stand === undefined && wild(p.id) && away(p.x)).sort((p, q) => Math.abs(p.x - a.x) - Math.abs(q.x - a.x))[0];
+    const at = t && t.kind === 'plot' && wild(t.id) && away(t.x);
+    if (g.step === 0 && (at || did('build-plot'))) g.step = 1;
+    if (g.step === 1 && did('build-plot')) g.step = 2;
+    if (g.step === 2 && did('demonstrate')) g.step = 3;
+    if (g.step === 3 && did('set-custom')) g.step = 4;
+    const key = (k, tap) => `<span class="keysonly"> <kbd>${k}</kbd></span><span class="tap"> ${tap}</span>`;
+    if (g.step === 0) return { text: `Six families, a little food, and no farms. Walk to the staked ground.${key('A</kbd><kbd>D', 'Hold ◀ ▶.')}`, x: site() && site().x };
+    if (g.step === 1) return { text: `Clear a field here. Work is paid for in food from their store.${key('E', 'Tap the gold button.')}`, x: at ? null : site() && site().x };
+    if (g.step === 2) {
+      const folk = [...this.view.actors.values()].filter((v) => v.id >= 0).sort((p, q) => Math.abs(p.x - a.x) - Math.abs(q.x - a.x))[0];
+      return { text: `They will farm it. What they know dies with them unless it is passed on: stand among them and teach.${key('T', 'Tap Teach.')}`, x: folk && Math.abs(folk.x - a.x) > 40 ? folk.x : null };
+    }
+    if (g.step === 3) return { text: `While you are gone they live by their customs. Change one, then watch what they do.${key('C', 'Tap Customs.')}` };
+    return { text: `That is all you can do: build, teach, set customs. Do as much as you like, then step out of the world.${key('J', 'Tap Step out.')}` };
   }
 
   // ---- title --------------------------------------------------------------------------------
@@ -229,12 +278,7 @@ export class Game {
     this.modal(`
       <h1>LONG ODDS</h1>
       <div class="tag">Plant a field. Bet a century.</div>
-      <p>You are a god with a small valley to look after. Keep its riverside settlement alive for as many years as you can. Walk the bank among them, build farms and a seed store, show a neighbour how to save seed. Then step out of the world for <b>1, 10, 100 or 1,000 years</b> and watch the village live with what you left it.</p>
-      <p>Last long enough, fed and unflooded, and the hamlet grows: village, town, city, and finally <b>the Hold</b>, one great terraced house on the ridge with room for every resident and a seed vault of its own.</p>
-      <p>The valley is not gentle. The river floods, heavy rains bring landslides, tornadoes cross the plain, and the volcano behind the hills smokes for a few years before it erupts.</p>
-      <p class="note">Take as long as you like over each visit. Work is paid for in food from the stores; customs and crops cost nothing to change. Every jump plays out over thirty seconds and cannot be undone. There is no last visit: you come back until nobody is left.</p>
-      <p class="note touchonly">Hold ◀ ▶, or hold the valley to either side of you, to walk. Stand at something to read it and act on it; everything else is on the buttons along the bottom.</p>
-      <p class="note keysonly"><kbd>A</kbd><kbd>D</kbd> walk · <kbd>E</kbd> act on what you are standing at · <kbd>T</kbd> teach · <kbd>P</kbd> people · <kbd>C</kbd> customs · <kbd>B</kbd> bridge · <kbd>J</kbd> step out · <kbd>H</kbd> all controls</p>
+      <p>You are a god with one small valley. Leave its people what you can, then step out of the world for <b>1, 10, 100 or 1,000 years</b> and see whether anyone is still here.</p>
       <div class="row"><label>Valley seed <input id="seed" value="${esc(q)}" placeholder="random" maxlength="12"></label>
       <button class="primary" data-act="begin">Begin <kbd>Enter</kbd></button></div>`, true);
     this.view.cam.tzoom = this.view.baseZoom();
@@ -616,7 +660,7 @@ export class Game {
     if (this.state !== S.PLANNING) return;
     const [id, i] = arg.split(':');
     const top = $('panel').scrollTop;
-    if (Sim.setCustom(this.sim, id, Number(i), this.myHouse() ? this.myHouse().name : 'the god').ok) this.sound.click();
+    if (Sim.setCustom(this.sim, id, Number(i), this.myHouse() ? this.myHouse().name : 'the god').ok) (this.sound.click(), (this.changed = this.changed || new Set()).add(id));
     this.openCustoms();
     $('panel').scrollTop = top;
   }
@@ -659,7 +703,7 @@ export class Game {
       <h2>Skip ${n0(years)} year${years > 1 ? 's' : ''}, to year ${n0(year + years)}?</h2>
       <p>The village will live through every season between now and then on its own. You will watch for thirty seconds. You cannot build, teach, switch villagers or turn back until it lands in year ${n0(year + years)}.</p>
       <ul>${assessRisks(this.sim).filter((r) => r.level !== 'good').map((r) => `<li class="${r.level}">${esc(r.text)}</li>`).join('') || '<li class="good">No pressing risks stand out.</li>'}</ul>
-      <div class="odds" id="odds">Running trial futures…</div>
+      <div class="odds" id="odds">Weighing the years ahead…</div>
       <div class="row"><button class="danger" data-act="commit">Commit to the jump <kbd>Enter</kbd></button><button data-act="back">Back <kbd>Esc</kbd></button></div>`);
   }
   pumpOdds() {
@@ -677,7 +721,10 @@ export class Game {
     const el = $('odds');
     if (el && o.last) {
       const { done, trials, survived } = o.last;
-      el.innerHTML = `<b>${Math.round((100 * survived) / done)}%</b> of trial futures still have households in year ${n0(Sim.yearOf(this.sim) + o.years)} (${survived} of ${done}${done < trials ? `, running ${trials}` : ''}).<br><span class="note">Estimated on copies of this village with their own dice. The real jump has not been rolled.</span>`;
+      // No number: the god gets a feeling for the bet, not a score.
+      const f = survived / done;
+      const word = f < 0.05 ? 'Next to no chance' : f < 0.25 ? 'Long odds' : f < 0.45 ? 'Poor odds' : f < 0.6 ? 'Even odds' : f < 0.85 ? 'Good odds' : 'As sure as it gets';
+      el.innerHTML = done < Math.min(30, trials) ? 'Weighing the years ahead…' : `<b>${word}${done < trials ? '…' : ''}</b> that anyone is still here in year ${n0(Sim.yearOf(this.sim) + o.years)}.<br><span class="note">A feeling, not a promise. The real years have not been rolled.</span>`;
     }
   }
 
@@ -689,8 +736,9 @@ export class Game {
     const st = this.sim;
     this.jump = {
       years, from: Sim.yearOf(st), to: Sim.yearOf(st) + years, before: summary(st), turning: [], wasAlive: Sim.isAlive(st),
-      counts: this.zeroCounts(), periodStart: Sim.yearOf(st), recStart: st.recoveries.length,
+      counts: this.zeroCounts(), periodStart: Sim.yearOf(st), recStart: st.recoveries.length, seen: {},
     };
+    if (this.guide) this.endGuide();
     this.captions = [];
     this.queue = [];
     this.capT = 0;
@@ -718,6 +766,9 @@ export class Game {
     const minP = { 1: 1, 10: 1, 100: 2, 1000: 3 }[j.years];
     for (const e of ev) {
       const c = j.counts;
+      const k = (j.seen[e.type] = j.seen[e.type] || { n: 0, first: e.year, last: e.year });
+      k.n++;
+      k.last = e.year;
       if (e.type === 'flood' && e.level >= 2) c.floods++;
       else if (e.type === 'leave') c.left += e.n;
       else if (e.type === 'settle') c.settled += e.n;
@@ -814,6 +865,7 @@ export class Game {
     this.setState(S.ARRIVAL);
     this.view.sync(st);
     this.view.syncActors(st, true);
+    this.view.seedErrands(st);
     this.view.weather = 'none';
     this.view.water.target = WORLD.waterLevels[0];
     const alive = Sim.isAlive(st);
@@ -834,7 +886,9 @@ export class Game {
       : '<p class="note">Nothing turned the village’s course. The seasons simply went round.</p>';
     const lr = linesReport(st);
     const lineNote = lr.living.length || lr.ended.length ? `<p class="note">Family lines living: ${esc(lr.living.join(' · ') || 'none')}.${lr.ended.length ? ` Ended: ${esc(lr.ended.join(', '))}.` : ''}</p>` : '';
-    const trace = this.traceHtml(j) + lineNote;
+    const why = [...because(st, j).map((l) => `<li class="${l.cls}">${l.html}</li>`), ...this.traceLines(j).map((l) => `<li class="good">${l}</li>`)];
+    const trace = lineNote;
+    const whyHtml = why.length ? `<h3>Why it went this way</h3><ul>${why.join('')}</ul>` : '';
     const grid = `<div class="grid">${cell('Households', b.households, a.households)}${cell('Know seed saving', b.knowers, a.knowers)}${cell('Fields', b.fieldsLow + b.fieldsRidge, a.fieldsLow + a.fieldsRidge)}${cell('Ridge fields', b.fieldsRidge, a.fieldsRidge)}${cell('Seed', n0(b.seedLow + b.seedRidge), n0(a.seedLow + a.seedRidge))}</div>`;
     const span = `Year ${n0(j.from)} → year ${n0(j.to)}`;
     let html;
@@ -845,21 +899,21 @@ export class Game {
         <h2>Year ${n0(j.to)}. Nobody is here.</h2>
         <p>${during ? `The last household left in <b>year ${n0(c.year)}</b>, ${n0(j.to - c.year)} years before you arrived.` : `The valley has been empty since year ${n0(c.year)}.`} ${esc(c.cause)}</p>
         <div class="big">${n0(c.year)} years survived</div>
-        <h3>${span}</h3>${events}${trace}
+        ${whyHtml}<h3>${span}</h3>${events}${trace}
         <div class="row"><button class="primary" data-act="retry">Try again</button><button data-act="next">Walk the ruins</button></div>`;
     } else if (B.visitsPerRun && this.visit >= B.visitsPerRun) {
       html = `
         <h2>Still standing</h2>
         <div class="big">Year ${n0(j.to)} · ${esc(a.stageName)}</div>
         <p>${a.stage >= 4 ? `All ${a.households} households live in the Hold, the great terraced house on the ridge, finished in year ${n0(st.civ.reached[4])}. It feeds itself and keeps its own seed.` : `${plural(a.households, 'household')} still farm the valley after your fifth and last jump. It is a ${esc(a.stageName.toLowerCase())}; the Hold, one great house for everyone, was never finished.`}</p>
-        ${grid}<h3>${span}</h3>${events}${trace}
+        ${grid}${whyHtml}<h3>${span}</h3>${events}${trace}
         <p class="note">Valley seed ${this.seed} · run fingerprint ${Sim.hashState(st)}</p>
         <div class="row"><button class="primary" data-act="new">Start a new run</button><button data-act="look">Look around</button></div>`;
     } else {
       html = `
         <h2>Arrived in year ${n0(j.to)}</h2>
         <p>The settlement survived the jump. It is ${a.stage >= 4 ? 'the Hold' : `a ${esc(a.stageName.toLowerCase())}`} of ${plural(a.households, 'household')}.</p>
-        ${grid}<h3>${span}</h3>${events}${trace}
+        ${grid}${whyHtml}<h3>${span}</h3>${events}${trace}
         <div class="row"><button class="primary" data-act="next">Begin visit ${this.visit + 1} <kbd>Enter</kbd></button></div>`;
     }
     this.arrivalHtml = html;
@@ -884,7 +938,7 @@ export class Game {
     }
   }
   // Recoveries during this jump that go back to something the player did.
-  traceHtml(j) {
+  traceLines(j) {
     const st = this.sim;
     const recs = st.recoveries.slice(j.recStart);
     const lines = [];
@@ -901,7 +955,7 @@ export class Game {
       if (made) lines.push(`${esc(IDEA[d.idea].name)} was worked out in year ${d.year} by ${esc(d.by)}, ${d.pid === made.a || d.pid === made.b ? 'one of the pair you promised to each other' : 'a child of the match you made'} in year ${made.year}.`);
       else if (shown.length) lines.push(`${esc(IDEA[d.idea].name)} (year ${d.year}, ${esc(d.by)}) grew out of ${esc(shown.map((f) => IDEA[f].name.toLowerCase()).join(' and '))}, which you demonstrated.`);
     }
-    return lines.length ? `<h3>Traced to your visits</h3><ul>${lines.map((l) => `<li class="good">${l}</li>`).join('')}</ul>` : '';
+    return lines;
   }
   next() {
     if (this.state !== S.ARRIVAL || this.returnT > 0) return;
@@ -1031,17 +1085,6 @@ export class Game {
       chip('fields', `${s.fieldsLow} + ${s.fieldsRidge}▲`, s.damaged ? `fields · ${s.damaged} silted` : 'fields', `${s.fieldsLow} floodplain fields and ${s.fieldsRidge} ridge fields${s.damaged ? `; ${s.damaged} buried in flood silt` : ''}`) +
       chip('wood', n0(s.wood), `forest ${Math.round((s.coverWest + s.coverEast) * 50)}%`, `${n0(s.wood)} cut timber. The west forest is ${Math.round(s.coverWest * 100)}% standing, the east ${Math.round(s.coverEast * 100)}%. Game: ${n0(st.forest.game.west)} west, ${n0(st.forest.game.east)} east.`) +
       chip('ideas', `${known}/${IDEAS.length}`, 'ideas', `${known} of ${IDEAS.length} ideas are kept by someone. ${s.knowers} houses know how to save seed.`);
-    // First-visit checklist: what to try before leaving.
-    const did = (type) => st.actions.some((a) => a.type === type);
-    const goals = [
-      [did('build-plot'), 'Clear a field: walk to a staked site and press <kbd>E</kbd>'],
-      [did('demonstrate'), 'Teach an idea: stand among villagers and press <kbd>T</kbd>'],
-      [did('build-store') || did('plan-bridge') || did('betroth') || did('set-custom'), 'Plan ahead: a ridge store, a match (<kbd>P</kbd>), a custom (<kbd>C</kbd>) or a bridge (<kbd>B</kbd>)'],
-      [false, 'Step out of the world with <kbd>J</kbd> and see what they make of it'],
-    ];
-    const el = $('goals');
-    el.classList.toggle('done', this.visit > 1);
-    el.innerHTML = this.visit > 1 ? '' : `<b>First visit</b>${goals.map(([ok, t]) => `<div class="${ok ? 'ok' : ''}">${ok ? '■' : '□'} ${t}</div>`).join('')}`;
   }
 
   // The card for whatever the god is standing at. It appears on its own; E does the main thing.
@@ -1084,6 +1127,25 @@ export class Game {
       if (visit && d.action && !afford(d.kind)) acts += '<span class="more">Not enough food in store for this.</span>';
       html = `<div class="card"><div class="txt"><h3>${esc(d.title)}</h3><p>${esc(d.text)}</p>${!acts && d.note && visit ? `<div class="more">${esc(d.note)}</div>` : ''}</div>${acts ? `<div class="acts">${acts}</div>` : ''}</div>`;
     } else prompt.hidden = true;
+    const step = !this.picking ? this.guideStep(t) : null;
+    const arrow = $('arrow');
+    // On a desk the hint is a strip under the top row, clear of the valley; on a phone the card is already up there, so it leads the card.
+    const gHtml = step ? `<div class="guide"><span>${step.text}</span><button data-act="skip-guide" title="Stop the hints">✕</button></div>` : '';
+    const small = window.matchMedia('(max-height: 520px), (max-width: 620px)').matches;
+    if (small) html = gHtml + html;
+    const strip = small ? '' : gHtml;
+    if (strip !== this.guideHtml) (this.guideHtml = strip), ($('guide').innerHTML = strip);
+    $('guide').hidden = !strip;
+    if (step && step.x !== null && step.x !== undefined) {
+      const [sx, sy] = this.view.toScreen(step.x, groundHeight(step.x) + 30);
+      const w = window.innerWidth;
+      const off = sx < 24 ? -1 : sx > w - 24 ? 1 : 0;
+      arrow.hidden = false;
+      arrow.textContent = off < 0 ? '◀' : off > 0 ? '▶' : '▼';
+      arrow.className = off ? 'side' : '';
+      arrow.style.left = `${off < 0 ? 24 : off > 0 ? w - 24 : sx}px`;
+      arrow.style.top = `${off ? Math.min(sy, window.innerHeight * 0.6) : sy}px`;
+    } else arrow.hidden = true;
     if (html !== this.ctxHtml) {
       this.ctxHtml = html;
       box.innerHTML = html;

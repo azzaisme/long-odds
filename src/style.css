@@ -285,3 +285,19 @@ body.fingers #hint { bottom: 70px; }
   .long { display: none; }
   body.fingers #bar button { padding: 6px 9px; font-size: 13px; min-height: 44px; }
 }
+
+/* ---- first-visit guide: one line in the card, one arrow in the valley -------------------- */
+#guide { position: absolute; left: 50%; top: 78px; transform: translateX(-50%); width: min(720px, 92vw); padding: 7px 12px; pointer-events: auto; }
+#guide:not([hidden]) ~ #toast { top: 124px; }
+.guide { display: flex; gap: 10px; align-items: flex-start; color: var(--ink); font-size: 14px; }
+.guide span:first-child { flex: 1; }
+.guide::before { content: '▸'; color: var(--gold); }
+#ui .guide button { padding: 0 7px; font-size: 12px; min-height: 0 !important; background: transparent; box-shadow: none; color: var(--dim); }
+#context .guide + .card { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+.tap { display: none; }
+body.fingers .tap { display: inline; }
+#arrow { position: absolute; transform: translate(-50%, -100%); color: var(--gold); font-size: 22px; text-shadow: 0 2px 0 #000, 0 0 6px #000; animation: bob 0.7s ease-in-out infinite alternate; pointer-events: none; }
+#arrow.side { transform: translate(-50%, -50%); animation-name: nudge; }
+@keyframes bob { from { margin-top: -8px; } to { margin-top: 0; } }
+@keyframes nudge { from { opacity: 0.5; } to { opacity: 1; } }
+@media (max-height: 520px), (max-width: 620px) { #context .guide { font-size: 12px; } }

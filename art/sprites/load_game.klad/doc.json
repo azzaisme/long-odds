@@ -1,0 +1,415 @@
+{
+  "format": "klad/9",
+  "canvas": {
+    "width": 6,
+    "height": 6
+  },
+  "timeline": {
+    "fps": 12,
+    "frames": 1
+  },
+  "palette": [
+    {
+      "color": "#1c1b29",
+      "name": "ink",
+      "id": "p3"
+    },
+    {
+      "color": "#a8683f",
+      "name": "skin-1"
+    },
+    {
+      "color": "#d99a6c",
+      "name": "skin-2"
+    },
+    {
+      "color": "#f0c39a",
+      "name": "skin-3"
+    },
+    {
+      "color": "#3a2a22",
+      "name": "hair-1"
+    },
+    {
+      "color": "#6b4a2e",
+      "name": "hair-2"
+    },
+    {
+      "color": "#8e2f2f",
+      "name": "cloth-1"
+    },
+    {
+      "color": "#c8553d",
+      "name": "cloth-2"
+    },
+    {
+      "color": "#e88a5c",
+      "name": "cloth-3"
+    },
+    {
+      "color": "#2f2c40",
+      "name": "trou-1"
+    },
+    {
+      "color": "#4a4458",
+      "name": "trou-2"
+    },
+    {
+      "color": "#2a1f1a",
+      "name": "boot"
+    },
+    {
+      "color": "#16305a",
+      "name": "god-eye"
+    },
+    {
+      "color": "#2a5aa8",
+      "name": "god-1"
+    },
+    {
+      "color": "#4f9de0",
+      "name": "god-2"
+    },
+    {
+      "color": "#9fd8ff",
+      "name": "god-3"
+    },
+    {
+      "color": "#e9fbff",
+      "name": "god-4"
+    },
+    {
+      "color": "#3e2a1c",
+      "name": "wood-1"
+    },
+    {
+      "color": "#5a4028",
+      "name": "wood-2"
+    },
+    {
+      "color": "#7a5a38",
+      "name": "wood-3"
+    },
+    {
+      "color": "#9a7a4c",
+      "name": "wood-4"
+    },
+    {
+      "color": "#6a4f24",
+      "name": "thatch-1"
+    },
+    {
+      "color": "#8f6f32",
+      "name": "thatch-2"
+    },
+    {
+      "color": "#b8944a",
+      "name": "thatch-3"
+    },
+    {
+      "color": "#d9bb6a",
+      "name": "thatch-4"
+    },
+    {
+      "color": "#8a6c48",
+      "name": "wall-1"
+    },
+    {
+      "color": "#b08e62",
+      "name": "wall-2"
+    },
+    {
+      "color": "#cfb086",
+      "name": "wall-3"
+    },
+    {
+      "color": "#e6d0a8",
+      "name": "wall-4"
+    },
+    {
+      "color": "#55525a",
+      "name": "stone-1"
+    },
+    {
+      "color": "#77747a",
+      "name": "stone-2"
+    },
+    {
+      "color": "#9a968f",
+      "name": "stone-3"
+    },
+    {
+      "color": "#bdb8ab",
+      "name": "stone-4"
+    },
+    {
+      "color": "#2f5234",
+      "name": "grass-1"
+    },
+    {
+      "color": "#44703a",
+      "name": "grass-2"
+    },
+    {
+      "color": "#5d8f42",
+      "name": "grass-3"
+    },
+    {
+      "color": "#86b24f",
+      "name": "grass-4"
+    },
+    {
+      "color": "#b5d06a",
+      "name": "grass-5"
+    },
+    {
+      "color": "#1f3d33",
+      "name": "leaf-1"
+    },
+    {
+      "color": "#2c5a3a",
+      "name": "leaf-2"
+    },
+    {
+      "color": "#3f7a40",
+      "name": "leaf-3"
+    },
+    {
+      "color": "#5f9a48",
+      "name": "leaf-4"
+    },
+    {
+      "color": "#3b2a1e",
+      "name": "soil-1"
+    },
+    {
+      "color": "#553a24",
+      "name": "soil-2"
+    },
+    {
+      "color": "#73502f",
+      "name": "soil-3"
+    },
+    {
+      "color": "#94703f",
+      "name": "soil-4"
+    },
+    {
+      "color": "#9a6c20",
+      "name": "grain-1"
+    },
+    {
+      "color": "#c9952e",
+      "name": "grain-2"
+    },
+    {
+      "color": "#e8c24e",
+      "name": "grain-3"
+    },
+    {
+      "color": "#f7e08c",
+      "name": "grain-4"
+    },
+    {
+      "color": "#254a66",
+      "name": "water-1"
+    },
+    {
+      "color": "#3d7391",
+      "name": "water-2"
+    },
+    {
+      "color": "#6aa3bd",
+      "name": "water-3"
+    },
+    {
+      "color": "#a8d2de",
+      "name": "water-4"
+    },
+    {
+      "color": "#66625a",
+      "name": "silt-1"
+    },
+    {
+      "color": "#8b8676",
+      "name": "silt-2"
+    },
+    {
+      "color": "#aaa594",
+      "name": "silt-3"
+    },
+    {
+      "color": "#f6d47a",
+      "name": "lamp-1"
+    },
+    {
+      "color": "#fff0b0",
+      "name": "lamp-2"
+    },
+    {
+      "color": "#6a4628",
+      "name": "fur-1",
+      "id": "p6"
+    },
+    {
+      "color": "#9a6a3c",
+      "name": "fur-2",
+      "id": "p4"
+    },
+    {
+      "color": "#c08e58",
+      "name": "fur-3",
+      "id": "p5"
+    },
+    {
+      "color": "#e8dcc0",
+      "name": "fur-4",
+      "id": "p7"
+    },
+    {
+      "color": "#c8401c",
+      "name": "lava-1"
+    },
+    {
+      "color": "#ff7a2a",
+      "name": "lava-2"
+    },
+    {
+      "color": "#ffd070",
+      "name": "lava-3"
+    },
+    {
+      "color": "#5c6890",
+      "name": "far-1"
+    },
+    {
+      "color": "#7482a8",
+      "name": "far-2"
+    },
+    {
+      "color": "#93a0c0",
+      "name": "far-3"
+    },
+    {
+      "color": "#dfe4f0",
+      "name": "snow"
+    },
+    {
+      "color": "#4a4670",
+      "name": "vol-1"
+    },
+    {
+      "color": "#6a6690",
+      "name": "vol-2"
+    },
+    {
+      "color": "#8884ac",
+      "name": "vol-3"
+    },
+    {
+      "color": "#3e5552",
+      "name": "mid-1"
+    },
+    {
+      "color": "#51706b",
+      "name": "mid-2"
+    },
+    {
+      "color": "#6a8a7c",
+      "name": "mid-3"
+    },
+    {
+      "color": "#2e3f66",
+      "name": "sky-1"
+    },
+    {
+      "color": "#4a5f8c",
+      "name": "sky-2"
+    },
+    {
+      "color": "#7d8fae",
+      "name": "sky-3"
+    },
+    {
+      "color": "#b4b2b0",
+      "name": "sky-4"
+    },
+    {
+      "color": "#e4c9a0",
+      "name": "sky-5"
+    },
+    {
+      "color": "#f1e6d2",
+      "name": "cloud-1"
+    },
+    {
+      "color": "#d2c4b2",
+      "name": "cloud-2"
+    },
+    {
+      "color": "#474a55",
+      "name": "storm-1"
+    },
+    {
+      "color": "#5b5f6b",
+      "name": "storm-2"
+    },
+    {
+      "color": "#8a8f9b",
+      "name": "storm-3"
+    },
+    {
+      "color": "#4a1a2e",
+      "name": "dusk-1"
+    },
+    {
+      "color": "#702434",
+      "name": "dusk-2"
+    },
+    {
+      "color": "#a03434",
+      "name": "dusk-3"
+    },
+    {
+      "color": "#ce5c38",
+      "name": "dusk-4"
+    },
+    {
+      "color": "#ec964c",
+      "name": "dusk-5"
+    },
+    {
+      "color": "#fad088",
+      "name": "dusk-6"
+    },
+    {
+      "color": "#fff6de",
+      "name": "sun-1"
+    },
+    {
+      "color": "#fcd696",
+      "name": "sun-2"
+    },
+    {
+      "color": "#120a12",
+      "name": "night"
+    }
+  ],
+  "layers": [
+    {
+      "id": "l1",
+      "name": "pixel 1",
+      "kind": "paint",
+      "cels": [
+        {
+          "id": "c2",
+          "frame": 0
+        }
+      ],
+      "pixel": true,
+      "opacity": 1.0,
+      "blend": "normal",
+      "visible": true
+    }
+  ]
+}

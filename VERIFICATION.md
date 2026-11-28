@@ -160,6 +160,24 @@ commit screen, a 10-year playback and the collapse verdict were screenshotted an
 both. Holding ▶ for 1.5 s walked the god about 110 units and he stopped on release. No console
 errors. The desktop view at 1280×720 was re-checked and is unchanged.
 
+### First visit, visible customs, reasons, odds in words
+
+One scripted desktop run (1280×720, seed 2, fresh browser storage), screenshots looked at:
+
+- Title is three lines. The hint strip appeared under the top row and moved through its steps
+  as each thing was done by key: reached staked ground, cleared a field, taught, changed
+  customs, stepped out; after the jump the hints were off and remembered as seen.
+- After setting "Nearly all" seed uphill, "Fell whatever is nearest" and heavy hunting, six
+  villagers were on errands the moment the panel closed (three for sacks, three for logs);
+  thirty seconds later carriers were spread between the granary, the ridge store and the trees.
+  A close-up showed the sack on the back, the log on the shoulder and the game in the hand.
+- The commit screen read "Even odds…" / "Poor odds", with no percentage.
+- Two arrivals' reasons were read: one collapse ("The flood of year 40 took the seed in the
+  granary… the custom you set in year 0 (“Nearly all”)", "The village cleared new ground 9
+  times… the village's own habit (“Balanced”), which you left alone", "2 customs slipped back")
+  and one survival.
+- The phone layouts were re-shot with the hint as the first line of the card.
+
 ## Not covered
 
 - For the sunset: the title screen at sunset and the collapse verdict at sunset were not looked
@@ -209,3 +227,9 @@ errors. The desktop view at 1280×720 was re-checked and is unchanged.
   Holding the valley itself to walk (as opposed to the ◀ ▶ buttons), tapping a top-row figure,
   safe-area insets on notched phones, tablets, and the game inside itch.io's page on a phone
   were not exercised.
+- For the first-visit hints: the arrow pointing off-screen (◀ ▶ at the edge), was not watched (the ✕ button and
+  the walk step were checked by a scripted run, as logged values, not by eye). The
+  reasons list was read for two jumps only; the lines about bridges, forest and game running
+  out, cold winters and seed saving dying out were never seen fire. Sack piles beside the
+  stores and hunters actually carrying game back were not looked at in a normal run (game was
+  seen only in a staged close-up).

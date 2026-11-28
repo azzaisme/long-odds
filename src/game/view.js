@@ -3,6 +3,7 @@ import * as pc from 'playcanvas';
 import { SHIRTS } from './sprites.js';
 import { WORLD, PLOT_SITES, HOUSE_SLOTS, FOREST_STANDS, groundHeight, waterEdge, waterLeft } from '../sim/world.js';
 import { yearOf } from '../sim/sim.js';
+import { customValue } from '../sim/decisions.js';
 
 const Z = { volcano: -52, civic: -17, sky: -60, far: -50, cloud: -45, mid: -40, tree: -22, terrain: -20, house: -14, store: -12, plot: -8, growth: -7, actor: -4, badge: -3, water: 2, tint: 3.4, light: 3.7, fx: 4 };
 const vrand = Math.random; // visual-only randomness
@@ -256,6 +257,14 @@ export class View {
     this.markerDim = this.sprite('marker_dim', 0, 0, Z.badge);
     this.carry = this.sprite('sack', 0, 0, Z.badge);
     this.carry.enabled = false;
+    // What is in each store shows as sacks stacked beside it.
+    this.stock = { low: [], ridge: [] };
+    for (const [k, x0] of [['low', WORLD.granaryX + 19], ['ridge', WORLD.ridgeStoreX + 15]])
+      for (const [dx, dy] of [[0, 0], [6, 0], [3, 5]]) {
+        const e = this.sprite('sack', x0 + dx, groundHeight(x0 + dx) + dy, Z.store + 0.5);
+        e.enabled = false;
+        this.stock[k].push(e);
+      }
 
     const t = (this.tintEnt = new pc.Entity('tint'));
     t.addComponent('render', { type: 'plane', castShadows: false });
@@ -299,6 +308,10 @@ export class View {
     this.setTex(this.granary, longGone ? 'granary_ruin' : 'granary');
     this.setTex(this.store, st.stores.ridge.built ? (longGone ? 'store_ruin' : 'store') : 'store_site');
     this.place(this.granary, WORLD.granaryX, groundHeight(WORLD.granaryX) - 1);
+    for (const k of ['low', 'ridge']) {
+      const held = k === 'ridge' && !st.stores.ridge.built ? 0 : st.stores[k].seed + st.stores[k].food;
+      this.stock[k].forEach((e, i) => (e.enabled = !longGone && held > [0.5, 10, 25][i]));
+    }
     // After a collapse the highest stage ever reached is what stands in ruins.
     const dead = st.households.length === 0;
     const stage = dead ? st.stats.peakStage : st.civ.stage;
@@ -449,7 +462,9 @@ export class View {
     const e = this.sprite(`${skin}_idle`, x, groundHeight(x), Z.actor - (id % 7) * 0.1);
     const badge = this.sprite('seed', x, groundHeight(x) + 14, Z.badge);
     badge.enabled = false;
-    const a = { id, skin, e, badge, x, dir: 1, moving: false, controlled: false, target: null, wait: vrand() * 3, home: x, leaving: 0, knows: false, phase: vrand() * 10 };
+    const loadE = this.sprite('sack', x, groundHeight(x) + 6, Z.badge);
+    loadE.enabled = false;
+    const a = { id, skin, e, badge, loadE, load: null, next: null, x, dir: 1, moving: false, controlled: false, target: null, wait: vrand() * 3, home: x, leaving: 0, knows: false, phase: vrand() * 10 };
     this.actors.set(id, a);
     return a;
   }
@@ -458,11 +473,70 @@ export class View {
     if (!a) return;
     a.e.destroy();
     a.badge.destroy();
+    a.loadE.destroy();
     this.actors.delete(id);
   }
   clearActors() {
     this.clearChildren();
     for (const id of [...this.actors.keys()]) this.removeActor(id);
+  }
+
+  // What the customs send villagers to do, as chances per outing. The customs are meant to be seen:
+  // sacks going up to the ridge store, logs and game coming back from the forest.
+  errands(st) {
+    const trees = st.forest.stands.filter((f) => f.wood > 0 && (f.side === 'east' || this.deck));
+    const near = (list) => list.sort((a, b) => Math.abs(FOREST_STANDS[a.id].x - 700) - Math.abs(FOREST_STANDS[b.id].x - 700))[0];
+    const tree = near(trees);
+    const cut = customValue(st, 'woodcut');
+    const game = ['east', 'west'].filter((side) => st.forest.game[side] > 1 && (side === 'east' || this.deck));
+    const edge = (side) => (side === 'east' ? 1500 : -40);
+    return {
+      uphill: st.stores.ridge.built ? 0.4 * Math.max(customValue(st, 'uphillSeed') / 0.9, customValue(st, 'uphillFood') / 0.7) : 0,
+      wood: tree ? { none: 0, thin: 0.12, clear: 0.28 }[cut] : 0,
+      woodX: tree ? FOREST_STANDS[tree.id].x + (tree.side === 'east' ? -8 : 8) : 0,
+      hunt: game.length ? customValue(st, 'hunt') * 0.5 : 0,
+      gameX: game.length ? edge(game[0]) + (game[0] === 'east' ? 30 : -30) : 0,
+      idle: [1.5, 1, 0.6][st.customs.pace],
+      ridgeFields: customValue(st, 'fields'),
+    };
+  }
+  sendOn(a, kind, er) {
+    if (kind === 'uphill') (a.target = WORLD.granaryX + 6), (a.next = { x: WORLD.ridgeStoreX + 12, load: 'sack' });
+    else if (kind === 'wood') (a.target = er.woodX), (a.next = { x: WORLD.granaryX - 14 + vrand() * 8, load: 'load_log' });
+    else if (kind === 'hunt') (a.target = er.gameX + vrand() * 30 - 15), (a.next = { x: WORLD.granaryX + vrand() * 10, load: 'load_game' });
+    a.load = null;
+    a.wait = 0;
+  }
+  // A custom was just changed: a few villagers set off at once (or put down what they carried).
+  errandBurst(st, custom, nearX) {
+    const er = this.errands(st);
+    const kind = { uphillSeed: 'uphill', uphillFood: 'uphill', woodcut: 'wood', hunt: 'hunt' }[custom];
+    if (!kind) return 0;
+    const folk = [...this.actors.values()].filter((a) => a.id >= 0 && !a.leaving).sort((a, b) => Math.abs(a.x - nearX) - Math.abs(b.x - nearX));
+    const load = { uphill: 'sack', wood: 'load_log', hunt: 'load_game' }[kind];
+    if (!er[kind]) {
+      for (const a of folk) if (a.load === load || (a.next && a.next.load === load)) (a.load = null), (a.next = null), (a.target = null), (a.wait = 0.5);
+      return 0;
+    }
+    const n = Math.max(1, Math.min(4, Math.round(er[kind] * 12)));
+    folk.filter((a) => !a.load && !a.next).slice(0, n).forEach((a) => this.sendOn(a, kind, er));
+    return n;
+  }
+  // On arriving in a year, some are already out on their errands rather than all setting off at once.
+  seedErrands(st) {
+    const er = this.errands(st);
+    for (const a of this.actors.values()) {
+      if (a.id < 0 || a.leaving) continue;
+      const r = vrand();
+      const kind = r < er.uphill ? 'uphill' : r < er.uphill + er.wood ? 'wood' : r < er.uphill + er.wood + er.hunt ? 'hunt' : null;
+      if (!kind) continue;
+      this.sendOn(a, kind, er);
+      const from = a.target;
+      a.target = a.next.x;
+      a.load = a.next.load;
+      a.next = null;
+      a.x = from + (a.target - from) * vrand() * 0.8;
+    }
   }
 
   // Routine for villagers the player is not holding. `places` lists x positions worth visiting.
@@ -476,35 +550,47 @@ export class View {
       }
       if (!a.controlled && a.id >= 0 && !a.leaving && opts.god !== undefined && Math.abs(opts.god - a.x) < 34) {
         // The god is close: they stop what they are doing and turn to him.
-        if (a.target !== null && !a.carrying) (a.target = null), (a.wait = 1.2 + vrand() * 1.5);
-        a.dir = Math.sign(opts.god - a.x) || a.dir;
-        a.moving = false;
+        if (a.target !== null && !a.load && !a.next) (a.target = null), (a.wait = 1.2 + vrand() * 1.5);
+        if (a.target === null) (a.dir = Math.sign(opts.god - a.x) || a.dir), (a.moving = false);
       }
       if (!a.controlled) {
         if (a.target === null) {
           a.wait -= dt;
           if (a.wait <= 0 && a.id >= 0) {
-            const r = vrand();
-            // Trained households keep the practice up: they make the walk to the ridge store.
-            if (a.knows && st.stores.ridge.built && r < 0.3) (a.target = WORLD.ridgeStoreX + 14), (a.carrying = true);
-            else if (built.length && r < 0.75) a.target = PLOT_SITES[built[Math.floor(vrand() * built.length)].id].x + (vrand() * 30 - 15);
-            if (a.target !== null && a.target < WORLD.walkMin && !this.deck) a.target = WORLD.granaryX;
-            else if (r < 0.88) a.target = WORLD.granaryX + (vrand() * 30 - 15);
-            else a.target = a.home + (vrand() * 40 - 20);
-            if (opts.gather !== undefined && vrand() < 0.3) a.target = opts.gather + (vrand() * 200 - 100);
-            a.target = Math.max(this.deck ? 8 : WORLD.walkMin, Math.min(a.leaving ? WORLD.x1 : 1462, a.target));
+            const er = (this.er = this.er && this.erT === this.time ? this.er : this.errands(st));
+            this.erT = this.time;
+            const q = vrand();
+            const kind = q < er.uphill ? 'uphill' : q < er.uphill + er.wood ? 'wood' : q < er.uphill + er.wood + er.hunt ? 'hunt' : null;
+            if (kind) this.sendOn(a, kind, er);
+            else {
+              const r = vrand();
+              // Where they farm follows the custom for where fields go.
+              const ridge = built.filter((p) => p.elev === 'ridge');
+              const pick = ridge.length && ridge.length < built.length ? (vrand() < Math.max(0.15, er.ridgeFields) ? ridge : built.filter((p) => p.elev !== 'ridge')) : built;
+              if (pick.length && r < 0.75) a.target = PLOT_SITES[pick[Math.floor(vrand() * pick.length)].id].x + (vrand() * 30 - 15);
+              if (a.target !== null && a.target < WORLD.walkMin && !this.deck) a.target = WORLD.granaryX;
+              else if (a.target === null && r < 0.88) a.target = WORLD.granaryX + (vrand() * 30 - 15);
+              else if (a.target === null) a.target = a.home + (vrand() * 40 - 20);
+              if (opts.gather !== undefined && vrand() < 0.3) a.target = opts.gather + (vrand() * 200 - 100);
+            }
+            a.target = Math.max(this.deck ? WORLD.farWalkMin : WORLD.walkMin, Math.min(a.leaving ? WORLD.x1 : kind ? WORLD.walkMax : 1462, a.target));
           }
         } else {
           const d = a.target - a.x;
-          const stepx = Math.sign(d) * Math.min(Math.abs(d), speed * dt * (a.leaving ? 1.6 : 1));
+          const stepx = Math.sign(d) * Math.min(Math.abs(d), speed * dt * (a.leaving || a.load || a.next ? 1.6 : 1));
           a.x += stepx;
           a.dir = Math.sign(d) || a.dir;
           a.moving = true;
-          if (Math.abs(d) < 1) {
+          if (Math.abs(d) < 1 && a.next) {
+            // Reached the forest or the granary: pick up, and carry it where it goes.
+            a.target = a.next.x;
+            a.load = a.next.load;
+            a.next = null;
+          } else if (Math.abs(d) < 1) {
             a.target = null;
             a.moving = false;
-            a.carrying = false;
-            a.wait = 1.5 + vrand() * 5;
+            a.load = null;
+            a.wait = (1.5 + vrand() * 5) * (this.er ? this.er.idle : 1);
           }
         }
       }
@@ -513,6 +599,12 @@ export class View {
       this.setTex(a.e, `${a.skin}_${frame}`, a.dir < 0);
       const y = this.surface(a.x);
       this.place(a.e, Math.round(a.x), Math.round(y) - 0);
+      a.loadE.enabled = !!a.load && a.e.enabled && !a.leaving;
+      if (a.loadE.enabled) {
+        this.setTex(a.loadE, a.load, a.dir < 0);
+        const [lx, ly] = a.load === 'load_log' ? [-a.dir, a.e._h - 9] : a.load === 'sack' ? [-a.dir * 4, a.e._h - 10] : [a.dir * 5, 2];
+        this.place(a.loadE, Math.round(a.x) + lx, Math.round(y) + ly);
+      }
       if (a.badge.enabled) this.place(a.badge, Math.round(a.x), Math.round(y) + a.e._h + 2 + Math.round(Math.sin(this.time * 3 + a.id) * 0.6));
     }
   }

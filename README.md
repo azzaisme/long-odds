@@ -50,7 +50,7 @@ playback itself is still exactly thirty seconds.
 
 - **Top:** the year, and six readouts (people, food, seed, fields, timber and forest, ideas). Hover one for detail.
 - **Middle:** a card appears for whatever you are standing at, with what `E` will do and what
-  it costs. On the first visit a short checklist sits at the top left.
+  it costs. The first time you play, one hint at a time walks you through a first visit (see below).
 - **Bottom:** the action row: Teach, People, Customs, Bridge, and Step out of the world.
 - **Panels:** Step out, People, Customs, Bridge and Controls are tabs of one panel; their
   letter keys switch between them and `Esc` closes it.
@@ -75,6 +75,45 @@ nobody is left. Work is paid for in food from the stores (clear a field 1.5, rep
 ridge store 3, teach an idea 1, move a household 2; carrying seed is free), so everything
 you build comes out of the reserve the village has to live on. Matches, callings, customs,
 crops and bridge plans cost nothing to set.
+
+### The first visit
+
+The title screen is three lines. The first time the game is played, a single hint at a time
+appears (a strip under the top row; on a phone, the first line of the card) with an arrow in
+the valley where one is needed: walk to staked ground, clear a field, teach among the
+villagers, change a custom and watch, then step out. The hints say what can be done, never what
+is wise. ✕ stops them; they do not come back on later runs (remembered in the browser).
+
+### Customs you can see
+
+What the village does by custom shows in the valley rather than only in the Customs panel:
+
+- sacks carried from the granary up to the ridge store, more often the more seed or food the
+  customs send uphill, and not at all if they send none or there is no store;
+- logs carried back from the nearest standing trees, according to how wood is cut;
+- game carried back from the forest, according to how hard it is hunted;
+- sacks stacked beside the granary and the ridge store for what each holds;
+- where villagers go to farm follows where new fields go, and how long they idle follows the
+  pace of clearing.
+
+Change a custom and, back in the valley, a few villagers nearest you set off on it at once (or
+put down what they were carrying).
+
+### Why it went this way
+
+Every arrival report now opens with up to seven lines tying what happened to what you decided
+or left alone: the flood that took the seed and whether anything was kept above it, seed saving
+dying out and whether you ever taught it, the forest or the game running out and under which
+custom, the bridge you planned, where the village cleared ground, what became of the fields you
+cleared by hand, and customs that slipped back. Each names the custom as "the custom you set in
+year N", "a custom that has slipped since you set it" or "the village's own habit, which you
+left alone".
+
+### Odds in words
+
+The commit screen no longer gives a percentage. The same trial futures run underneath, and the
+god is told one of: next to no chance, long odds, poor odds, even odds, good odds, as sure as
+it gets.
 
 ### On a phone or tablet
 
@@ -210,7 +249,7 @@ is the game.
    farms. Only the two grown people of Ama's house know how to save seed (houses that keep it
    carry a gold seed mark).
 2. **Plan.** The jump panel states food, seed by location, households, fields and the risks in
-   plain language. Choosing a jump length also runs trial futures on *copies* of the village and
+   plain language. Choosing a jump length also runs trial futures on *copies* of the village (shown as words, not a percentage) and
    shows the share that still have households at the destination.
 3. **Playback.** Thirty real seconds, whatever the length. The simulation runs every seasonal
    tick in order; captions come from real simulation events. Nothing can be changed.
