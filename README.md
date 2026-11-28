@@ -92,6 +92,23 @@ carries the sky's light and passing glints. Underground, the soil is banded and 
 depth, with stones and tree roots in it. A soft vignette frames the screen. These are drawn
 smooth (not as pixel art), over the klad-painted sprites; the moon is a klad sprite.
 
+The river mirrors what is above it. A second camera draws the frame at a third of its size, and
+sixteen strips under the surface each show one row of that picture upside down, squeezed, pushed
+sideways by the ripples and fainter with depth. The water goes from pale at the surface to dark
+below, and a broken line of light slides along the surface. The mirror fades out while the river
+is in flood.
+
+The forests have depth. Behind each stand is a wall of far canopy; in front of that a far row of
+trees, paler and bluer; then the stand's own trees; then one dark tree nearer than the people,
+which the god and the villagers walk behind. Each of the eight trees in a stand has its turn in
+the stand's timber. As a stand is cut the trees turn to stumps one at a time, and as it grows back
+each comes up as a sapling, then a young tree, then a full-grown one, so a jump of a century shows
+a forest thinning or closing in again. The far canopy is as tall as the stand is grown.
+
+The scene wipe (after a collapse, and from the tutorial into a real run) covers the screen in
+square chunks that go from left to right, each a little early or late and each filling in three
+steps, and uncovers the new valley the same way.
+
 Type is Pixelify Sans for titles and buttons and IBM Plex Mono for text and every figure (both
 open-licensed, bundled through `@fontsource`). Panels are translucent.
 

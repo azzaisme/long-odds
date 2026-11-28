@@ -204,7 +204,26 @@ One scripted desktop run (1280×720, seed 2, fresh browser storage), screenshots
   repeated from the new menu and still ended in collapse and "Begin for real".
 - The cover was looked at at 630×500.
 
+### Chunked wipe, forest in depth, river mirror
+
+- Wipe, scripted: "Try again" from a live run; a screenshot during the cover showed the screen
+  partly filled with square chunks of three sizes, further along on the left than the right, and
+  the next frames showed the new valley at year 0. No console errors.
+- Forest, by setting stand timber by hand (10, 7, 4, 2.5, 1, 0.3, 0, 5.5, 8.5) and looking at the
+  east forest: full stands showed far canopy, a pale far row, the main row and a dark near tree;
+  thinner stands showed fewer grown trees with young trees, saplings and stumps among them; the
+  empty stand showed stumps only.
+- River, looked at by day and at dusk: the depth gradient, the surface line and the mirrored sky
+  (blue by day, rose with the sun's glow at dusk) were seen.
+
 ## Not covered
+
+- For the wipe, forest and river: the uncovering half of the wipe was not caught in a screenshot
+  (it runs the same code as the cover). The forest was not watched changing during a playback,
+  only set by hand; the west forest was not looked at. The river mirror was not looked at with
+  houses or people standing over the water, on a bridge, in flood, or at night, and the cost of
+  drawing the frame twice was not measured on a phone.
+
 
 - For the sunset: the title screen at sunset and the collapse verdict at sunset were not looked
   at, and the sun was lowered slightly after the last screenshot (build-tested only). The fade

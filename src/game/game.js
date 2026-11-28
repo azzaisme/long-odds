@@ -1,5 +1,6 @@
 // Game controller: explicit states, input, and the DOM interface. The simulation is only ever
 // advanced by Playback (during a jump) and only ever edited by player actions (during a visit).
+import { Wipe } from './wipe.js';
 import { BALANCE as B } from '../sim/balance.js';
 import { WORLD, PLOT_SITES, HOUSE_SLOTS, groundHeight } from '../sim/world.js';
 import { hashSeed } from '../sim/rng.js';
@@ -1051,9 +1052,8 @@ export class Game {
     $('ruinbar').hidden = true;
     $('context').hidden = true;
     this.say = { text: 'Maybe I could…', actor: god };
-    const wipe = $('wipe');
-    wipe.className = '';
-    setTimeout(() => (wipe.className = 'in', this.sound.wipe()), 700);
+    const wipe = (this.wipe = this.wipe || new Wipe($('wipe')));
+    setTimeout(() => (wipe.run('in', 900), this.sound.wipe()), 700);
     setTimeout(() => {
       this.say = null;
       this.verdict = null;
@@ -1064,7 +1064,7 @@ export class Game {
       const a = this.me();
       if (a) this.view.flash(a.x, true);
       this.sound.appear();
-      wipe.className = 'out';
+      wipe.run('out', 900);
       this.wiping = false;
     }, 1900);
   }
